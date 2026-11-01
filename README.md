@@ -1,6 +1,6 @@
 ---
 title: Elantony Library AI
-emoji: ✠
+emoji: 📚
 colorFrom: blue
 colorTo: indigo
 sdk: docker
