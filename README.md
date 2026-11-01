@@ -1,3 +1,12 @@
+---
+title: Elantony Library AI
+emoji: ✠
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+app_port: 7860
+---
+
 # ⛪ ELANTONY LIBRARY AI (مكتبة الأنبا أنطونيوس الذكية)
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
