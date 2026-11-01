@@ -1,18 +1,5 @@
-# ELANTONY LIBRARY AI - Cloud Production Dependencies
-gradio>=4.44.0
+# ELANTONY LIBRARY AI - Lightweight 24/7 Cloud Telegram Bot
 httpx>=0.27.0
-fastapi>=0.110.0
-uvicorn>=0.28.0
 pydantic>=2.0.0
 python-dotenv>=1.0.0
 google-generativeai>=0.8.0
-pytesseract>=0.3.10
-Pillow>=10.0.0
-PyMuPDF>=1.23.0
-PyPDF2>=3.0.0
-opencv-python-headless>=4.8.0
-numpy>=1.24.0
-python-docx>=1.0.0
-python-pptx>=0.6.21
-deep-translator>=1.11.0
-qrcode>=7.4.0
