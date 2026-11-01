@@ -1,39 +1,18 @@
-# ----------------------------------------------------
-# This file lists all external Python libraries
-# required for the ArchiveMaster application to run.
-# ----------------------------------------------------
-
-# For the main graphical user interface (GUI)
-PyQt5
-pyqt5-sip
-
-# For Optical Character Recognition (OCR) from images and PDFs
-pytesseract
-
-# For handling and processing images (a dependency for many libraries)
-Pillow
-
-# For advanced PDF handling (reading, rendering pages as images)
-PyMuPDF
-
-# Used as a secondary method to extract text from text-based PDFs
-PyPDF2
-
-# For image pre-processing to improve OCR accuracy
-opencv-python
-numpy
-
-# For reading text from Microsoft Word (.docx) files
-python-docx
-
-# For reading text from Microsoft PowerPoint (.pptx) files
-python-pptx
-
-# For connecting to the Google Gemini API for AI features
-google-generativeai
-
-# For the translation feature
-deep-translator
-
-# For creating the final executable (.exe) file
-PyInstaller
+# ELANTONY LIBRARY AI - Cloud Production Dependencies
+gradio>=4.44.0
+httpx>=0.27.0
+fastapi>=0.110.0
+uvicorn>=0.28.0
+pydantic>=2.0.0
+python-dotenv>=1.0.0
+google-generativeai>=0.8.0
+pytesseract>=0.3.10
+Pillow>=10.0.0
+PyMuPDF>=1.23.0
+PyPDF2>=3.0.0
+opencv-python-headless>=4.8.0
+numpy>=1.24.0
+python-docx>=1.0.0
+python-pptx>=0.6.21
+deep-translator>=1.11.0
+qrcode>=7.4.0
