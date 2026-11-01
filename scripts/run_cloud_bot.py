@@ -80,9 +80,12 @@ def ensure_database():
     if db_download_url:
         logger.info(f"Database missing. Downloading from {db_download_url}...")
         import urllib.request
+        import shutil
         import zipfile
         temp_zip = BASE_DIR / "file_archive_temp.zip"
-        urllib.request.urlretrieve(db_download_url, temp_zip)
+        req = urllib.request.Request(db_download_url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
+        with urllib.request.urlopen(req) as response, open(temp_zip, 'wb') as out_file:
+            shutil.copyfileobj(response, out_file)
         logger.info("Extracting database...")
         with zipfile.ZipFile(temp_zip, 'r') as zip_ref:
             zip_ref.extractall(BASE_DIR)
