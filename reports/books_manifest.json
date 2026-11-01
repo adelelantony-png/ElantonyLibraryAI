@@ -1,0 +1,28 @@
+{
+  "generated_at": "2026-10-31 09:13:05",
+  "stats": {
+    "total_scanned": 3,
+    "new_added": 1,
+    "existing_unchanged": 0,
+    "duplicates_detected": 1,
+    "corrupted_files": 1
+  },
+  "sample": [
+    {
+      "sha256": "7bf05a70fa2cfca0c0642f26d3917a11670812a18e0511426415c8eed8fe55eb",
+      "file_name": "كتاب_تالف_معطوب.pdf",
+      "path": "C:\\Users\\AD_4_\\AppData\\Local\\Temp\\tmpce0if0za\\كتب_قبطية_تجريبية\\كتاب_تالف_معطوب.pdf",
+      "pages": 0,
+      "status": "corrupted",
+      "error": "تلف في بنية PDF: Failed to open file 'C:\\\\Users\\\\AD_4_\\\\AppData\\\\Local\\\\Temp\\\\tmpce0if0za\\\\كتب_قبطية_تجريبية\\\\كتاب_تالف_معطوب.pdf'."
+    },
+    {
+      "sha256": "413d8153392c479aac9f833e35fe6a28268f2255c504f335528c5b960dad8263",
+      "file_name": "كتاب_تجسد_الكلمة.pdf",
+      "path": "C:\\Users\\AD_4_\\AppData\\Local\\Temp\\tmpce0if0za\\كتب_قبطية_تجريبية\\كتاب_تجسد_الكلمة.pdf",
+      "pages": 1,
+      "status": "pending",
+      "error": null
+    }
+  ]
+}

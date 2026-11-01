@@ -1,0 +1,40 @@
+{
+  "project_name": "ArchiveMaster - ChurchAI",
+  "version": "1.0.0",
+  "paths": {
+    "books_local": "books/local",
+    "books_downloaded": "books/downloaded",
+    "extracted_text": "extracted_text",
+    "processed_text": "processed_text",
+    "database": "file_archive.db",
+    "reports": "reports",
+    "logs": "logs"
+  },
+  "ocr": {
+    "tesseract_cmd": "",
+    "tessdata_dir": "",
+    "default_languages": "ara+eng",
+    "dpi": 150,
+    "preprocess_images": true,
+    "confidence_threshold": 60.0
+  },
+  "extraction": {
+    "min_text_len_per_page": 30,
+    "min_arabic_ratio": 0.2,
+    "max_pages_per_book": 1000,
+    "batch_size_books": 20,
+    "max_memory_mb": 600
+  },
+  "rag": {
+    "chunk_size_chars": 1200,
+    "chunk_overlap_chars": 150,
+    "preserve_page_markers": true
+  },
+  "cloud": {
+    "host": "0.0.0.0",
+    "port": 8000,
+    "telegram_bot_token": "",
+    "enable_telegram_bot": true,
+    "tunnel_type": "cloudflare"
+  }
+}

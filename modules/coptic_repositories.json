@@ -1,0 +1,98 @@
+[
+  {
+    "id": "awtar_alsama",
+    "name": "مكتبة أوتار السماء (دليل الـ 82 مؤلفاً وقديساً)",
+    "url": "https://library.awtar-alsama.com/1/",
+    "language": "ar",
+    "language_name": "العربية",
+    "adapter_type": "awtar_catalog",
+    "badge": "🎶 أوتار السماء",
+    "active": true,
+    "description": "فهرس شامل يضم 82 مؤلفاً وقديساً كنسياً بروابط PDF مباشرة.",
+    "book_count_est": "3,000+"
+  },
+  {
+    "id": "christianlib",
+    "name": "مكتبة الكتب المسيحية (ChristianLib)",
+    "url": "https://www.christianlib.com",
+    "language": "ar",
+    "language_name": "العربية",
+    "adapter_type": "wp_api",
+    "badge": "📚 ChristianLib",
+    "active": true,
+    "description": "78 قسماً كنسياً في الأبائيات، العقيدة، التفاسير، والأبحاث.",
+    "book_count_est": "4,500+"
+  },
+  {
+    "id": "coptic_treasures",
+    "name": "مشروع الكنوز القبطية (كتب نادرة ومخطوطات)",
+    "url": "https://coptic-treasures.com",
+    "language": "ar",
+    "language_name": "العربية ولغات كنسية",
+    "adapter_type": "coptic_treasures",
+    "badge": "🏛️ الكنوز القبطية",
+    "active": true,
+    "description": "المستودع الأكبر للكتب النادرة، والمخطوطات، والدراسات اللغوية ثنائية اللغة.",
+    "book_count_est": "3,800+"
+  },
+  {
+    "id": "coptic_reads",
+    "name": "مكتبة Coptic Reads الأرثوذكسية",
+    "url": "https://copticreads.org",
+    "language": "ar",
+    "language_name": "العربية / الإنجليزية",
+    "adapter_type": "sitemap",
+    "badge": "📖 Coptic Reads",
+    "active": true,
+    "description": "مراجع ونصوص كنسية محققة وموثقة بصيغ نقية وسريعة.",
+    "book_count_est": "1,210"
+  },
+  {
+    "id": "dr_ghaly",
+    "name": "موسوعة وأبحاث د. غالي (Holy Bible 1)",
+    "url": "https://drghaly.com",
+    "language": "ar",
+    "language_name": "العربية",
+    "adapter_type": "drghaly_engine",
+    "badge": "✝️ د. غالي",
+    "active": true,
+    "description": "أبحاث تفنيد الشبهات، أصالة الأسفار، والمقارنات النصية.",
+    "book_count_est": "1,500+"
+  },
+  {
+    "id": "azbyka_orthodox",
+    "name": "المكتبة الأرثوذكسية العالمية (Azbyka - Азбука веры)",
+    "url": "https://azbyka.ru",
+    "language": "ru",
+    "language_name": "الروسية (Russian)",
+    "adapter_type": "orthodox_megastore",
+    "badge": "☦️ Azbyka العالمية",
+    "active": true,
+    "description": "أضخم مستودع وموسوعة أرثوذكسية في العالم تضم آلاف الكتب الآبائية والعقائدية.",
+    "book_count_est": "25,000+"
+  },
+  {
+    "id": "myriobiblos_greek",
+    "name": "أرشيف التراث الآبائي اليوناني (Myriobiblos)",
+    "url": "https://www.myriobiblos.gr",
+    "language": "el",
+    "language_name": "اليونانية (Greek)",
+    "adapter_type": "patristic_greek",
+    "badge": "🇬🇷 Myriobiblos اليونانية",
+    "active": true,
+    "description": "المستودع المرجعي لأقوال وكتابات آباء الكنيسة بالنص اليوناني الأصلي.",
+    "book_count_est": "5,000+"
+  },
+  {
+    "id": "ccel_patristics",
+    "name": "المكتبة المسيحية الكلاسيكية (CCEL / Early Church Fathers)",
+    "url": "https://www.ccel.org",
+    "language": "en",
+    "language_name": "الإنجليزية (English)",
+    "adapter_type": "ccel_engine",
+    "badge": "🏛️ CCEL Patristics",
+    "active": true,
+    "description": "السلسلة الكاملة لآباء الكنيسة قبل وبعد نيقية باللغة الإنجليزية.",
+    "book_count_est": "8,000+"
+  }
+]

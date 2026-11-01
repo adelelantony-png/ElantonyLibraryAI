@@ -1,0 +1,70 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyd
+
+# C extensions
+*.so
+
+# Environment & Secrets (CRITICAL SECURITY)
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+*.cert
+credentials.json
+token.json
+portable_config.json
+
+
+# Databases & Large Local Storage
+*.db
+*.db-journal
+*.sqlite3
+*.sqlite
+/database/*.db
+/file_archive.db
+archive_master.db
+*.zip
+*.tar.gz
+*.7z
+*.docx
+
+
+# Storage & Extracted Data
+/extracted_text/
+/processed_text/
+/books/local/
+/books/downloaded/
+/Backups/
+/backups/
+/reports/*.csv
+/reports/*.png
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# IDE & Editor settings
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Pytest & Coverage
+.pytest_cache/
+.coverage
+htmlcov/

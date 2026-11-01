@@ -1,0 +1,54 @@
+version: "3.8"
+
+services:
+  elantony-ai:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: elantony_library_ai
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - APP_ENV=production
+      - APP_PORT=8000
+      - APP_HOST=0.0.0.0
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./file_archive.db:/app/file_archive.db
+      - ./extracted_text:/app/extracted_text
+      - ./processed_text:/app/processed_text
+      - ./reports:/app/reports
+      - ./logs:/app/logs
+      - ./books:/app/books
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          memory: 1024M
+        reservations:
+          memory: 256M
+
+  # Optional PostgreSQL service for enterprise cloud scale
+  # postgres:
+  #   image: postgres:16-alpine
+  #   container_name: elantony_postgres
+  #   restart: unless-stopped
+  #   environment:
+  #     POSTGRES_DB: elantony_library
+  #     POSTGRES_USER: elantony_user
+  #     POSTGRES_PASSWORD: strong_password_here
+  #   volumes:
+  #     - pgdata:/var/lib/postgresql/data
+  #   ports:
+  #     - "5432:5432"
+
+# volumes:
+#   pgdata:

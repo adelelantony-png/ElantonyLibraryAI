@@ -1,0 +1,16 @@
+{
+  "installed_version": "v0.2.1",
+  "custom_endpoint": "http://127.0.0.1:8080/v1",
+  "auto_fallback_offline": true,
+  "periodic_update_check": true,
+  "last_update_check_time": 1793263108.6187162,
+  "cached_latest_release": {
+    "version": "v0.2.5",
+    "name": "Hob 0.2.5",
+    "html_url": "https://github.com/FrigadeHQ/hob/releases/tag/v0.2.5",
+    "download_url": "https://github.com/FrigadeHQ/hob/releases/download/v0.2.5/Hob-windows-x64.exe",
+    "published_at": "2026-10-28T23:53:50Z",
+    "is_update_available": true,
+    "offline": false
+  }
+}

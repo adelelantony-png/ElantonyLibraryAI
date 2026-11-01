@@ -1,0 +1,32 @@
+# Docker ignore rules for ELANTONY LIBRARY AI
+.git/
+.gitignore
+.dockerignore
+venv/
+.venv/
+ENV/
+env/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Local environment secrets (use Koyeb environment variables instead)
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# Local temporary or bulky directories
+books/
+extracted_text/
+processed_text/
+backups/
+reports/
+logs/
+tests/
+.pytest_cache/
+*.zip
+*.spec
+*.bat
