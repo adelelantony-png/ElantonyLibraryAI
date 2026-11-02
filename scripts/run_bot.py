@@ -71,11 +71,16 @@ async def main():
     print("=" * 65)
 
     engine = TelegramBotEngine(token)
-    try:
-        await engine.run()
-    except (KeyboardInterrupt, asyncio.CancelledError):
-        print("\n [!] تم إيقاف البوت بنجاح.")
-        engine.stop()
+    while True:
+        try:
+            await engine.run()
+        except (KeyboardInterrupt, asyncio.CancelledError):
+            print("\n [!] تم إيقاف البوت بنجاح.")
+            engine.stop()
+            break
+        except Exception as e:
+            logger.error(f"Unexpected bot worker disconnection: {e}. Reconnecting in 5s...")
+            await asyncio.sleep(5.0)
 
 
 if __name__ == "__main__":

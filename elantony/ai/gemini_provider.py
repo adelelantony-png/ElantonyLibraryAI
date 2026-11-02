@@ -108,4 +108,4 @@ class GeminiAIProvider(BaseAIProvider):
             logger.warning(f"Gemini API generation failed ({e}), using grounded rule-based fallback.")
 
         # Seamless fallback
-        return self.fallback.generate_answer(question, context_chunks)
+        return self.fallback.generate_answer(question, context_chunks, dedicated_books=dedicated_books)

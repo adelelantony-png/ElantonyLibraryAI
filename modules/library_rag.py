@@ -14,7 +14,17 @@ try:
 except ImportError:
     HAS_DOCX = False
 
-DB_NAME = "file_archive.db"
+try:
+    from elantony.search.search_engine import ChurchSearchEngine
+    from elantony.core.text_cleaner import clean_theological_text
+    HAS_ELANTONY_ENGINE = True
+except ImportError:
+    HAS_ELANTONY_ENGINE = False
+
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+DB_NAME = os.path.join(BASE_DIR, "file_archive.db")
+if not os.path.exists(DB_NAME):
+    DB_NAME = "file_archive.db"
 
 # Arabic Stop Words
 STOP_WORDS = {
@@ -161,31 +171,44 @@ def find_candidate_books(keywords, library_root=None, project_id=None, limit=12)
     candidates = []
     seen = set()
 
-    # 1. Search SQLite Database
+    # 1. Search SQLite Database (Prioritizing rich church_books repository)
     if os.path.exists(DB_NAME):
         try:
             con = sqlite3.connect(DB_NAME, timeout=5)
             cur = con.cursor()
+            
+            # Check if church_books table exists
+            cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='church_books'")
+            has_church_books = cur.fetchone() is not None
+
             for kw in keywords[:5]:
-                cur.execute("""
-                    SELECT file_path, file_name, category, extension 
-                    FROM files 
-                    WHERE (file_name LIKE ? OR category LIKE ?)
-                      AND extension IN ('.pdf', '.docx', '.doc', '.txt', '.html')
-                    LIMIT ?
-                """, (f'%{kw}%', f'%{kw}%', limit))
+                if has_church_books:
+                    cur.execute("""
+                        SELECT original_path, file_name, category, file_format 
+                        FROM church_books 
+                        WHERE (file_name LIKE ? OR category LIKE ? OR author LIKE ?)
+                        LIMIT ?
+                    """, (f'%{kw}%', f'%{kw}%', f'%{kw}%', limit))
+                else:
+                    cur.execute("""
+                        SELECT file_path, file_name, category, extension 
+                        FROM files 
+                        WHERE (file_name LIKE ? OR category LIKE ?)
+                          AND extension IN ('.pdf', '.docx', '.doc', '.txt', '.html')
+                        LIMIT ?
+                    """, (f'%{kw}%', f'%{kw}%', limit))
+
                 for row in cur.fetchall():
                     p, name, cat, ext = row
                     if name not in seen:
                         seen.add(name)
                         resolved = resolve_file_path(p, library_root)
-                        if resolved:
-                            candidates.append({
-                                'path': resolved,
-                                'name': name,
-                                'category': cat,
-                                'ext': ext
-                            })
+                        candidates.append({
+                            'path': resolved if resolved else p,
+                            'name': name,
+                            'category': cat or "مكتبة الصليب",
+                            'ext': ext or (os.path.splitext(p)[1].lower() if p else '.pdf')
+                        })
             con.close()
         except Exception as e:
             print(f"RAG DB Search error: {e}")
@@ -224,9 +247,39 @@ def extract_relevant_snippets(query, library_root=None, project_id=None, max_tot
     """
     Main RAG pipeline:
     Extracts live patristic & theological paragraphs from matching books with exact page numbers.
+    Utilizes high-speed SQLite FTS5 index (311,634 chunks) with seamless fallback to candidate book scanning.
     Returns:
         (has_sources: bool, context_text: str, source_books: list)
     """
+    # === Priority 1: High-Speed Indexed Full-Text Search (FTS5 + Theological Cleaner) ===
+    if HAS_ELANTONY_ENGINE:
+        try:
+            engine = ChurchSearchEngine()
+            chunks = engine.search_fts5(query, limit=8)
+            if chunks:
+                extracted_snippets = []
+                source_books_mentioned = []
+                total_chars = 0
+                for ch in chunks:
+                    if total_chars >= max_total_chars:
+                        break
+                    cleaned = clean_theological_text(ch.chunk_text)
+                    if len(cleaned) > 30:
+                        entry = f"📖 [كتاب: {ch.book_title} - صـ {ch.page_number}]:\n\"{cleaned[:500]}\"\n"
+                        extracted_snippets.append(entry)
+                        total_chars += len(entry)
+                        b_label = f"{ch.book_title} (صـ {ch.page_number})"
+                        if b_label not in source_books_mentioned:
+                            source_books_mentioned.append(b_label)
+
+                if extracted_snippets:
+                    context_str = "=== مقتطفات حية وموثقة من كتب مكتبة الصليب القبطية الأرثوذكسية (استشهد بها وبأرقام صفحاتها بدقة) ===\n\n"
+                    context_str += "\n".join(extracted_snippets)
+                    return True, context_str, source_books_mentioned
+        except Exception:
+            pass  # Fall back to live file extraction if FTS encounters any temporary issue
+
+    # === Priority 2: Fallback to Candidate Books & Live Document Parsing ===
     keywords = extract_keywords(query)
     if not keywords:
         return False, "", []
