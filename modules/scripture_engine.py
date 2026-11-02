@@ -312,24 +312,49 @@ class ScriptureNavigatorDialog(QDialog):
         con = database_handler.get_connection()
         cur = con.cursor()
         
-        # Lookup files matching commentary or book name
-        query = "SELECT file_name, file_path, category FROM files WHERE (file_name LIKE ? OR file_name LIKE ?) LIMIT 35"
-        cur.execute(query, (f"%{clean_book}%", f"%تفسير%{clean_book}%"))
-        rows = cur.fetchall()
+        # Lookup files matching commentary or book name in church_books
+        cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='church_books'")
+        has_church_books = cur.fetchone() is not None
+
+        if has_church_books:
+            cur.execute("""
+                SELECT file_name, original_path, category, author 
+                FROM church_books 
+                WHERE (file_name LIKE ? OR original_path LIKE ?)
+                ORDER BY CASE 
+                    WHEN file_name LIKE ? THEN 1
+                    WHEN file_name LIKE ? THEN 2
+                    ELSE 3
+                END
+                LIMIT 45
+            """, (f"%{clean_book}%", f"%{clean_book}%", f"%تفسير%{clean_book}%", f"%{clean_book}%"))
+            rows = cur.fetchall()
+        else:
+            query = "SELECT file_name, file_path, category, '' FROM files WHERE (file_name LIKE ? OR file_name LIKE ?) LIMIT 35"
+            cur.execute(query, (f"%{clean_book}%", f"%تفسير%{clean_book}%"))
+            rows = cur.fetchall()
         con.close()
 
         self.tbl_patristics.setRowCount(len(rows))
-        for i, (fname, fpath, cat) in enumerate(rows):
+        for i, row in enumerate(rows):
+            fname = row[0]
+            fpath = row[1]
+            cat = row[2]
+            auth = row[3] if len(row) > 3 else ""
+
+            resolved_path = library_rag.resolve_file_path(fpath, self.library_root) or fpath
+
             it_name = QTableWidgetItem(fname)
             it_name.setForeground(Qt.white)
 
-            author = "الآباء والكنيسة"
-            if "تادرس" in fname: author = "القمص تادرس يعقوب ملطي"
-            elif "فكري" in fname: author = "القمص أنطونيوس فكري"
-            elif "متى" in fname: author = "الأب متى المسكين"
-            elif "شنودة" in fname: author = "قداسة البابا شنودة الثالث"
-            elif "أثناسيوس" in fname: author = "القديس أثناسيوس الرسولي"
-            elif "ذهبي" in fname: author = "القديس يوحنا ذهبي الفم"
+            author = auth or "الآباء والكنيسة"
+            if not auth:
+                if "تادرس" in fname: author = "القمص تادرس يعقوب ملطي"
+                elif "فكري" in fname: author = "القمص أنطونيوس فكري"
+                elif "متى" in fname: author = "الأب متى المسكين"
+                elif "شنودة" in fname: author = "قداسة البابا شنودة الثالث"
+                elif "أثناسيوس" in fname: author = "القديس أثناسيوس الرسولي"
+                elif "ذهبي" in fname: author = "القديس يوحنا ذهبي الفم"
 
             it_author = QTableWidgetItem(author)
             it_author.setForeground(Qt.cyan)
@@ -353,7 +378,7 @@ class ScriptureNavigatorDialog(QDialog):
                 }
                 QPushButton:hover { background-color: #10B981; }
             """)
-            btn_read.clicked.connect(lambda ch, p=fpath: self.open_in_reader(p))
+            btn_read.clicked.connect(lambda ch, p=resolved_path: self.open_in_reader(p))
             self.tbl_patristics.setCellWidget(i, 3, btn_read)
 
         # 2. Manuscripts tab content
