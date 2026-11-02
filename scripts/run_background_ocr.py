@@ -49,6 +49,17 @@ def setup_low_process_priority():
         pass
 
 
+def prevent_windows_sleep():
+    """Keeps the system awake during intensive background OCR processing."""
+    try:
+        import ctypes
+        ES_CONTINUOUS = 0x80000000
+        ES_SYSTEM_REQUIRED = 0x00000001
+        ctypes.windll.kernel32.SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED)
+    except Exception:
+        pass
+
+
 def configure_tesseract(custom_bin: Optional[str] = None) -> Optional[str]:
     """Configures pytesseract binary and local tessdata prefix."""
     tess_bin = find_tesseract_binary(custom_bin)
@@ -206,6 +217,7 @@ def run_background_ocr_loop(
 ):
     """Main background loop."""
     setup_low_process_priority()
+    prevent_windows_sleep()
     cfg = church_ai_config.load_config()
 
     print("=" * 72)
