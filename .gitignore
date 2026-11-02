@@ -68,3 +68,7 @@ env/
 .pytest_cache/
 .coverage
 htmlcov/
+
+# Portable Binaries & Setup Installers
+tesseract/
+installers/

@@ -23,8 +23,14 @@ import pytesseract
 
 from modules import church_ai_config, book_discovery, digital_extractor
 
-# Common Windows Tesseract paths
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Common Windows Tesseract paths (including portable bundle)
 CANDIDATE_TESSERACT_PATHS = [
+    str(BASE_DIR / "tesseract" / "bin" / "tesseract.exe"),
+    str(BASE_DIR / "tesseract" / "tesseract.exe"),
+    r"D:\Prog\ArchiveMasterFinal\tesseract\bin\tesseract.exe",
+    r"I:\2021\2020\✠ Cross Coptic Library ✠\ArchiveMaster\tesseract\bin\tesseract.exe",
     r"C:\Program Files\Tesseract-OCR\tesseract.exe",
     r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
     os.path.expandvars(r"%LOCALAPPDATA%\Programs\Tesseract-OCR\tesseract.exe")
