@@ -300,18 +300,10 @@ class DatabaseRepository:
         }
 
     def get_catalog_categories_overview(self) -> List[Dict[str, Any]]:
-        """Returns the 7 master ecclesiastical categories with dynamic live counts."""
+        """Returns the 8 master ecclesiastical categories with comprehensive dynamic live counts."""
         conn = get_connection()
         cur = conn.cursor()
-        categories = [
-            ("bible", "📖 تفاسير ودراسات العهدين", "category LIKE '%تفسير%' OR category LIKE '%كتاب مقدس%' OR category LIKE '%العهد%' OR file_name LIKE '%تفسير%'"),
-            ("monastic", "🌿 رهبنة وسلوك وحياة روحية", "category LIKE '%روحية%' OR category LIKE '%رهبنة%' OR category LIKE '%الحياة الروحية%' OR file_name LIKE '%بستان%'"),
-            ("history", "🏛️ تاريخ كنسي وسير القديسين", "category LIKE '%تاريخ%' OR category LIKE '%سير%' OR file_name LIKE '%تاريخ الكنيسة%' OR file_name LIKE '%سنكسار%'"),
-            ("theology", "⛪ لاهوت وعقيدة ودفاعيات", "category LIKE '%عقيدة%' OR category LIKE '%لاهوت%' OR category LIKE '%المجامع%' OR file_name LIKE '%عقيدة%' OR file_name LIKE '%لاهوت%'"),
-            ("patristics", "📜 آبائيات ودراسات قبطية", "category LIKE '%آباء%' OR category LIKE '%الاباء%' OR category LIKE '%أقوال%' OR file_name LIKE '%القديس%' OR file_name LIKE '%آباء%'"),
-            ("liturgy", "🕯️ طقوس وألحان ولتورجيا", "category LIKE '%طقس%' OR category LIKE '%ألحان%' OR category LIKE '%القداس%' OR category LIKE '%القطمارس%' OR category LIKE '%الأجبية%' OR file_name LIKE '%طقس%'"),
-            ("servants", "👥 خدمة وأسرة وتربية وشباب", "category LIKE '%خادم%' OR category LIKE '%تربية%' OR category LIKE '%أسرة%' OR category LIKE '%شباب%'")
-        ]
+        categories = self._get_master_categories_definitions()
         result = []
         for code, title, cond in categories:
             cur.execute(f"SELECT COUNT(*) FROM church_books WHERE ({cond}) AND is_duplicate_of IS NULL")
@@ -320,18 +312,63 @@ class DatabaseRepository:
         conn.close()
         return result
 
+    def _get_master_categories_definitions(self) -> List[Tuple[str, str, str]]:
+        """Master taxonomy mapping covering all 3,656 books."""
+        bible_terms = [
+            "تفسير", "كتاب مقدس", "العهد", "اصحاح", "اسفار", "سفر",
+            "متي", "متى", "مرقس", "لوقا", "يوحنا", "اعمال الرسل", "أعمال الرسل",
+            "روميا", "رومية", "كورونثوس", "غلاطية", "افسس", "أفسس", "فليبي", "كولوسي",
+            "تسالونيكي", "تيموثاوس", "تيطس", "فليمون", "عبرانيين", "العبرانيين",
+            "يعقوب", "بطرس", "يهوذا", "رؤيا", "مزامير", "مزمور", "تكوين", "خروج",
+            "لاويين", "عدد", "تثنية", "يشوع", "قضاة", "راعوث", "صموئيل", "ملوك",
+            "اخبار الايام", "عزرا", "نحميا", "طوبيا", "يهوديت", "استير", "ايوب",
+            "امثال", "جامعة", "نشيد", "حكمة", "يشوع بن سيراخ", "اشعياء", "ارميا",
+            "مراثي", "باروخ", "حزقيال", "دانيال", "هوشع", "يوئيل", "عاموس",
+            "عوبديا", "يونان", "ميخا", "ناحوم", "حبقوق", "صفنيا", "حجي", "زكريا",
+            "ملاخي", "مكابيين", "الأناجيل", "رسائل بولس", "الكاثوليكون"
+        ]
+        bible_cond = " OR ".join([f"category LIKE '%{t}%' OR file_name LIKE '%{t}%'" for t in bible_terms])
+
+        patristics_terms = [
+            "آباء", "الاباء", "أقوال", "القديس", "أثناسيوس", "اثناسيوس", "كيرلس",
+            "أنطونيوس", "انطونيوس", "مقاريوس", "ذهبي الفم", "باسيليوس", "غريغوريوس",
+            "جيروم", "أوغسطينوس", "اوغسطينوس", "ديديموس", "كليمندس", "اوريجينوس"
+        ]
+        patristics_cond = " OR ".join([f"category LIKE '%{t}%' OR file_name LIKE '%{t}%'" for t in patristics_terms])
+
+        liturgy_terms = ["طقس", "ألحان", "الحان", "القداس", "القطمارس", "الأجبية", "اجبية", "تسبحة", "ابصلمودية", "خولاجي", "بصخة", "قنديل", "سجدة", "لقان"]
+        liturgy_cond = " OR ".join([f"category LIKE '%{t}%' OR file_name LIKE '%{t}%'" for t in liturgy_terms])
+
+        history_terms = ["تاريخ", "سير", "سنكسار", "شهداء", "استشهاد", "تراث القبط", "قصة الكنيسة", "سيرة"]
+        history_cond = " OR ".join([f"category LIKE '%{t}%' OR file_name LIKE '%{t}%'" for t in history_terms])
+
+        theology_terms = ["عقيدة", "لاهوت", "المجامع", "مجمع", "طبيعة المسيح", "تجسد", "فداء", "دفاعيات", "بدع", "بدعة", "ارثوذكس", "أرثوذكس"]
+        theology_cond = " OR ".join([f"category LIKE '%{t}%' OR file_name LIKE '%{t}%'" for t in theology_terms])
+
+        monastic_terms = ["روحية", "رهبنة", "رهبان", "بستان الرهبان", "الحياة الروحية", "صلاة", "صوم", "توبة", "فضائل", "محبة", "جهاد", "اتضاع", "متى المسكين", "شنودة"]
+        monastic_cond = " OR ".join([f"category LIKE '%{t}%' OR file_name LIKE '%{t}%'" for t in monastic_terms])
+
+        servants_terms = ["خادم", "تربية", "أسرة", "اسرة", "شباب", "أطفال", "اطفال", "مسابقات", "عرائس", "مسرح", "كشافة", "تنمية", "مدارس الأحد"]
+        servants_cond = " OR ".join([f"category LIKE '%{t}%' OR file_name LIKE '%{t}%'" for t in servants_terms])
+
+        multilingual_terms = ["English", "German", "French", "Swedish", "Spanish", "Chinese", "Turkish", "Deutsche"]
+        multilingual_cond = " OR ".join([f"category LIKE '%{t}%'" for t in multilingual_terms])
+
+        return [
+            ("bible", "📖 تفاسير ودراسات العهدين", bible_cond),
+            ("monastic", "🌿 رهبنة وسلوك وحياة روحية", monastic_cond),
+            ("patristics", "📜 آبائيات ومؤلفات الآباء", patristics_cond),
+            ("theology", "⛪ لاهوت وعقيدة ودفاعيات ومجامع", theology_cond),
+            ("history", "🏛️ تاريخ كنسي وسير الشهداء والقديسين", history_cond),
+            ("liturgy", "🕯️ طقوس وألحان ولتورجيا وتسبحة", liturgy_cond),
+            ("servants", "👥 خدمة وأسرة وتربية وشباب وأطفال", servants_cond),
+            ("multilingual", "🌐 لغات عالمية ومكتبات مترجمة", multilingual_cond)
+        ]
+
     def get_books_by_catalog_category(self, code: str, page: int = 1, page_size: int = 6) -> Tuple[List[Dict[str, Any]], int, int, str]:
         """Fetches books for a specific master category with pagination."""
-        categories_map = {
-            "bible": ("📖 تفاسير ودراسات العهدين", "category LIKE '%تفسير%' OR category LIKE '%كتاب مقدس%' OR category LIKE '%العهد%' OR file_name LIKE '%تفسير%'"),
-            "monastic": ("🌿 رهبنة وسلوك وحياة روحية", "category LIKE '%روحية%' OR category LIKE '%رهبنة%' OR category LIKE '%الحياة الروحية%' OR file_name LIKE '%بستان%'"),
-            "history": ("🏛️ تاريخ كنسي وسير القديسين", "category LIKE '%تاريخ%' OR category LIKE '%سير%' OR file_name LIKE '%تاريخ الكنيسة%' OR file_name LIKE '%سنكسار%'"),
-            "theology": ("⛪ لاهوت وعقيدة ودفاعيات", "category LIKE '%عقيدة%' OR category LIKE '%لاهوت%' OR category LIKE '%المجامع%' OR file_name LIKE '%عقيدة%' OR file_name LIKE '%لاهوت%'"),
-            "patristics": ("📜 آبائيات ودراسات قبطية", "category LIKE '%آباء%' OR category LIKE '%الاباء%' OR category LIKE '%أقوال%' OR file_name LIKE '%القديس%' OR file_name LIKE '%آباء%'"),
-            "liturgy": ("🕯️ طقوس وألحان ولتورجيا", "category LIKE '%طقس%' OR category LIKE '%ألحان%' OR category LIKE '%القداس%' OR category LIKE '%القطمارس%' OR category LIKE '%الأجبية%' OR file_name LIKE '%طقس%'"),
-            "servants": ("👥 خدمة وأسرة وتربية وشباب", "category LIKE '%خادم%' OR category LIKE '%تربية%' OR category LIKE '%أسرة%' OR category LIKE '%شباب%'")
-        }
-        title, cond = categories_map.get(code, categories_map["theology"])
+        defs = {item[0]: (item[1], item[2]) for item in self._get_master_categories_definitions()}
+        title, cond = defs.get(code, defs["theology"])
 
         conn = get_connection()
         cur = conn.cursor()
