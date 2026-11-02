@@ -40,6 +40,16 @@ class InAppBookReader(QDialog):
 
     def __init__(self, parent=None, file_path: str = None, target_page: int = 1, highlight_term: str = ""):
         super().__init__(parent)
+        # Self-heal file path if drive letter changed
+        if file_path and not os.path.exists(file_path):
+            try:
+                from modules import library_rag
+                resolved = library_rag.resolve_file_path(file_path)
+                if resolved:
+                    file_path = resolved
+            except Exception:
+                pass
+
         self.file_path = file_path
         self.current_page = max(1, target_page)
         self.total_pages = 1
