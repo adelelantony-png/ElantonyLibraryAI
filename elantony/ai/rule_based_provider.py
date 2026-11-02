@@ -9,6 +9,7 @@ highlights dedicated library volumes, and provides grounded spiritual typology.
 from typing import List, Dict, Any, Optional
 from elantony.ai.base import BaseAIProvider
 from elantony.database.models import ChunkEntity
+from elantony.core.text_cleaner import clean_theological_text
 
 
 class RuleBasedChurchProvider(BaseAIProvider):
@@ -31,7 +32,7 @@ class RuleBasedChurchProvider(BaseAIProvider):
         context_chunks: List[ChunkEntity],
         dedicated_books: Optional[List[Dict[str, Any]]] = None
     ) -> str:
-        if not context_chunks:
+        if not context_chunks and not dedicated_books:
             return (
                 "⚠️ *لم يتم العثور على شواهد مباشرة كافية في المراجع المفهرسة حالياً تغطي هذا السؤال بدقة.*\n\n"
                 "💡 *نصائح للبحث:*\n"
@@ -55,6 +56,19 @@ class RuleBasedChurchProvider(BaseAIProvider):
                 "غطى الأرض المأهولة وقضى على كل ذي جسد حي خارج الفلك (تك 7: 19-23)، "
                 "ولم يكن مجرد فيضان محلي محدود. كما ثبتت موثوقيته بشهادة الرب يسوع نفسه في العهد الجديد (مت 24: 37-39)، "
                 "وشهادة الرسل (1 بط 3: 20، 2 بط 2: 5)، وتطابق التراث الإنساني وأساطير أكثر من 95% من الحضارات القديمة حول العالم.\n"
+            )
+        elif any(k in q_lower for k in ["إقامة", "اقامة", "أقام", "اقام", "موتى", "أموات", "ميت"]) and any(k in q_lower for k in ["ايليا", "إيليا", "اليشع", "أليشع", "أنبياء", "الأنبياء"]):
+            lines.append(
+                "📜 *التقرير اللاهوتي المقارن في تعليم الآباء:*\n"
+                "توضح الكنيسة وتعاليم الآباء الفارق الجوهري واللاهوتي بين إقامة السيد المسيح للأموات وإقامة الأنبياء (كإيليا وأليشع) للموتى:\n\n"
+                "1️⃣ **المصدر والسلطان الذاتي:**\n"
+                "• الأنبياء أقاموا الموتى **بالصلاة والتضرع والطلب من الله** (1 مل 17: 21) كبشر خاضعين لمشيئة العلي وليس بسلطان ذاتي.\n"
+                "• أما السيد المسيح فأقام الموتى **بسلطانه الإلهي الذاتي المطلق وبأمره المباشر** («أيها الشاب لك أقول قم»، «لعازر هلم خارجاً»، «يا صبية قومي») بصفته هو واهب الحياة.\n\n"
+                "2️⃣ **طبيعة المعجزة والجسد:**\n"
+                "• الذين أقامهم إيليا والأنبياء أُعيدت إليهم أنفاسهم البشرية ولكنهم **ماتوا ثانية** في نهاية أعمارهم الأرضية كباقي البشر.\n"
+                "• أما قيامة السيد المسيح فكانت **قيامة مجد أبدية لا يسود عليه الموت بعدها** (رو 6: 9)، وصار هو باكورة الراقدين وواهب القيامة العامة لجميع البشر.\n\n"
+                "3️⃣ **واهب الحياة مقابل الواسطة:**\n"
+                "• إيليا كان مجرد خادم وواسطة في يد الرب لإقامة ابن أرملة صرفة صيدا، أما المسيح فهو **«القيامة والحياة»** في ذاته وجوهره (يو 11: 25) الذي له سلطان أن يضع نفسه وله سلطان أن يأخذها أيضاً.\n"
             )
         elif "تجسد" in q_lower:
             lines.append(
@@ -83,29 +97,30 @@ class RuleBasedChurchProvider(BaseAIProvider):
         # 3. Dedicated Books in Library (if available)
         if dedicated_books:
             lines.append("🏛️ *أبرز الموسوعات والمراجع المتخصصة في مكتبتنا الكنسية:*")
-            for b in dedicated_books[:4]:
+            for b in dedicated_books[:3]:
                 lines.append(f"  • 📘 *{b['clean_title']}* ({b.get('page_count', 0)} ص)")
             lines.append("")
 
         # 4. Detailed Citations & Verified Excerpts
-        lines.append("📖 *الشواهد والنصوص المسترجعة بالصفحة والمجلد:*\n")
-        seen_refs = set()
-        count = 0
+        if context_chunks:
+            lines.append("📖 *الشواهد والنصوص المسترجعة بالصفحة والمجلد:*\n")
+            seen_refs = set()
+            count = 0
 
-        for chunk in context_chunks:
-            if chunk.source_reference in seen_refs:
-                continue
-            seen_refs.add(chunk.source_reference)
-            count += 1
+            for chunk in context_chunks:
+                if chunk.source_reference in seen_refs:
+                    continue
+                seen_refs.add(chunk.source_reference)
+                count += 1
 
-            clean_text = chunk.chunk_text.strip().replace("\n", " ")
-            if len(clean_text) > 320:
-                clean_text = clean_text[:320].rsplit(" ", 1)[0] + "..."
+                cleaned_excerpt = clean_theological_text(chunk.chunk_text)
+                if len(cleaned_excerpt) > 320:
+                    cleaned_excerpt = cleaned_excerpt[:320].rsplit(" ", 1)[0] + "..."
 
-            lines.append(f"*{count}. {chunk.source_reference}*")
-            lines.append(f"❝ {clean_text} ❞\n")
-            if count >= 5:
-                break
+                lines.append(f"*{count}. {chunk.source_reference}*")
+                lines.append(f"❝ {cleaned_excerpt} ❞\n")
+                if count >= 4:
+                    break
 
         # 5. Typological & Spiritual Reflection
         lines.append("─────────────────────────")
@@ -121,6 +136,5 @@ class RuleBasedChurchProvider(BaseAIProvider):
                 "«هذه التعاليم المستقاة من آباء الكنيسة تدعونا إلى ثبات الإيمان وعمق الحياة الروحية وجهاد التوبة الصادقة.»"
             )
 
-        lines.append("\n_المصدر: تم استخراج هذه النصوص لحظياً من الـ 311,634 مقطعاً مفهرساً بالمكتبة بدون أي تأليف خارجي._")
-
+        lines.append("\n_المصدر: تم استخراج هذه النصوص وتوثيقها من كتب المكتبة الكنسية المعتمدة._")
         return "\n".join(lines)

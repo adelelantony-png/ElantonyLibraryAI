@@ -1,36 +1,67 @@
 # -*- coding: utf-8 -*-
 """
 ELANTONY LIBRARY AI - Advanced Arabic Theological Text Cleaner & Restorer
-Normalizes OCR artifacts, restores broken ligatures, strips corrupt glyphs,
-rejoins hyphenated/split words, and fixes RTL BiDi number/percentage inversions.
+Normalizes OCR artifacts, restores archaic non-standard font glyph shifts,
+reconstructs broken ligatures, strips corrupt characters, realigns BiDi numbers,
+and eliminates watermark/Tashkeel garbage.
 """
 
 import re
 from typing import Dict, List, Optional
 
-# Common OCR misrecognitions and broken Arabic ligatures in ecclesiastical scans
-ARABIC_OCR_CORRECTIONS: Dict[str, str] = {
-    # Broken Lam-Alef and Alef variants
-    "االنسان": "الإنسان",
-    "االنسانية": "الإنسانية",
-    "األشرار": "الأشرار",
-    "األرض": "الأرض",
-    "األباء": "الآباء",
-    "اآلباء": "الآباء",
-    "اإلله": "الإله",
-    "اإلنجيل": "الإنجيل",
-    "اإلسكيمو": "الإسكيمو",
-    "اإليمان": "الإيمان",
-    "األمم": "الأمم",
-    "األقانيم": "الأقانيم",
-    "األول": "الأول",
-    "األولى": "الأولى",
-    "األنبياء": "الأنبياء",
-    "األحجار": "الأحجار",
+# Archaic non-standard Arabic font shifts (from old Coptic/Arabic Word/PDF converters)
+# In these fonts, 'لا' (Lam-Alef) was encoded at 'بل', 'و' encoded as 'ك', 'ن' as 'ف', 'ل' as 'م', etc.
+ARCHAIC_FONT_WORD_MAP: Dict[str, str] = {
+    # Lam-Alef shifts ('بل' -> 'لا')
+    "ثبلثة": "ثلاثة",
+    "ثبلث": "ثلاث",
+    "ثبلثين": "ثلاثين",
+    "ثبلثمائة": "ثلاثمائة",
+    "كبل": "كلا",
+    "إسبلم": "إسلام",
+    "سبلم": "سلام",
+    "كبلم": "كلام",
+    "كبلمه": "كلامه",
+    "ببلد": "بلاد",
+    "ببلده": "بلاده",
+    "تبلوة": "تلاوة",
+    "صبلة": "صلاة",
+    "صلبة": "صلاة",
+    "أصلب": "أصلا",
+    "كنبلحظ": "ونلاحظ",
+    "نبلحظ": "نلاحظ",
+    "يبلحظ": "يلاحظ",
 
-    # Soft / broken 'Alif-Lam' OCR ligature artifacts
-    "املقدس": "المقدس",
+    # Common shifted prepositions and verbs at word boundaries
+    "كليس": "وليس",
+    "كقد": "وقد",
+    "ككان": "وكان",
+    "كقال": "وقال",
+    "ككانت": "وكانت",
+    "كإف": "وإن",
+    "كأف": "وأن",
+
+    # OCR substitutions for divinity, theological terms, and ecclesiastical language
+    "األمكات": "الأموات",
+    "االمكات": "الأموات",
+    "مكت الخطية": "موت الخطية",
+    "مكت": "موت",
+    "اإلليى": "الإلهي",
+    "عممو": "عمله",
+    "حمقيا": "حلقها",
+    "فيي": "فهي",
+    "فرحيا": "فرحها",
+    "سقؼ": "سقف",
+    "العمؽ": "العمق",
+    "بالشفتيف": "بالشفتين",
+    "القمب": "القلب",
+    "عَمَى": "على",
+    "عمى": "على",
+    "إلى": "إلى",
+    "النَّلائِمِين": "النائمين",
+    "السَّلائِغَةُ": "السائغة",
     "المقنس": "المقدس",
+    "املقدس": "المقدس",
     "املسيح": "المسيح",
     "املؤمن": "المؤمن",
     "املؤمنين": "المؤمنين",
@@ -48,14 +79,30 @@ ARABIC_OCR_CORRECTIONS: Dict[str, str] = {
     "احلقيقة": "الحقيقة",
     "احلب": "الحب",
     "الالهية": "الإلهية",
-
-    # Divinity and Christological names
     "اهلل": "الله",
     "للا": "الله",
     "وآالخالق": "والخالق",
-    "كالم": "كلام",
     "الكليسة": "الكنيسة",
     "مخلضنا": "مخلصنا",
+
+    # Broken Lam-Alef and Alef variants
+    "االنسان": "الإنسان",
+    "االنسانية": "الإنسانية",
+    "األشرار": "الأشرار",
+    "األرض": "الأرض",
+    "األباء": "الآباء",
+    "اآلباء": "الآباء",
+    "اإلله": "الإله",
+    "اإلنجيل": "الإنجيل",
+    "اإلسكيمو": "الإسكيمو",
+    "اإليمان": "الإيمان",
+    "األمم": "الأمم",
+    "األقانيم": "الأقانيم",
+    "األول": "الأول",
+    "األولى": "الأولى",
+    "األنبياء": "الأنبياء",
+    "األحجار": "الأحجار",
+    "األموات": "الأموات",
 
     # Word wrapping / broken space artifacts from PDF extraction
     "لكُالف": "الفلك",
@@ -73,7 +120,7 @@ ARABIC_OCR_CORRECTIONS: Dict[str, str] = {
 
 # Regex patterns for watermarks and URLs
 WATERMARK_PATTERN = re.compile(
-    r'(?:https?://\S+|www\.[a-zA-Z0-9.\-_/]+|difa3iat\.com|st-takla\.org|coptic-treasures|ch-joy\.com)',
+    r'(?:https?://\S+|www\.[a-zA-Z0-9.\-_/]+|difa3iat\.com|st-takla\.org|coptic-books\.blogspot\.com|christian-lib\.com|coptic-treasures|ch-joy\.com)',
     re.IGNORECASE
 )
 
@@ -81,15 +128,44 @@ WATERMARK_PATTERN = re.compile(
 GLYPH_NOISE_PATTERN = re.compile(r'[\uf000-\uf8ff\u200b-\u200f\u00ad\ufeff\ufffd]')
 BULLET_PATTERN = re.compile(r'^[►◄▼▲■□●○★☆♦•\-\*]+\s*')
 
+# Tashkeel salad detector: detect garbled text like "اَآىَا رَّمَمَف ا اَيَ لَاؿَقَا"
+TASHKEEL_SALAD_PATTERN = re.compile(r'[\u064B-\u065F\u0670]{2,}')
+
+
+def fix_archaic_font_shifts(text: str) -> str:
+    """Corrects non-standard archaic Arabic PDF font substitutions and non-standard unicodes."""
+    # 1. Replace isolated archaic Unicode non-standard characters
+    t = text.replace('ؿ', 'ل').replace('ؽ', 'ق').replace('ؼ', 'ف')
+
+    # 2. Word-boundary regex substitutions for shifted letters
+    # e.g. "قاـ" at end of word -> "قام", "تـ" -> "تم", "معمـ" -> "معلم"
+    t = re.sub(r'(\b[\u0600-\u06FF]+)ـ\b', r'\1م', t)
+    # "مف" -> "من", "عف" -> "عن", "إف" -> "إن", "أف" -> "أن", "كاف" -> "كان"
+    t = re.sub(r'\bمف\b', 'من', t)
+    t = re.sub(r'\bعف\b', 'عن', t)
+    t = re.sub(r'\bإف\b', 'إن', t)
+    t = re.sub(r'\bأف\b', 'أن', t)
+    t = re.sub(r'\bكاف\b', 'كان', t)
+    # "بعمؿ" or "بعمل"
+    t = re.sub(r'\bبعم[ؿل]\b', 'بعمل', t)
+
+    # 3. Direct dictionary substitutions
+    for old, new in ARCHAIC_FONT_WORD_MAP.items():
+        if old in t:
+            t = t.replace(old, new)
+
+    return t
+
 
 def clean_theological_text(text: str) -> str:
     """
     Cleans raw chunk text:
     1. Removes wingdings, private use characters, and non-printable bytes.
     2. Filters out watermark URLs and repetitive metadata.
-    3. Restores broken Arabic ligatures and common OCR spelling corruptions.
+    3. Restores archaic Arabic font shifts and broken OCR ligatures.
     4. Realigns numbers and percentages for proper RTL rendering.
-    5. Normalizes whitespace and formats as coherent readable text.
+    5. Filters garbled Tashkeel noise lines.
+    6. Normalizes whitespace and formats as coherent readable Arabic prose.
     """
     if not text:
         return ""
@@ -97,18 +173,17 @@ def clean_theological_text(text: str) -> str:
     # 1. Strip raw binary / non-printable / private unicode glyphs
     t = GLYPH_NOISE_PATTERN.sub(' ', text)
 
-    # 2. Strip watermark URLs
+    # 2. Strip watermark URLs and site signatures
     t = WATERMARK_PATTERN.sub('', t)
 
-    # 3. Apply Arabic OCR word & ligature corrections
-    for old, new in ARABIC_OCR_CORRECTIONS.items():
-        t = t.replace(old, new)
+    # 3. Fix archaic font substitutions and ligatures
+    t = fix_archaic_font_shifts(t)
 
     # 4. Normalize hyphenated and line-broken words
     t = re.sub(r'(\b[\u0600-\u06FF]+)\s*-\s*\n\s*([\u0600-\u06FF]+\b)', r'\1\2', t)
     t = re.sub(r'(\b[\u0600-\u06FF]+)\s*\n\s*([\u0600-\u06FF]+\b)', r'\1 \2', t)
 
-    # 5. Fix percentage and number alignment (e.g. "95 % اتفقوا" -> "• 95% اتفقوا")
+    # 5. Fix percentage and number alignment
     t = re.sub(r'(\d{1,3})\s*%\s*', r'\1% ', t)
 
     # 6. Clean line by line
@@ -120,9 +195,19 @@ def clean_theological_text(text: str) -> str:
         if not line_str:
             continue
 
-        # Check if line was an isolated bullet/number
+        # Check if line is garbled Tashkeel noise (e.g. "اَآىَا رَّمَمَف ا اَيَ لَاؿَقَا")
+        tashkeel_count = len(re.findall(r'[\u064B-\u065F\u0670]', line_str))
+        letter_count = len(re.findall(r'[\u0621-\u064A]', line_str))
+        if letter_count > 0 and (tashkeel_count / letter_count) > 0.8 and letter_count < 30:
+            continue
+
+        # Check if line was an isolated bullet/number/separator
         line_str = BULLET_PATTERN.sub('', line_str).strip()
-        if not line_str or line_str in ['%', '-', '•', '.', '..', '...']:
+        if not line_str or line_str in ['%', '-', '•', '.', '..', '...', ':', '::']:
+            continue
+
+        # Skip watermark remnant lines
+        if any(w in line_str.lower() for w in ['blogspot', 'christian-lib', 'difa3iat', 'st-takla']):
             continue
 
         # Remove repetitive single-word lines

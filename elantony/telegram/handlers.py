@@ -17,6 +17,8 @@ from elantony.core.config import settings
 from elantony.core.security import is_user_authorized, is_user_admin, sanitize_user_input
 from elantony.core.rate_limiter import rate_limiter
 from elantony.core.logging import logger
+from elantony.core.text_cleaner import clean_theological_text
+from elantony.database.connection import get_connection
 from elantony.database.repository import repo
 from elantony.search.search_engine import search_engine
 from elantony.ai.factory import get_ai_provider
@@ -145,8 +147,11 @@ class TelegramHandlerService:
     async def send_welcome_dashboard(self, client: httpx.AsyncClient, chat_id: int, user_name: str) -> None:
         """Sends the master dashboard with persistent keyboard AND rich inline buttons."""
         stats = repo.get_library_stats()
+        safe_name = str(user_name).replace("_", " ").replace("*", "").replace("`", "").strip()
+        if not safe_name:
+            safe_name = "يا حبيب المسيح"
         welcome_text = (
-            f"✠ *مرحباً بك {user_name} في منظومة ELANTONY LIBRARY AI* ✠\n\n"
+            f"✠ *مرحباً بك {safe_name} في منظومة ELANTONY LIBRARY AI* ✠\n\n"
             f"📚 *المكتبة الرقمية تضم:* `{stats['total_books']}` كتاباً ({stats['total_pages']:,} صفحة).\n"
             f"🧠 *محرك البحث الآبائي والـ RAG:* مفهرس به `{stats['indexed_chunks']:,}` شاهداً موثقاً.\n\n"
             f"👇 *اضغط على أي زر تفاعلي أدناه للاستخدام المباشر دون الحاجة لكتابة أوامر:*"
@@ -205,7 +210,14 @@ class TelegramHandlerService:
         text = sanitize_user_input(raw_text)
 
         # 3. Main Command Routing (/start, /menu, /help, etc.)
-        if text in ["/start", "/menu", "/help", "🔙 القائمة الرئيسية", "القائمة الرئيسية"]:
+        if text in [
+            "/start", "/menu", "/help",
+            "🔙 القائمة الرئيسية", "القائمة الرئيسية",
+            "🔙 العودة للقائمة الرئيسية", "العودة للقائمة الرئيسية",
+            "العودة الى القائمة الرئيسية", "العودة إلي القائمة الرئيسية",
+            "🔙 العودة الى القائمة الرئيسية", "🔙 العودة إلي القائمة الرئيسية",
+            "الرئيسية", "رجوع"
+        ]:
             _user_states.pop(user_id, None)
             await self.send_welcome_dashboard(client, chat_id, user_name)
             return
@@ -458,7 +470,7 @@ class TelegramHandlerService:
             return
 
         # Acknowledge immediately to dismiss Telegram's button loading spinner
-        await self.answer_callback_query(client, cb_id, "جاري المعالجة...")
+        await self.answer_callback_query(client, cb_id)
 
         # 1. Navigation: Main Menu
         if data == "nav:main":
@@ -696,23 +708,59 @@ class TelegramHandlerService:
                     await self.send_message(client, chat_id, "⚠️ لم يتم العثور على الكتاب.")
                     return
                 sha256 = book["sha256"]
+                target_text = ""
+
+                # Tier 1: Check extracted text directory
                 txt_file = settings.extracted_text_dir / f"{sha256}.txt"
+                if not txt_file.exists():
+                    # Tier 2: Check I: drive mirror
+                    alt_file = Path(r"I:\2021\2020\✠ Cross Coptic Library ✠\ArchiveMaster\extracted_text") / f"{sha256}.txt"
+                    if alt_file.exists():
+                        txt_file = alt_file
+
                 if txt_file.exists():
-                    with open(txt_file, "r", encoding="utf-8") as f:
-                        content = f.read()
-                    from modules.rag_chunker import parse_pages_from_extracted_text
-                    pages = parse_pages_from_extracted_text(content)
-                    target = next((p for p in pages if p["page_num"] == page_num), None)
-                    if target and target["text"].strip():
-                        page_msg = f"📄 *نص الصفحة {page_num} من «{book['file_name']}»:*\n\n{target['text'][:3500]}"
-                        await self.send_message(
-                            client, chat_id, page_msg,
-                            reply_markup=get_page_reader_inline_keyboard(sha256[:16], page_num)
-                        )
-                    else:
-                        await self.send_message(client, chat_id, f"⚠️ الصفحة {page_num} فارغة أو قيد المعالجة الضوئية.")
+                    try:
+                        with open(txt_file, "r", encoding="utf-8") as f:
+                            content = f.read()
+                        from modules.rag_chunker import parse_pages_from_extracted_text
+                        pages = parse_pages_from_extracted_text(content)
+                        target = next((p for p in pages if p["page_num"] == page_num), None)
+                        if target and target["text"].strip():
+                            target_text = target["text"]
+                    except Exception as e:
+                        logger.warning(f"Error parsing page from disk: {e}")
+
+                # Tier 3: Direct SQLite church_chunks_fts fallback
+                if not target_text:
+                    try:
+                        conn = get_connection()
+                        cur = conn.cursor()
+                        cur.execute("""
+                            SELECT chunk_text FROM church_chunks_fts 
+                            WHERE sha256 LIKE ? AND page_number = ? 
+                            ORDER BY chunk_index ASC
+                        """, (f"{sha256[:16]}%", page_num))
+                        page_chunks = [r[0] for r in cur.fetchall()]
+                        conn.close()
+                        if page_chunks:
+                            target_text = "\n\n".join(page_chunks)
+                    except Exception as e:
+                        logger.warning(f"Error reading page from church_chunks_fts: {e}")
+
+                if target_text:
+                    clean_page = clean_theological_text(target_text)
+                    clean_title = book["file_name"].replace(".pdf", "")
+                    page_msg = f"📄 *نص الصفحة {page_num} من «{clean_title}»:*\n\n{clean_page[:3500]}"
+                    await self.send_message(
+                        client, chat_id, page_msg,
+                        reply_markup=get_page_reader_inline_keyboard(sha256[:16], page_num)
+                    )
                 else:
-                    await self.send_message(client, chat_id, "⚠️ لم يتم العثور على نصوص مفهرسة لهذا الكتاب بعد.")
+                    await self.send_message(
+                        client, chat_id,
+                        f"⚠️ الصفحة {page_num} فارغة أو قيد المعالجة الضوئية.",
+                        reply_markup=get_page_reader_inline_keyboard(sha256[:16], page_num)
+                    )
             return
 
         # 8. Action: bm:<ref>:<page_num> (Save to user bookmarks)
