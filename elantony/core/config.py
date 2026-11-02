@@ -53,6 +53,7 @@ class Settings(BaseModel):
 
     # Paths
     base_dir: Path = BASE_DIR
+    library_root: Path = Field(default_factory=lambda: Path(os.getenv("LIBRARY_ROOT", r"I:\2021\2020\✠ Cross Coptic Library ✠")))
     extracted_text_dir: Path = BASE_DIR / "extracted_text"
     processed_text_dir: Path = BASE_DIR / "processed_text"
     reports_dir: Path = BASE_DIR / "reports"
