@@ -321,18 +321,29 @@ class OmniboxDialog(QDialog):
             if has_rag and rag_text:
                 self.txt_rag_results.setPlainText(rag_text)
                 # Attempt to extract first matching book path
-                match = re.search(r'\[كتاب:\s*([^\]]+?)\s*-\s*تصنيف:[^\]]*-\s*صفحة/موضع:\s*(\d+)\]', rag_text)
+                match = re.search(r'\[كتاب:\s*([^\]]+?)\s*-\s*(?:تصنيف:[^\]]*-\s*)?(?:صفحة/موضع:|صـ)\s*(\d+)\]', rag_text)
                 if match:
                     b_name = match.group(1).strip()
                     self.last_found_page = int(match.group(2))
-                    # lookup real path
-                    con = database_handler.get_connection()
-                    cur = con.cursor()
-                    cur.execute("SELECT file_path FROM files WHERE file_name LIKE ? LIMIT 1", (f"%{b_name}%",))
-                    row = cur.fetchone()
-                    con.close()
-                    if row:
-                        self.last_found_file_path = row[0]
+                    # Lookup real path in church_books first, then fallback to files
+                    try:
+                        con = database_handler.get_connection()
+                        cur = con.cursor()
+                        cur.execute("""
+                            SELECT original_path FROM church_books 
+                            WHERE file_name LIKE ? OR original_path LIKE ?
+                            LIMIT 1
+                        """, (f"%{b_name}%", f"%{b_name}%"))
+                        row = cur.fetchone()
+                        if not row:
+                            cur.execute("SELECT file_path FROM files WHERE file_name LIKE ? LIMIT 1", (f"%{b_name}%",))
+                            row = cur.fetchone()
+                        con.close()
+                        if row:
+                            resolved = library_rag.resolve_file_path(row[0], self.library_root)
+                            self.last_found_file_path = resolved if resolved else row[0]
+                    except Exception:
+                        pass
             else:
                 self.txt_rag_results.setPlainText("لم يتم العثور على مقتطفات نصية مطابقة داخل بطون الكتب المفهرسة حالياً. يمكنك تفعيل «الفهرسة العميقة» بالأعلى لتفريغ نصوص كافة الكتب.")
         except Exception as e:
