@@ -12,15 +12,14 @@ from typing import List, Dict, Any, Optional
 
 def get_main_menu_reply_keyboard() -> Dict[str, Any]:
     """
-    Returns the persistent 9-section master reply keyboard below the text box.
+    Returns the persistent 8-section master reply keyboard below the text box.
     """
     return {
         "keyboard": [
-            [{"text": "🤖 المساعد الذكي"}, {"text": "📚 البحث في المكتبة"}],
-            [{"text": "📖 اسأل كتابًا"}, {"text": "⛪ أقوال الآباء"}],
-            [{"text": "🔍 البحث حسب المؤلف"}, {"text": "📂 تصفح التصنيفات"}],
-            [{"text": "📑 أبحاثي المحفوظة"}, {"text": "⚙️ الإعدادات"}],
-            [{"text": "ℹ️ حول المكتبة"}]
+            [{"text": "🤖 المساعد الذكي"}, {"text": "📑 فهرس المكتبة الشامل"}],
+            [{"text": "📚 البحث في المكتبة"}, {"text": "📖 اسأل كتابًا"}],
+            [{"text": "⛪ أقوال الآباء"}, {"text": "⭐ أبحاثي المحفوظة"}],
+            [{"text": "📊 إحصائيات المكتبة"}, {"text": "ℹ️ حول المكتبة"}]
         ],
         "resize_keyboard": True,
         "is_persistent": True
@@ -34,6 +33,9 @@ def get_main_menu_inline_keyboard() -> Dict[str, Any]:
     return {
         "inline_keyboard": [
             [
+                {"text": "📑 فهرس المكتبة الشامل (موضوعات / آباء / أبجدي)", "callback_data": "menu:catalog"}
+            ],
+            [
                 {"text": "🤖 اسأل المساعد الذكي", "callback_data": "menu:ask_ai"},
                 {"text": "📚 ابحث في المكتبة", "callback_data": "menu:search"}
             ],
@@ -42,16 +44,12 @@ def get_main_menu_inline_keyboard() -> Dict[str, Any]:
                 {"text": "⛪ درر أقوال الآباء", "callback_data": "menu:fathers"}
             ],
             [
-                {"text": "🔍 كبار معلمي الكنيسة", "callback_data": "menu:authors"},
-                {"text": "📂 تصفح أقسام المكتبة", "callback_data": "menu:categories"}
+                {"text": "🏛️ أمهات الكتب والموسوعات", "callback_data": "cat:encyclopedias"},
+                {"text": "🎲 كتاب عشوائي للاطلاع", "callback_data": "cat:random"}
             ],
             [
-                {"text": "📑 أبحاثي وشواهدي المحفوظة", "callback_data": "menu:bookmarks"},
+                {"text": "⭐ أبحاثي المحفوظة", "callback_data": "menu:bookmarks"},
                 {"text": "📊 إحصائيات المكتبة", "callback_data": "menu:stats"}
-            ],
-            [
-                {"text": "🕊️ تأمل وتدريب اليوم الروحي", "callback_data": "menu:daily"},
-                {"text": "ℹ️ حول المكتبة", "callback_data": "menu:about"}
             ],
             [
                 {"text": "🔄 تحديث اللوحة", "callback_data": "nav:main"}
@@ -246,3 +244,136 @@ def get_back_to_main_inline_keyboard() -> Dict[str, Any]:
             [{"text": "🔙 العودة للقائمة الرئيسية", "callback_data": "nav:main"}]
         ]
     }
+
+
+def get_catalog_hub_inline_keyboard() -> Dict[str, Any]:
+    """Master Hub for Library Catalog."""
+    return {
+        "inline_keyboard": [
+            [{"text": "📂 تصفح حسب الموضوع والتصنيف", "callback_data": "cat:topics"}],
+            [{"text": "✍️ تصفح حسب المؤلفين والآباء", "callback_data": "cat:authors"}],
+            [{"text": "🔤 الفهرس الأبجدي (من أ إلى ي)", "callback_data": "cat:alpha"}],
+            [
+                {"text": "🏛️ أمهات الكتب والموسوعات", "callback_data": "cat:encyclopedias"},
+                {"text": "🎲 كتاب عشوائي للاطلاع", "callback_data": "cat:random"}
+            ],
+            [{"text": "🔙 العودة للقائمة الرئيسية", "callback_data": "nav:main"}]
+        ]
+    }
+
+
+def get_catalog_topics_inline_keyboard(categories: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Displays the list of master theological categories."""
+    buttons = []
+    for c in categories:
+        buttons.append([{"text": f"{c['title']} ({c['count']} كتاباً)", "callback_data": f"cp:topic:{c['code']}:1"}])
+    buttons.append([{"text": "🔙 رجوع للفهرس", "callback_data": "menu:catalog"}])
+    buttons.append([{"text": "🔙 القائمة الرئيسية", "callback_data": "nav:main"}])
+    return {"inline_keyboard": buttons}
+
+
+def get_catalog_authors_inline_keyboard(authors: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Displays the list of top authors with book counts."""
+    buttons = []
+    row = []
+    for a in authors:
+        row.append({"text": f"✍️ {a['name']} ({a['count']})", "callback_data": f"cp:auth:{a['code']}:1"})
+        if len(row) == 2:
+            buttons.append(row)
+            row = []
+    if row:
+        buttons.append(row)
+    buttons.append([{"text": "🔙 رجوع للفهرس", "callback_data": "menu:catalog"}])
+    buttons.append([{"text": "🔙 القائمة الرئيسية", "callback_data": "nav:main"}])
+    return {"inline_keyboard": buttons}
+
+
+def get_catalog_alphabet_inline_keyboard() -> Dict[str, Any]:
+    """Displays alphabet grid for A-Z catalog navigation."""
+    letters = [
+        ['ا', 'ب', 'ت', 'ث', 'ج', 'ح'],
+        ['خ', 'د', 'ذ', 'ر', 'ز', 'س'],
+        ['ش', 'ص', 'ض', 'ط', 'ظ', 'ع'],
+        ['غ', 'ف', 'ق', 'ك', 'ل', 'م'],
+        ['ن', 'ه', 'و', 'ي']
+    ]
+    buttons = []
+    for line in letters:
+        row = []
+        for ch in line:
+            row.append({"text": f"[{ch}]", "callback_data": f"cp:alpha:{ch}:1"})
+        buttons.append(row)
+    buttons.append([{"text": "🔙 رجوع للفهرس", "callback_data": "menu:catalog"}])
+    buttons.append([{"text": "🔙 القائمة الرئيسية", "callback_data": "nav:main"}])
+    return {"inline_keyboard": buttons}
+
+
+def get_catalog_paginated_books_keyboard(
+    books: List[Dict[str, Any]],
+    current_page: int,
+    total_pages: int,
+    cat_type: str,
+    cat_id: str
+) -> Dict[str, Any]:
+    """
+    Renders books list with live pagination flipper.
+    cat_type: 'topic', 'auth', 'alpha'
+    cat_id: e.g. 'bible', 'tadros', 'ت'
+    """
+    buttons = []
+    for b in books:
+        clean_title = b["file_name"].replace(".pdf", "")
+        if len(clean_title) > 34:
+            clean_title = clean_title[:34] + "..."
+        pages_str = f" ({b.get('page_count', 0)} ص)" if b.get('page_count') else ""
+        buttons.append([{"text": f"📖 {clean_title}{pages_str}", "callback_data": f"binfo:{b['sha256'][:16]}"}])
+
+    # Pagination controls row
+    nav_row = []
+    if current_page > 1:
+        nav_row.append({"text": "◀️ السابق", "callback_data": f"cp:{cat_type}:{cat_id}:{current_page - 1}"})
+    nav_row.append({"text": f"📄 {current_page} / {total_pages}", "callback_data": "noop"})
+    if current_page < total_pages:
+        nav_row.append({"text": "التالي ▶️", "callback_data": f"cp:{cat_type}:{cat_id}:{current_page + 1}"})
+
+    buttons.append(nav_row)
+
+    # Return row
+    back_target = "cat:topics" if cat_type == "topic" else ("cat:authors" if cat_type == "auth" else "cat:alpha")
+    buttons.append([
+        {"text": "🔙 رجوع للقائمة", "callback_data": back_target},
+        {"text": "📑 الفهرس الرئيسي", "callback_data": "menu:catalog"}
+    ])
+    return {"inline_keyboard": buttons}
+
+
+def get_random_book_inline_keyboard(sha256: str) -> Dict[str, Any]:
+    """Buttons for random book discovery card."""
+    sref = str(sha256)[:16]
+    return {
+        "inline_keyboard": [
+            [{"text": "📥 تنزيل الكتاب كاملاً (PDF)", "callback_data": f"pdf:{sref}"}],
+            [
+                {"text": "📄 قراءة الكتاب (ص 1)", "callback_data": f"page:{sref}:1"},
+                {"text": "❓ اسأل هذا الكتاب", "callback_data": f"target_book:{sref}"}
+            ],
+            [
+                {"text": "🎲 اقتراح كتاب آخر", "callback_data": "cat:random"},
+                {"text": "📑 الفهرس الشامل", "callback_data": "menu:catalog"}
+            ],
+            [{"text": "🔙 القائمة الرئيسية", "callback_data": "nav:main"}]
+        ]
+    }
+
+
+def get_encyclopedias_inline_keyboard(books: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Buttons for major encyclopedias."""
+    buttons = []
+    for b in books:
+        clean_title = b["file_name"].replace(".pdf", "")
+        if len(clean_title) > 34:
+            clean_title = clean_title[:34] + "..."
+        buttons.append([{"text": f"📘 {clean_title} ({b.get('page_count', 0)} ص)", "callback_data": f"binfo:{b['sha256'][:16]}"}])
+    buttons.append([{"text": "🔙 رجوع للفهرس", "callback_data": "menu:catalog"}])
+    buttons.append([{"text": "🔙 القائمة الرئيسية", "callback_data": "nav:main"}])
+    return {"inline_keyboard": buttons}

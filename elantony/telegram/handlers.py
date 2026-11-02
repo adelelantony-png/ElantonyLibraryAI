@@ -32,7 +32,14 @@ from elantony.telegram.keyboards import (
     get_categories_inline_keyboard,
     get_chunk_actions_inline_keyboard,
     get_page_reader_inline_keyboard,
-    get_back_to_main_inline_keyboard
+    get_back_to_main_inline_keyboard,
+    get_catalog_hub_inline_keyboard,
+    get_catalog_topics_inline_keyboard,
+    get_catalog_authors_inline_keyboard,
+    get_catalog_alphabet_inline_keyboard,
+    get_catalog_paginated_books_keyboard,
+    get_random_book_inline_keyboard,
+    get_encyclopedias_inline_keyboard
 )
 
 # User state tracker for conversational flow
@@ -167,6 +174,76 @@ class TelegramHandlerService:
             reply_markup=get_main_menu_inline_keyboard()
         )
 
+    async def send_catalog_hub(self, client: httpx.AsyncClient, chat_id: int) -> None:
+        """Sends the Master Catalog Hub."""
+        stats = repo.get_library_stats()
+        text = (
+            "📑 *فهرس مكتبة القديس أنطونيوس الشامل* 📑\n\n"
+            f"📚 *إجمالي الكتب المتاحة:* `{stats['total_books']:,}` كتاباً ومجلداً.\n"
+            f"📄 *إجمالي الصفحات:* `{stats['total_pages']:,}` صفحة مفهرسة بالكامل.\n\n"
+            "اختر طريقة التصفح والاستعراض التي تناسبك عبر الأزرار الذكية أدناه:"
+        )
+        await self.send_message(client, chat_id, text, reply_markup=get_catalog_hub_inline_keyboard())
+
+    async def send_catalog_topics(self, client: httpx.AsyncClient, chat_id: int) -> None:
+        """Sends the master theological categories."""
+        cats = repo.get_catalog_categories_overview()
+        text = (
+            "📂 *فهرس الكتب حسب الموضوع والتصنيف الكنسي:*\n\n"
+            "اضغط على أي قسم لعرض قائمة كتبه بنظام الصفحات مع إمكانية التنزيل والقراءة الفورية:"
+        )
+        await self.send_message(client, chat_id, text, reply_markup=get_catalog_topics_inline_keyboard(cats))
+
+    async def send_catalog_authors(self, client: httpx.AsyncClient, chat_id: int) -> None:
+        """Sends the patristic authors list."""
+        authors = repo.get_catalog_authors_overview()
+        text = (
+            "✍️ *فهرس الكتب حسب الآباء والمؤلفين:*\n\n"
+            "اختر أحد آباء ومعلمي الكنيسة لاستعراض قائمة مؤلفاته وكتبه المسجلة بالمكتبة:"
+        )
+        await self.send_message(client, chat_id, text, reply_markup=get_catalog_authors_inline_keyboard(authors))
+
+    async def send_catalog_alphabet(self, client: httpx.AsyncClient, chat_id: int) -> None:
+        """Sends the alphabet grid."""
+        text = (
+            "🔤 *الفهرس الأبجدي لعناوين الكتب (من أ إلى ي):*\n\n"
+            "اضغط على أي حرف لعرض جميع الكتب التي تبدأ بهذا الحرف:"
+        )
+        await self.send_message(client, chat_id, text, reply_markup=get_catalog_alphabet_inline_keyboard())
+
+    async def send_catalog_encyclopedias(self, client: httpx.AsyncClient, chat_id: int) -> None:
+        """Sends major foundational encyclopedias."""
+        books = repo.get_major_encyclopedias()
+        text = (
+            "🏛️ *أمهات الكتب والموسوعات الكنسية الكبرى:*\n\n"
+            "نخبة من أمهات المراجع والموسوعات التفسيرية واللاهوتية والرهبانية الأساسية:"
+        )
+        await self.send_message(client, chat_id, text, reply_markup=get_encyclopedias_inline_keyboard(books))
+
+    async def send_catalog_random_book(self, client: httpx.AsyncClient, chat_id: int) -> None:
+        """Sends a random featured book card."""
+        book = repo.get_random_featured_book()
+        if not book:
+            await self.send_message(client, chat_id, "⚠️ تعذر جلب كتاب عشوائي حالياً.")
+            return
+
+        fname = book["file_name"].replace(".pdf", "")
+        author = book.get("author") or "آباء ومعلمو الكنيسة"
+        category = book.get("category") or "كتب كنسية"
+        pages = book.get("page_count", 0)
+        size_mb = book.get("file_size", 0) / (1024 * 1024)
+
+        text = (
+            f"🎲 *ترشيح كتاب اليوم من كنوز المكتبة:*\n\n"
+            f"📖 *عنوان الكتاب:* «{fname}»\n"
+            f"✍️ *المؤلف:* `{author}`\n"
+            f"🏷️ *القسم:* `{category}`\n"
+            f"📄 *عدد الصفحات:* `{pages}` صفحة\n"
+            f"💾 *الحجم:* `{size_mb:.1f} MB`\n\n"
+            f"👇 *اضغط على الإجراء المطلوب بنقرة واحدة:*"
+        )
+        await self.send_message(client, chat_id, text, reply_markup=get_random_book_inline_keyboard(book["sha256"]))
+
     async def handle_message(self, client: httpx.AsyncClient, message: Dict[str, Any]) -> None:
         """Main dispatcher for incoming text messages and voice notes."""
         chat_id = message.get("chat", {}).get("id")
@@ -231,6 +308,12 @@ class TelegramHandlerService:
                 "وسأبحث لك في بطون أمهات الكتب وأجيبك مع توثيق اسم المرجع ورقم الصفحة بدقة."
             )
             await self.send_message(client, chat_id, msg, reply_markup=get_back_to_main_inline_keyboard())
+            return
+
+        # 4.1 Handle Master Menu: 📑 فهرس المكتبة الشامل
+        if text in ["📑 فهرس المكتبة الشامل", "فهرس المكتبة الشامل", "فهرس المكتبة", "الفهرس", "/catalog"]:
+            _user_states.pop(user_id, None)
+            await self.send_catalog_hub(client, chat_id)
             return
 
         # 5. Handle Master Menu Section 2: 📚 البحث في المكتبة
@@ -477,6 +560,75 @@ class TelegramHandlerService:
             _user_states.pop(user_id, None)
             await self.send_welcome_dashboard(client, chat_id, user_name)
             return
+
+        # 1.1 Navigation: Library Catalog Hub & Submenus
+        if data == "menu:catalog":
+            _user_states.pop(user_id, None)
+            await self.send_catalog_hub(client, chat_id)
+            return
+
+        if data == "cat:topics":
+            await self.send_catalog_topics(client, chat_id)
+            return
+
+        if data == "cat:authors":
+            await self.send_catalog_authors(client, chat_id)
+            return
+
+        if data == "cat:alpha":
+            await self.send_catalog_alphabet(client, chat_id)
+            return
+
+        if data == "cat:encyclopedias":
+            await self.send_catalog_encyclopedias(client, chat_id)
+            return
+
+        if data == "cat:random":
+            await self.send_catalog_random_book(client, chat_id)
+            return
+
+        if data == "noop":
+            return
+
+        # 1.2 Catalog Pagination Dispatcher (cp:<type>:<id>:<page>)
+        if data.startswith("cp:"):
+            parts = data.split(":")
+            if len(parts) >= 4:
+                cat_type, cat_id, page_str = parts[1], parts[2], parts[3]
+                page = max(1, int(page_str))
+
+                if cat_type == "topic":
+                    books, total_count, total_pages, title = repo.get_books_by_catalog_category(cat_id, page=page)
+                    header = (
+                        f"📂 *قسم:* «{title}»\n"
+                        f"📊 *إجمالي الكتب المسجلة:* `{total_count}` كتاباً (صفحة {page} من {total_pages})\n\n"
+                        "👇 *اضغط على أي كتاب لفتحه وتنزيل الـ PDF أو قراءته فوراً:*"
+                    )
+                    markup = get_catalog_paginated_books_keyboard(books, page, total_pages, "topic", cat_id)
+                    await self.send_message(client, chat_id, header, reply_markup=markup)
+                    return
+
+                elif cat_type == "auth":
+                    books, total_count, total_pages, author_name = repo.get_books_by_catalog_author(cat_id, page=page)
+                    header = (
+                        f"✍️ *مؤلفات:* «{author_name}»\n"
+                        f"📊 *إجمالي الكتب المتاحة:* `{total_count}` كتاباً (صفحة {page} من {total_pages})\n\n"
+                        "👇 *اضغط على أي كتاب لفتحه وتنزيل الـ PDF أو قراءته فوراً:*"
+                    )
+                    markup = get_catalog_paginated_books_keyboard(books, page, total_pages, "auth", cat_id)
+                    await self.send_message(client, chat_id, header, reply_markup=markup)
+                    return
+
+                elif cat_type == "alpha":
+                    books, total_count, total_pages = repo.get_books_by_alphabet(cat_id, page=page)
+                    header = (
+                        f"🔤 *الكتب التي تبدأ بحرف:* [{cat_id}]\n"
+                        f"📊 *إجمالي الكتب المطابقة:* `{total_count}` كتاباً (صفحة {page} من {total_pages})\n\n"
+                        "👇 *اضغط على أي كتاب لفتحه وتنزيل الـ PDF أو قراءته فوراً:*"
+                    )
+                    markup = get_catalog_paginated_books_keyboard(books, page, total_pages, "alpha", cat_id)
+                    await self.send_message(client, chat_id, header, reply_markup=markup)
+                    return
 
         # 2. Main Menu Shortcuts
         if data == "menu:ask_ai":

@@ -299,6 +299,189 @@ class DatabaseRepository:
             "status_distribution": status_map
         }
 
+    def get_catalog_categories_overview(self) -> List[Dict[str, Any]]:
+        """Returns the 7 master ecclesiastical categories with dynamic live counts."""
+        conn = get_connection()
+        cur = conn.cursor()
+        categories = [
+            ("bible", "📖 تفاسير ودراسات العهدين", "category LIKE '%تفسير%' OR category LIKE '%كتاب مقدس%' OR category LIKE '%العهد%' OR file_name LIKE '%تفسير%'"),
+            ("monastic", "🌿 رهبنة وسلوك وحياة روحية", "category LIKE '%روحية%' OR category LIKE '%رهبنة%' OR category LIKE '%الحياة الروحية%' OR file_name LIKE '%بستان%'"),
+            ("history", "🏛️ تاريخ كنسي وسير القديسين", "category LIKE '%تاريخ%' OR category LIKE '%سير%' OR file_name LIKE '%تاريخ الكنيسة%' OR file_name LIKE '%سنكسار%'"),
+            ("theology", "⛪ لاهوت وعقيدة ودفاعيات", "category LIKE '%عقيدة%' OR category LIKE '%لاهوت%' OR category LIKE '%المجامع%' OR file_name LIKE '%عقيدة%' OR file_name LIKE '%لاهوت%'"),
+            ("patristics", "📜 آبائيات ودراسات قبطية", "category LIKE '%آباء%' OR category LIKE '%الاباء%' OR category LIKE '%أقوال%' OR file_name LIKE '%القديس%' OR file_name LIKE '%آباء%'"),
+            ("liturgy", "🕯️ طقوس وألحان ولتورجيا", "category LIKE '%طقس%' OR category LIKE '%ألحان%' OR category LIKE '%القداس%' OR category LIKE '%القطمارس%' OR category LIKE '%الأجبية%' OR file_name LIKE '%طقس%'"),
+            ("servants", "👥 خدمة وأسرة وتربية وشباب", "category LIKE '%خادم%' OR category LIKE '%تربية%' OR category LIKE '%أسرة%' OR category LIKE '%شباب%'")
+        ]
+        result = []
+        for code, title, cond in categories:
+            cur.execute(f"SELECT COUNT(*) FROM church_books WHERE ({cond}) AND is_duplicate_of IS NULL")
+            cnt = cur.fetchone()[0]
+            result.append({"code": code, "title": title, "count": cnt})
+        conn.close()
+        return result
+
+    def get_books_by_catalog_category(self, code: str, page: int = 1, page_size: int = 6) -> Tuple[List[Dict[str, Any]], int, int, str]:
+        """Fetches books for a specific master category with pagination."""
+        categories_map = {
+            "bible": ("📖 تفاسير ودراسات العهدين", "category LIKE '%تفسير%' OR category LIKE '%كتاب مقدس%' OR category LIKE '%العهد%' OR file_name LIKE '%تفسير%'"),
+            "monastic": ("🌿 رهبنة وسلوك وحياة روحية", "category LIKE '%روحية%' OR category LIKE '%رهبنة%' OR category LIKE '%الحياة الروحية%' OR file_name LIKE '%بستان%'"),
+            "history": ("🏛️ تاريخ كنسي وسير القديسين", "category LIKE '%تاريخ%' OR category LIKE '%سير%' OR file_name LIKE '%تاريخ الكنيسة%' OR file_name LIKE '%سنكسار%'"),
+            "theology": ("⛪ لاهوت وعقيدة ودفاعيات", "category LIKE '%عقيدة%' OR category LIKE '%لاهوت%' OR category LIKE '%المجامع%' OR file_name LIKE '%عقيدة%' OR file_name LIKE '%لاهوت%'"),
+            "patristics": ("📜 آبائيات ودراسات قبطية", "category LIKE '%آباء%' OR category LIKE '%الاباء%' OR category LIKE '%أقوال%' OR file_name LIKE '%القديس%' OR file_name LIKE '%آباء%'"),
+            "liturgy": ("🕯️ طقوس وألحان ولتورجيا", "category LIKE '%طقس%' OR category LIKE '%ألحان%' OR category LIKE '%القداس%' OR category LIKE '%القطمارس%' OR category LIKE '%الأجبية%' OR file_name LIKE '%طقس%'"),
+            "servants": ("👥 خدمة وأسرة وتربية وشباب", "category LIKE '%خادم%' OR category LIKE '%تربية%' OR category LIKE '%أسرة%' OR category LIKE '%شباب%'")
+        }
+        title, cond = categories_map.get(code, categories_map["theology"])
+
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute(f"SELECT COUNT(*) FROM church_books WHERE ({cond}) AND is_duplicate_of IS NULL")
+        total_count = cur.fetchone()[0]
+        total_pages = max(1, (total_count + page_size - 1) // page_size)
+        curr_page = max(1, min(page, total_pages))
+        offset = (curr_page - 1) * page_size
+
+        cur.execute(f"""
+            SELECT sha256, file_name, author, category, page_count, file_size
+            FROM church_books
+            WHERE ({cond}) AND is_duplicate_of IS NULL
+            ORDER BY page_count DESC, id ASC
+            LIMIT ? OFFSET ?
+        """, (page_size, offset))
+        rows = [dict(r) for r in cur.fetchall()]
+        conn.close()
+        return rows, total_count, total_pages, title
+
+    def get_catalog_authors_overview(self) -> List[Dict[str, Any]]:
+        """Returns the top patristic authors with live book counts."""
+        authors_config = [
+            ("tadros", "القمص تادرس يعقوب", "%تادرس يعقوب%"),
+            ("matta", "الأب متى المسكين", "%متى المسكين%"),
+            ("shenouda", "قداسة البابا شنودة الثالث", "%شنودة%"),
+            ("gregory", "الأنبا غريغوريوس", "%غريغوريوس%"),
+            ("macarius", "القديس مقاريوس الكبير", "%مقاريوس%"),
+            ("cyril", "القديس كيرلس الكبير", "%كيرلس%"),
+            ("makarios_minia", "الأنبا مكاريوس أسقف المنيا", "%مكاريوس%"),
+            ("athanasius", "القديس أثناسيوس الرسولي", "%أثناسيوس%"),
+            ("antony", "القديس الأنبا أنطونيوس", "%أنطونيوس%"),
+            ("chrysostom", "القديس يوحنا ذهبي الفم", "%ذهبي الفم%")
+        ]
+        conn = get_connection()
+        cur = conn.cursor()
+        result = []
+        for code, name, pattern in authors_config:
+            cur.execute("""
+                SELECT COUNT(*) FROM church_books 
+                WHERE (file_name LIKE ? OR author LIKE ? OR category LIKE ?) AND is_duplicate_of IS NULL
+            """, (pattern, pattern, pattern))
+            cnt = cur.fetchone()[0]
+            result.append({"code": code, "name": name, "count": cnt})
+        conn.close()
+        return result
+
+    def get_books_by_catalog_author(self, code: str, page: int = 1, page_size: int = 6) -> Tuple[List[Dict[str, Any]], int, int, str]:
+        """Fetches books for a specific author with pagination."""
+        authors_map = {
+            "tadros": ("القمص تادرس يعقوب ملطي", "%تادرس يعقوب%"),
+            "matta": ("الأب متى المسكين", "%متى المسكين%"),
+            "shenouda": ("قداسة البابا شنودة الثالث", "%شنودة%"),
+            "gregory": ("الأنبا غريغوريوس أسقف البحث العلمي", "%غريغوريوس%"),
+            "macarius": ("القديس مقاريوس الكبير", "%مقاريوس%"),
+            "cyril": ("القديس كيرلس الكبير", "%كيرلس%"),
+            "makarios_minia": ("الأنبا مكاريوس أسقف المنيا", "%مكاريوس%"),
+            "athanasius": ("القديس أثناسيوس الرسولي", "%أثناسيوس%"),
+            "antony": ("القديس الأنبا أنطونيوس", "%أنطونيوس%"),
+            "chrysostom": ("القديس يوحنا ذهبي الفم", "%ذهبي الفم%")
+        }
+        author_name, pattern = authors_map.get(code, ("آباء الكنيسة", "%أنطونيوس%"))
+
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT COUNT(*) FROM church_books 
+            WHERE (file_name LIKE ? OR author LIKE ? OR category LIKE ?) AND is_duplicate_of IS NULL
+        """, (pattern, pattern, pattern))
+        total_count = cur.fetchone()[0]
+        total_pages = max(1, (total_count + page_size - 1) // page_size)
+        curr_page = max(1, min(page, total_pages))
+        offset = (curr_page - 1) * page_size
+
+        cur.execute("""
+            SELECT sha256, file_name, author, category, page_count, file_size
+            FROM church_books
+            WHERE (file_name LIKE ? OR author LIKE ? OR category LIKE ?) AND is_duplicate_of IS NULL
+            ORDER BY page_count DESC, id ASC
+            LIMIT ? OFFSET ?
+        """, (pattern, pattern, pattern, page_size, offset))
+        rows = [dict(r) for r in cur.fetchall()]
+        conn.close()
+        return rows, total_count, total_pages, author_name
+
+    def get_books_by_alphabet(self, char: str, page: int = 1, page_size: int = 6) -> Tuple[List[Dict[str, Any]], int, int]:
+        """Fetches books starting with letter with pagination."""
+        conn = get_connection()
+        cur = conn.cursor()
+        if char == "ا":
+            cond = "file_name LIKE 'ا%' OR file_name LIKE 'أ%' OR file_name LIKE 'إ%'"
+            params = ()
+        else:
+            cond = "file_name LIKE ? OR file_name LIKE ?"
+            params = (f"{char}%", f"ال{char}%")
+
+        cur.execute(f"SELECT COUNT(*) FROM church_books WHERE ({cond}) AND is_duplicate_of IS NULL", params)
+        total_count = cur.fetchone()[0]
+        total_pages = max(1, (total_count + page_size - 1) // page_size)
+        curr_page = max(1, min(page, total_pages))
+        offset = (curr_page - 1) * page_size
+
+        cur.execute(f"""
+            SELECT sha256, file_name, author, category, page_count, file_size
+            FROM church_books
+            WHERE ({cond}) AND is_duplicate_of IS NULL
+            ORDER BY file_name ASC
+            LIMIT ? OFFSET ?
+        """, (*params, page_size, offset))
+        rows = [dict(r) for r in cur.fetchall()]
+        conn.close()
+        return rows, total_count, total_pages
+
+    def get_random_featured_book(self) -> Optional[Dict[str, Any]]:
+        """Picks a random high-quality book for the discovery feature."""
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT sha256, file_name, author, category, page_count, file_size
+            FROM church_books
+            WHERE is_duplicate_of IS NULL AND page_count > 15
+            ORDER BY RANDOM()
+            LIMIT 1
+        """)
+        row = cur.fetchone()
+        conn.close()
+        return dict(row) if row else None
+
+    def get_major_encyclopedias(self) -> List[Dict[str, Any]]:
+        """Returns top classical encyclopedias and foundational church books."""
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT sha256, file_name, author, category, page_count, file_size
+            FROM church_books
+            WHERE (
+                file_name LIKE '%موسوعة%' OR 
+                file_name LIKE '%التفسير التطبيقي%' OR
+                file_name LIKE '%بستان الرهبان%' OR
+                file_name LIKE '%مشتهى الأجيال%' OR
+                file_name LIKE '%تجسد الكلمة%' OR
+                file_name LIKE '%تاريخ الكنيسة القبطية%'
+            ) AND is_duplicate_of IS NULL
+            ORDER BY page_count DESC
+            LIMIT 8
+        """)
+        rows = [dict(r) for r in cur.fetchall()]
+        conn.close()
+        return rows
+
 
 # Singleton repository instance
 repo = DatabaseRepository()
