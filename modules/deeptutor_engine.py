@@ -93,8 +93,10 @@ class DeepTutorWorker(QObject):
             cur = conn.cursor()
             words = [w for w in re.sub(r'[^\w\s]', '', topic).split() if len(w) > 2]
             if words:
+                cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='church_books'")
+                tbl = "church_books" if cur.fetchone() else "files"
                 clause = " OR ".join(["file_name LIKE ?" for _ in words[:3]])
-                cur.execute(f"SELECT file_name FROM files WHERE {clause} LIMIT 4", [f"%{w}%" for w in words[:3]])
+                cur.execute(f"SELECT file_name FROM {tbl} WHERE {clause} LIMIT 4", [f"%{w}%" for w in words[:3]])
                 rows = cur.fetchall()
                 if rows:
                     book_names = [r[0] for r in rows]

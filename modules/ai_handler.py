@@ -139,7 +139,11 @@ def call_church_offline_knowledge_fallback(prompt: str) -> str:
         conn = database_handler.get_db_connection()
         cur = conn.cursor()
         if words:
-            query = "SELECT file_name, file_path, category FROM files WHERE " + " OR ".join(["file_name LIKE ?" for _ in words[:4]]) + " LIMIT 5"
+            cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='church_books'")
+            if cur.fetchone():
+                query = "SELECT file_name, original_path, category FROM church_books WHERE " + " OR ".join(["file_name LIKE ?" for _ in words[:4]]) + " LIMIT 5"
+            else:
+                query = "SELECT file_name, file_path, category FROM files WHERE " + " OR ".join(["file_name LIKE ?" for _ in words[:4]]) + " LIMIT 5"
             params = [f"%{w}%" for w in words[:4]]
             cur.execute(query, params)
             matched_books = cur.fetchall()

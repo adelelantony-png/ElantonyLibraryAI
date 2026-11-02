@@ -135,8 +135,13 @@ def analyze_library(library_root=None, project_id=1):
         try:
             con = sqlite3.connect(DB_NAME, timeout=5)
             cur = con.cursor()
-            cur.execute("SELECT file_name, category FROM files WHERE root_folder_id = ?", (project_id,))
-            rows = cur.fetchall()
+            cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='church_books'")
+            if cur.fetchone():
+                cur.execute("SELECT file_name, category FROM church_books")
+                rows = cur.fetchall()
+            else:
+                cur.execute("SELECT file_name, category FROM files WHERE root_folder_id = ?", (project_id,))
+                rows = cur.fetchall()
             results["total_files"] = len(rows)
             for fname, cat in rows:
                 file_names.append(fname.lower())

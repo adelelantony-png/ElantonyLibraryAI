@@ -39,18 +39,30 @@ def get_live_system_metrics() -> dict:
         try:
             conn = sqlite3.connect(str(DB_PATH))
             cur = conn.cursor()
-            cur.execute("SELECT COUNT(*), SUM(size) FROM files")
-            row = cur.fetchone()
-            if row:
-                metrics["total_files"] = row[0] or 0
-                metrics["total_size_gb"] = round((row[1] or 0) / (1024**3), 2)
-
-            cur.execute("SELECT COUNT(*) FROM files WHERE content IS NOT NULL AND length(content) > 50")
-            row_c = cur.fetchone()
-            if row_c:
-                metrics["indexed_content_count"] = row_c[0]
-
-            cur.execute("SELECT COUNT(DISTINCT category) FROM files")
+            cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='church_books'")
+            has_church = cur.fetchone() is not None
+            if has_church:
+                cur.execute("SELECT COUNT(*), SUM(file_size) FROM church_books")
+                row = cur.fetchone()
+                if row:
+                    metrics["total_files"] = row[0] or 0
+                    metrics["total_size_gb"] = round((row[1] or 0) / (1024**3), 2)
+                cur.execute("SELECT COUNT(*) FROM church_chunks_fts")
+                row_c = cur.fetchone()
+                if row_c:
+                    metrics["indexed_content_count"] = row_c[0]
+                cur.execute("SELECT COUNT(DISTINCT category) FROM church_books")
+            else:
+                cur.execute("SELECT COUNT(*), SUM(size) FROM files")
+                row = cur.fetchone()
+                if row:
+                    metrics["total_files"] = row[0] or 0
+                    metrics["total_size_gb"] = round((row[1] or 0) / (1024**3), 2)
+                cur.execute("SELECT COUNT(*) FROM files WHERE content IS NOT NULL AND length(content) > 50")
+                row_c = cur.fetchone()
+                if row_c:
+                    metrics["indexed_content_count"] = row_c[0]
+                cur.execute("SELECT COUNT(DISTINCT category) FROM files")
             row_cat = cur.fetchone()
             if row_cat:
                 metrics["categories_count"] = row_cat[0]
