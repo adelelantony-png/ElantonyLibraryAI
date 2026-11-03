@@ -71,3 +71,23 @@ class UserBookmarkEntity(BaseModel):
     source_reference: str
     excerpt: str
     created_at: Optional[datetime] = None
+
+
+class ChatMessageEntity(BaseModel):
+    """A message in a multi-turn conversational research discussion."""
+    id: Optional[int] = None
+    session_id: str
+    role: str  # "user" or "assistant"
+    content: str
+    citations: List[dict] = Field(default_factory=list)
+    created_at: Optional[datetime] = None
+
+
+class ChatSessionEntity(BaseModel):
+    """A persistent multi-turn theological research discussion / session."""
+    session_id: str
+    user_id: str = "web"
+    title: str = "بحث لاهوتي جديد"
+    message_count: int = 0
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None

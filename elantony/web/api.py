@@ -10,7 +10,7 @@ import asyncio
 from typing import Dict, Any, Optional, List
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Query, HTTPException
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -53,7 +53,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="ELANTONY LIBRARY AI",
     description="Ecclesiastical Smart Library & Conversational Research Assistant",
-    version="2.5.0",
+    version="2.6.0",
     lifespan=lifespan
 )
 
@@ -78,7 +78,13 @@ class ChatMessage(BaseModel):
 
 class ChatRequest(BaseModel):
     messages: List[ChatMessage]
-    session_id: Optional[str] = "default"
+    session_id: Optional[str] = None
+    user_id: Optional[str] = "web"
+
+
+class CreateSessionRequest(BaseModel):
+    title: Optional[str] = "بحث لاهوتي جديد"
+    user_id: Optional[str] = "web"
 
 
 WEB_PORTAL_HTML = """<!DOCTYPE html>
@@ -208,6 +214,140 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             50% { opacity: 0.4; transform: scale(1.2); }
             100% { opacity: 1; transform: scale(1); }
         }
+
+        .nav-actions { display: flex; align-items: center; gap: 10px; }
+        .btn-nav {
+            padding: 6px 14px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 13px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: 0.2s;
+            border: 1px solid transparent;
+            text-decoration: none;
+        }
+        .btn-compile { background: rgba(245, 158, 11, 0.15); border-color: var(--gold); color: #FBBF24; }
+        .btn-compile:hover { background: var(--gold); color: #000; }
+        .btn-export-nav { background: rgba(59, 130, 246, 0.15); border-color: var(--accent); color: #60A5FA; }
+        .btn-export-nav:hover { background: var(--accent); color: #FFF; }
+
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.78);
+            backdrop-filter: blur(6px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 20px;
+        }
+        .modal-overlay.open { display: flex; }
+        .modal-card {
+            background: #0F172A;
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            width: 100%;
+            max-width: 960px;
+            max-height: 88vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.6);
+            overflow: hidden;
+        }
+        .modal-header {
+            padding: 16px 22px;
+            border-bottom: 1px solid var(--card-border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #131D31;
+        }
+        .modal-title {
+            font-weight: 800;
+            font-size: 16px;
+            color: var(--gold);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .modal-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-modal-act {
+            background: rgba(59, 130, 246, 0.15);
+            border: 1px solid var(--accent);
+            color: #93C5FD;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .btn-modal-act:hover { background: var(--accent); color: #FFF; }
+        .btn-modal-close {
+            background: none;
+            border: none;
+            color: var(--text-sub);
+            font-size: 20px;
+            cursor: pointer;
+            padding: 4px 8px;
+        }
+        .btn-modal-close:hover { color: #EF4444; }
+        .modal-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 26px 30px;
+            color: var(--text-main);
+            font-size: 15px;
+            line-height: 1.85;
+        }
+        .modal-body h1, .modal-body h2, .modal-body h3 { color: #60A5FA; margin: 16px 0 8px 0; }
+        .modal-body strong { color: var(--gold); }
+        .modal-body blockquote { border-right: 4px solid var(--gold); padding-right: 14px; margin: 12px 0; color: #CBD5E1; font-style: italic; background: rgba(255,255,255,0.02); padding: 8px 14px; border-radius: 4px; }
+
+        .chat-history-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 9px 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            color: var(--text-sub);
+            cursor: pointer;
+            margin-bottom: 4px;
+            transition: 0.2s;
+        }
+        .chat-history-item:hover, .chat-history-item.active {
+            background: rgba(255,255,255,0.08);
+            color: #FFF;
+        }
+        .chat-item-text {
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .btn-del-chat {
+            opacity: 0;
+            color: #EF4444;
+            background: none;
+            border: none;
+            font-size: 13px;
+            cursor: pointer;
+            padding: 2px 6px;
+            border-radius: 4px;
+            transition: 0.2s;
+        }
+        .chat-history-item:hover .btn-del-chat { opacity: 0.7; }
+        .btn-del-chat:hover { opacity: 1; background: rgba(239,68,68,0.2); }
 
         /* Messages Window */
         .messages-area {
@@ -464,9 +604,17 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             <div class="nav-title">
                 <span>✠</span> رفيق وباحث مكتبة القديس أنطونيوس
             </div>
-            <div class="live-badge">
-                <div class="live-dot"></div>
-                متصل بالمكتبة الدائمة
+            <div class="nav-actions">
+                <button class="btn-nav btn-compile" onclick="openCompilationModal()" title="تجميع البحث الحالي سؤال وتحته الإجابات مع الفهرس والمراجع">
+                    <span>📑</span> تجميع البحث (سؤال وتحته الإجابات)
+                </button>
+                <button class="btn-nav btn-export-nav" onclick="downloadCurrentExport('markdown')" title="تصدير كملف Markdown">
+                    <span>📥</span> تصدير (.md)
+                </button>
+                <div class="live-badge">
+                    <div class="live-dot"></div>
+                    متصل بالمكتبة
+                </div>
             </div>
         </div>
 
@@ -521,13 +669,39 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
         </div>
     </main>
 
+    <!-- Modal for Compiled Monograph -->
+    <div class="modal-overlay" id="compileModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <div class="modal-title">
+                    <span>✠</span> أطروحة البحث اللاهوتية المجمعة (سؤال وتحته الإجابات)
+                </div>
+                <div class="modal-actions">
+                    <button class="btn-modal-act" onclick="copyCompilationText()">📋 نسخ النص</button>
+                    <button class="btn-modal-act" onclick="downloadCurrentExport('markdown')">📥 تنزيل (.md)</button>
+                    <button class="btn-modal-act" onclick="downloadCurrentExport('text')">📄 تنزيل (.txt)</button>
+                    <button class="btn-modal-act" onclick="window.print()">🖨️ طباعة</button>
+                    <button class="btn-modal-close" onclick="closeCompilationModal()">✕</button>
+                </div>
+            </div>
+            <div class="modal-body" id="compileModalBody">
+                <div style="text-align: center; padding: 40px; color: #94A3B8;">جاري تجميع البحث وتوثيق المراجع...</div>
+            </div>
+        </div>
+    </div>
+
     <script>
         let chatMessages = [];
+        let currentSessionId = null;
+        let rawCompiledMarkdown = "";
+
         const messagesContainer = document.getElementById('messagesContainer');
         const heroScreen = document.getElementById('heroScreen');
         const chatInput = document.getElementById('chatInput');
         const btnSend = document.getElementById('btnSend');
         const messagesArea = document.getElementById('messagesArea');
+        const compileModal = document.getElementById('compileModal');
+        const compileModalBody = document.getElementById('compileModalBody');
 
         function autoResize(textarea) {
             textarea.style.height = 'auto';
@@ -541,13 +715,118 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             }
         }
 
-        function startNewChat() {
-            chatMessages = [];
-            messagesContainer.innerHTML = '';
-            messagesContainer.appendChild(heroScreen);
-            heroScreen.style.display = 'block';
-            chatInput.value = '';
-            chatInput.focus();
+        async function loadSessions() {
+            try {
+                const res = await fetch('/api/sessions?user_id=web');
+                if (!res.ok) return;
+                const data = await res.json();
+                const list = document.getElementById('chatHistoryList');
+                if (!list) return;
+                list.innerHTML = '';
+                const sessions = data.sessions || [];
+
+                if (sessions.length === 0) {
+                    await startNewChat();
+                    return;
+                }
+
+                sessions.forEach(s => {
+                    const item = document.createElement('div');
+                    item.className = 'chat-history-item' + (s.id === currentSessionId ? ' active' : '');
+                    item.id = 'sess_' + s.id;
+                    
+                    const textSpan = document.createElement('span');
+                    textSpan.className = 'chat-item-text';
+                    textSpan.textContent = '💬 ' + (s.title || 'بحث لاهوتي');
+                    textSpan.onclick = () => selectSession(s.id);
+
+                    const delBtn = document.createElement('button');
+                    delBtn.className = 'btn-del-chat';
+                    delBtn.title = 'حذف المناقشة';
+                    delBtn.textContent = '✕';
+                    delBtn.onclick = (e) => deleteSession(e, s.id);
+
+                    item.appendChild(textSpan);
+                    item.appendChild(delBtn);
+                    list.appendChild(item);
+                });
+
+                if (!currentSessionId && sessions.length > 0) {
+                    await selectSession(sessions[0].id);
+                }
+            } catch (err) {
+                console.error("Error loading sessions:", err);
+            }
+        }
+
+        async function selectSession(sessionId) {
+            currentSessionId = sessionId;
+            document.querySelectorAll('.chat-history-item').forEach(el => el.classList.remove('active'));
+            const activeEl = document.getElementById('sess_' + sessionId);
+            if (activeEl) activeEl.classList.add('active');
+
+            try {
+                const res = await fetch('/api/sessions/' + sessionId);
+                if (!res.ok) return;
+                const data = await res.json();
+                const messages = data.messages || [];
+
+                chatMessages = [];
+                messagesContainer.innerHTML = '';
+
+                if (messages.length === 0) {
+                    messagesContainer.appendChild(heroScreen);
+                    heroScreen.style.display = 'block';
+                } else {
+                    if (heroScreen) heroScreen.style.display = 'none';
+                    messages.forEach(m => {
+                        chatMessages.push({ role: m.role, content: m.content });
+                        appendMessageBubble(m.role, m.content, m.citations || []);
+                    });
+                }
+                scrollToBottom();
+            } catch (err) {
+                console.error("Error selecting session:", err);
+            }
+        }
+
+        async function startNewChat() {
+            try {
+                const res = await fetch('/api/sessions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title: 'بحث لاهوتي جديد', user_id: 'web' })
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    currentSessionId = data.session_id;
+                    chatMessages = [];
+                    messagesContainer.innerHTML = '';
+                    messagesContainer.appendChild(heroScreen);
+                    heroScreen.style.display = 'block';
+                    chatInput.value = '';
+                    chatInput.focus();
+                    await loadSessions();
+                }
+            } catch (err) {
+                console.error("Error creating session:", err);
+            }
+        }
+
+        async function deleteSession(e, sessionId) {
+            e.stopPropagation();
+            if (!confirm("هل تريد بالتأكيد حذف هذه المناقشة البحثية وسجلها؟")) return;
+            try {
+                const res = await fetch('/api/sessions/' + sessionId, { method: 'DELETE' });
+                if (res.ok) {
+                    if (currentSessionId === sessionId) {
+                        currentSessionId = null;
+                    }
+                    await loadSessions();
+                }
+            } catch (err) {
+                console.error("Error deleting session:", err);
+            }
         }
 
         function sendPrompt(text) {
@@ -561,14 +840,12 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
 
             if (heroScreen) heroScreen.style.display = 'none';
 
-            // 1. Append User Message
             chatMessages.push({ role: 'user', content: text });
             appendMessageBubble('user', text);
             chatInput.value = '';
             chatInput.style.height = 'auto';
             btnSend.disabled = true;
 
-            // 2. Append Typing Indicator
             const loadingId = appendLoadingBubble();
             scrollToBottom();
 
@@ -576,7 +853,11 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                 const response = await fetch('/api/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ messages: chatMessages })
+                    body: JSON.stringify({
+                        messages: chatMessages,
+                        session_id: currentSessionId,
+                        user_id: 'web'
+                    })
                 });
 
                 removeLoadingBubble(loadingId);
@@ -588,10 +869,13 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                 const data = await response.json();
                 const aiResponse = data.response;
                 const citations = data.citations || [];
+                if (data.session_id) currentSessionId = data.session_id;
 
                 chatMessages.push({ role: 'assistant', content: aiResponse });
                 appendMessageBubble('assistant', aiResponse, citations);
-                saveSessionHistory(text);
+                
+                // Refresh sessions silently to reflect updated title
+                loadSessions();
 
             } catch (err) {
                 removeLoadingBubble(loadingId);
@@ -624,7 +908,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
 
             contentDiv.appendChild(bubble);
 
-            // Append Citations section if available
+            // Citations Box
             if (citations && citations.length > 0) {
                 const citeSection = document.createElement('div');
                 citeSection.className = 'citations-section';
@@ -693,36 +977,46 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             messagesArea.scrollTop = messagesArea.scrollHeight;
         }
 
-        function saveSessionHistory(firstQuery) {
+        async function openCompilationModal() {
+            if (!currentSessionId) {
+                alert("لا توجد محادثة نشطة لتجميعها حالياً.");
+                return;
+            }
+            compileModal.classList.add('open');
+            compileModalBody.innerHTML = '<div style="text-align: center; padding: 40px; color: #94A3B8;"><div class="typing-dots"><span></span><span></span><span></span></div><br>جاري تجميع البحث واستخراج الفهرس وتوثيق المراجع...</div>';
+
             try {
-                let history = JSON.parse(localStorage.getItem('elantony_chat_sessions') || '[]');
-                if (!history.includes(firstQuery)) {
-                    history.unshift(firstQuery);
-                    if (history.length > 20) history.pop();
-                    localStorage.setItem('elantony_chat_sessions', JSON.stringify(history));
-                    renderHistory();
-                }
-            } catch (e) {}
+                const res = await fetch('/api/sessions/' + currentSessionId + '/compile', { method: 'POST' });
+                if (!res.ok) throw new Error('فشل تجميع البحث');
+                const data = await res.json();
+                rawCompiledMarkdown = data.markdown;
+                compileModalBody.innerHTML = marked.parse(data.markdown);
+            } catch (err) {
+                compileModalBody.innerHTML = '<div style="color: #EF4444; padding: 20px;">⚠️ تعذر تجميع البحث: ' + err.message + '</div>';
+            }
         }
 
-        function renderHistory() {
-            const list = document.getElementById('chatHistoryList');
-            if (!list) return;
-            try {
-                const history = JSON.parse(localStorage.getItem('elantony_chat_sessions') || '[]');
-                list.innerHTML = '';
-                history.forEach(item => {
-                    const div = document.createElement('div');
-                    div.className = 'chat-history-item';
-                    div.textContent = '💬 ' + item;
-                    div.onclick = () => sendPrompt(item);
-                    list.appendChild(div);
-                });
-            } catch (e) {}
+        function closeCompilationModal() {
+            compileModal.classList.remove('open');
+        }
+
+        function copyCompilationText() {
+            if (!rawCompiledMarkdown) return;
+            navigator.clipboard.writeText(rawCompiledMarkdown).then(() => {
+                alert("تم نسخ الأطروحة البحثية بالكامل إلى الحافظة!");
+            });
+        }
+
+        function downloadCurrentExport(fmt) {
+            if (!currentSessionId) {
+                alert("يرجى اختيار محادثة بحثية أولاً للتصدير.");
+                return;
+            }
+            window.open('/api/sessions/' + currentSessionId + '/export?format=' + fmt, '_blank');
         }
 
         window.onload = () => {
-            renderHistory();
+            loadSessions();
             chatInput.focus();
         };
     </script>
@@ -799,11 +1093,72 @@ async def api_ask(req: AskRequest):
     }
 
 
+@app.get("/api/sessions")
+async def list_sessions(user_id: str = "web", limit: int = 50):
+    """Lists persistent discussion sessions for user."""
+    sessions = repo.list_user_sessions(user_id=user_id, limit=limit)
+    return {"sessions": sessions}
+
+
+@app.post("/api/sessions")
+async def create_new_session(req: Optional[CreateSessionRequest] = None):
+    """Creates a new discussion thread."""
+    title = req.title if req and req.title else "بحث لاهوتي جديد"
+    user_id = req.user_id if req and req.user_id else "web"
+    s_id = repo.create_session(user_id=user_id, title=title)
+    return {"session_id": s_id, "title": title}
+
+
+@app.get("/api/sessions/{session_id}")
+async def get_session_details(session_id: str):
+    """Retrieves session metadata and full message history."""
+    session = repo.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="الجلسة غير موجودة")
+    messages = repo.get_session_messages(session_id)
+    return {"session": session, "messages": messages}
+
+
+@app.delete("/api/sessions/{session_id}")
+async def delete_discussion_session(session_id: str):
+    """Deletes discussion session and all its messages."""
+    ok = repo.delete_session(session_id)
+    return {"success": ok}
+
+
+@app.post("/api/sessions/{session_id}/compile")
+async def compile_discussion_session(session_id: str):
+    """Compiles the entire discussion session into a unified research monograph."""
+    res = repo.compile_session(session_id)
+    if "error" in res:
+        raise HTTPException(status_code=404, detail=res["error"])
+    return res
+
+
+@app.get("/api/sessions/{session_id}/export")
+async def export_discussion_session(session_id: str, format: str = "markdown"):
+    """Exports compiled research monograph as a downloadable file."""
+    res = repo.compile_session(session_id)
+    if "error" in res:
+        raise HTTPException(status_code=404, detail=res["error"])
+
+    content = res["markdown"] if format == "markdown" else res["plain_text"]
+    filename = f"research_{session_id}.md" if format == "markdown" else f"research_{session_id}.txt"
+    media_type = "text/markdown; charset=utf-8" if format == "markdown" else "text/plain; charset=utf-8"
+
+    return Response(
+        content=content.encode("utf-8"),
+        media_type=media_type,
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{filename}"}
+    )
+
+
 @app.post("/api/chat")
 async def api_chat(req: ChatRequest):
     """
     Multi-turn Conversational AI Endpoint.
     Maintains dialogue history while anchoring answers strictly in library citations.
+    Saves conversation to persistent database session.
     """
     if not req.messages:
         raise HTTPException(status_code=400, detail="قائمة الرسائل فارغة")
@@ -812,8 +1167,14 @@ async def api_chat(req: ChatRequest):
     if not latest_msg:
         raise HTTPException(status_code=400, detail="الاستفسار فارغ")
 
+    user_id = req.user_id or "web"
+    session_id = req.session_id
+    if not session_id or session_id == "default":
+        session_info = repo.get_or_create_active_session(user_id)
+        session_id = session_info["id"]
+
     # 1. Retrieve library context
-    chunks = search_engine.search_fts5(latest_msg, limit=5)
+    chunks = search_engine.search_fts5(latest_msg, limit=6)
     ai_provider = get_ai_provider()
 
     # 2. Conversational reasoning with past dialogue turns
@@ -838,9 +1199,23 @@ async def api_chat(req: ChatRequest):
             "excerpt": c.chunk_text[:300]
         })
 
+    # 4. Save to persistent discussion session
+    try:
+        repo.add_chat_message(session_id, "user", latest_msg)
+        repo.add_chat_message(session_id, "assistant", answer, citations)
+
+        # Update session title if default
+        sess = repo.get_session(session_id)
+        if sess and sess.get("title") in ["بحث لاهوتي جديد", "محادثة جديدة"]:
+            clean_title = latest_msg.split("\n")[0][:45]
+            repo.update_session_title(session_id, clean_title)
+    except Exception as save_err:
+        logger.warning(f"Error saving chat message to session {session_id}: {save_err}")
+
     return {
         "response": answer,
-        "citations": citations
+        "citations": citations,
+        "session_id": session_id
     }
 
 

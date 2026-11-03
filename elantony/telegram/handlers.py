@@ -193,6 +193,65 @@ class TelegramHandlerService:
         except Exception:
             pass
 
+    async def compile_and_send_session(
+        self,
+        client: httpx.AsyncClient,
+        chat_id: int,
+        user_id: int,
+        target_session_id: Optional[str] = None
+    ) -> None:
+        """Compiles active or target discussion session into a unified monograph and sends in chat and as a file."""
+        if target_session_id:
+            s_id = target_session_id
+        else:
+            active_sess = repo.get_or_create_active_session(str(user_id))
+            s_id = active_sess["id"]
+
+        comp = repo.compile_session(s_id)
+        if comp.get("turns_count", 0) == 0:
+            await self.send_message(
+                client, chat_id,
+                "⚠️ *لم تسجل أي أسئلة أو إجابات في جلستك الحالية بعد.*\n\n"
+                "تفضل بطرح أي سؤال وسأجيبك وأحفظ كل الأسئلة في الذاكرة لتجميعها بنقرة واحدة!",
+                reply_markup=get_back_to_main_inline_keyboard()
+            )
+            return
+
+        await self.send_message(
+            client, chat_id,
+            f"⏳ *جاري تجميع أطروحة البحث اللاهوتية:* «{comp.get('title', '')}»\n"
+            f"📊 تم إحصاء `{comp.get('turns_count', 0)}` محاور وأسئلة فرعية..."
+        )
+
+        # 1. Send monograph in chat
+        await self.send_long_message(client, chat_id, comp["plain_text"])
+
+        # 2. Generate clean research document file (.txt) and send it directly
+        doc_dir = settings.base_dir / "data" / "compiled_researches"
+        doc_dir.mkdir(parents=True, exist_ok=True)
+        doc_path = doc_dir / f"research_{s_id}.txt"
+        try:
+            with open(doc_path, "w", encoding="utf-8") as f:
+                f.write(comp["plain_text"])
+
+            caption = f"📄 أطروحة بحثية لاهوتية مجمعة: «{comp.get('title', '')}»\nالمصدر: منظومة مكتبة القديس أنطونيوس AI"
+            await self.send_document(client, chat_id, str(doc_path), caption=caption)
+        except Exception as e:
+            logger.warning(f"Could not send compiled research file: {e}")
+
+        # 3. Action buttons
+        kb = [
+            [
+                {"text": "🔄 بدء بحث جديد", "callback_data": "session:new"},
+                {"text": "🔙 القائمة الرئيسية", "callback_data": "nav:main"}
+            ]
+        ]
+        await self.send_message(
+            client, chat_id,
+            "💡 *تم حفظ وتجميع بحثك بنجاح! يمكنك بدء بحث جديد أو العودة للقائمة الرئيسية:*",
+            reply_markup={"inline_keyboard": kb}
+        )
+
     async def send_welcome_dashboard(self, client: httpx.AsyncClient, chat_id: int, user_name: str) -> None:
         """Sends the master dashboard with persistent keyboard AND rich inline buttons."""
         stats = repo.get_library_stats()
@@ -489,6 +548,62 @@ class TelegramHandlerService:
             await self.send_welcome_dashboard(client, chat_id, user_name)
             return
 
+        # 3.1 Handle Multi-turn Research Compilation Command
+        if text in [
+            "/compile", "📑 تجميع البحث", "تجميع البحث", "تجميع الموضوع",
+            "اجمع الموضوع", "اجمع لي الموضوع", "تجميع المناقشة", "لخص المناقشة",
+            "تجميع", "تجميع الأسئلة"
+        ] or text.startswith("/compile"):
+            await self.compile_and_send_session(client, chat_id, user_id)
+            return
+
+        # 3.2 Handle New Research Discussion Session Command
+        if text in [
+            "/new", "🔄 بحث جديد", "بحث جديد", "محادثة جديدة", "جلسة جديدة"
+        ] or text.startswith("/new"):
+            new_id = repo.create_session(str(user_id))
+            _user_states.pop(user_id, None)
+            new_msg = (
+                "✨ *تم فتح جلسة بحثية جديدة بنجاح!* ✠\n\n"
+                "💡 *كيف تعمل الذاكرة البحثية؟*\n"
+                "1. اطرح سؤالك اللاهوتي الأول وسأجيبك بأعمق الشواهد والصفحات.\n"
+                "2. اسأل أسئلة فرعية وتعقيبات متتالية، وسأتذكر كل ما ناقشناه معاً.\n"
+                "3. عندما تنتهي، اضغط في أي وقت على زر `📑 تجميع البحث` وسأجمع لك الموضوع كاملاً (كل سؤال وتحته إجابته وشواهده مع فهرس ومكتبة بيبليوغرافية شاملة)!"
+            )
+            await self.send_message(
+                client, chat_id, new_msg,
+                reply_markup={
+                    "inline_keyboard": [
+                        [{"text": "🤖 ابدأ السؤال الآن", "callback_data": "menu:ask_ai"}],
+                        [{"text": "🔙 القائمة الرئيسية", "callback_data": "nav:main"}]
+                    ]
+                }
+            )
+            return
+
+        # 3.3 Handle Past Research History Command
+        if text in ["/history", "📑 أبحاثي السابقة", "أبحاثي السابقة"]:
+            sessions = repo.list_user_sessions(str(user_id), limit=10)
+            if not sessions:
+                await self.send_message(
+                    client, chat_id,
+                    "📑 *أبحاثي ومناقشاتي السابقة:*\n\nلا توجد مناقشات سابقة مسجلة حتى الآن.\nابدأ بطرح سؤالك وسيتم حفظ كل جلسة تلقائياً!",
+                    reply_markup=get_back_to_main_inline_keyboard()
+                )
+                return
+            hist_kb = []
+            for s in sessions[:8]:
+                title_clean = s.get("title", "بحث لاهوتي")[:30]
+                hist_kb.append([{"text": f"💬 {title_clean} ({s.get('message_count', 0)} رد)", "callback_data": f"sess:view:{s['id']}"}])
+            hist_kb.append([{"text": "🔄 بدء بحث جديد", "callback_data": "session:new"}])
+            hist_kb.append([{"text": "🔙 القائمة الرئيسية", "callback_data": "nav:main"}])
+            await self.send_message(
+                client, chat_id,
+                "📑 *أبحاثك ومناقشاتك المحفوظة في ذاكرة المساعد:*\nاختر أي بحث لمراجعته أو تجميعه فوراً:",
+                reply_markup={"inline_keyboard": hist_kb}
+            )
+            return
+
         # 4. Handle Master Menu Section 1: 🤖 المساعد الذكي
         if text in ["🤖 المساعد الذكي", "/ask"]:
             _user_states[user_id] = {"mode": "ask_ai"}
@@ -712,25 +827,68 @@ class TelegramHandlerService:
         _user_states[user_id] = _user_states.get(user_id, {})
         _user_states[user_id]["last_query"] = text
 
+        # Multi-turn memory: Get active discussion session
+        active_sess = repo.get_or_create_active_session(str(user_id))
+        session_id = active_sess["id"]
+
+        # Pull past messages in this session
+        prior_messages = repo.get_session_messages(session_id, limit=6)
+        dialogue_history = [{"role": m["role"], "content": m["content"]} for m in prior_messages]
+        dialogue_history.append({"role": "user", "content": text})
+
         ai_provider = get_ai_provider()
-        answer = ai_provider.generate_answer(text, chunks, dedicated_books=dedicated_books)
+        if len(dialogue_history) > 1 and hasattr(ai_provider, "generate_chat_response"):
+            answer = ai_provider.generate_chat_response(dialogue_history, chunks)
+        else:
+            answer = ai_provider.generate_answer(text, chunks, dedicated_books=dedicated_books)
+
+        # Prepare citations for persistent saving
+        citations_data = []
+        for c in chunks:
+            citations_data.append({
+                "book_title": c.book_title,
+                "page_number": c.page_number,
+                "printed_page": c.printed_page,
+                "source_reference": c.source_reference,
+                "author": c.author,
+                "source_types": c.source_types,
+                "authenticity_tier": c.authenticity_tier,
+                "excerpt": c.chunk_text[:300]
+            })
+
+        # Save turns to database session
+        try:
+            repo.add_chat_message(session_id, "user", text)
+            repo.add_chat_message(session_id, "assistant", answer, citations_data)
+            if active_sess.get("title") in ["بحث لاهوتي جديد", "محادثة جديدة"]:
+                clean_title = text.split("\n")[0][:45]
+                repo.update_session_title(session_id, clean_title)
+        except Exception as save_err:
+            logger.warning(f"Failed to record session turn: {save_err}")
 
         # 1. Send Structured Deep Theological Synthesis
         await self.send_long_message(client, chat_id, answer)
 
-        # 2. Send Top 3 Verified Reference Cards with Interactive Action Buttons (Phase 8)
+        # 2. Send Top 3 Verified Reference Cards with Interactive Action Buttons
         for idx, c in enumerate(chunks[:3], 1):
             card_text = format_reference_card(c, idx)
             card_kb = get_reference_card_keyboard(c.sha256[:16], c.page_number, idx)
             await self.send_message(client, chat_id, card_text, reply_markup={"inline_keyboard": card_kb})
 
-        # 3. Send Filter & Navigation Bar
-        filter_markup = get_source_filter_keyboard(active_filter or "ALL")
-        filter_markup["inline_keyboard"].append([{"text": "🔙 العودة للقائمة الرئيسية", "callback_data": "nav:main"}])
+        # 3. Send Discussion Action Bar: [تجميع البحث كاملاً] & [بدء بحث جديد]
+        session_actions_kb = [
+            [
+                {"text": "📑 تجميع البحث كاملاً (سؤال وتحته الإجابات)", "callback_data": "session:compile"}
+            ],
+            [
+                {"text": "🔄 بدء بحث جديد", "callback_data": "session:new"},
+                {"text": "🔙 القائمة الرئيسية", "callback_data": "nav:main"}
+            ]
+        ]
         await self.send_message(
             client, chat_id,
-            "🔍 *تصفية نتائج البحث حسب نوع المرجع:*",
-            reply_markup=filter_markup
+            "💡 *يمكنك مواصلة طرح أسئلة أخرى داخل نفس الموضوع، أو تجميعه في أي وقت بنقرة واحدة:*",
+            reply_markup={"inline_keyboard": session_actions_kb}
         )
 
     async def handle_callback_query(self, client: httpx.AsyncClient, cb: Dict[str, Any]) -> None:
@@ -751,6 +909,34 @@ class TelegramHandlerService:
         if data == "nav:main":
             _user_states.pop(user_id, None)
             await self.send_welcome_dashboard(client, chat_id, user_name)
+            return
+
+        # 1.01 Session Callbacks
+        if data == "session:compile":
+            await self.compile_and_send_session(client, chat_id, user_id)
+            return
+
+        if data == "session:new":
+            repo.create_session(str(user_id))
+            _user_states.pop(user_id, None)
+            new_msg = (
+                "✨ *تم فتح جلسة بحثية جديدة بنجاح!* ✠\n\n"
+                "تفضل بطرح سؤالك اللاهوتي الأول، ويمكنك الاستفسار عن تفاصيل أو تعقيبات متفرعة وسأحتفظ بكل السياق حتى تطلب التجميع في أي وقت عبر زر `📑 تجميع البحث`."
+            )
+            await self.send_message(
+                client, chat_id, new_msg,
+                reply_markup={
+                    "inline_keyboard": [
+                        [{"text": "🤖 ابدأ السؤال الآن", "callback_data": "menu:ask_ai"}],
+                        [{"text": "🔙 القائمة الرئيسية", "callback_data": "nav:main"}]
+                    ]
+                }
+            )
+            return
+
+        if data.startswith("sess:view:"):
+            target_id = data.split(":", 2)[2]
+            await self.compile_and_send_session(client, chat_id, user_id, target_session_id=target_id)
             return
 
         # 1.1 Navigation: Library Catalog Hub & Submenus

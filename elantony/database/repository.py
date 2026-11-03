@@ -6,6 +6,7 @@ Handles book cataloging, FTS5 semantic indexing, user bookmarks, and statistics.
 
 import sqlite3
 import json
+import uuid
 from datetime import datetime
 from typing import List, Dict, Any, Optional, Tuple
 
@@ -129,6 +130,33 @@ class DatabaseRepository:
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+
+        # 5. Persistent Chat Discussions & Research Sessions
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS chat_sessions (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                title TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_chat_sessions_user ON chat_sessions(user_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_chat_sessions_updated ON chat_sessions(updated_at DESC)")
+
+        # 6. Chat Messages in Discussion Sessions
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS chat_messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id TEXT NOT NULL,
+                role TEXT NOT NULL,
+                content TEXT NOT NULL,
+                citations TEXT DEFAULT '[]',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(session_id) REFERENCES chat_sessions(id) ON DELETE CASCADE
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_chat_messages_session ON chat_messages(session_id)")
 
         conn.commit()
         conn.close()
@@ -594,6 +622,293 @@ class DatabaseRepository:
             "source_types": source_counts,
             "ocr_status": ocr_counts,
             "recent_searches": recent_searches
+        }
+
+    # ==========================================
+    # Multi-Turn Persistent Discussions & Memory
+    # ==========================================
+
+    def create_session(self, user_id: str, title: str = "بحث لاهوتي جديد", session_id: Optional[str] = None) -> str:
+        """Creates a new discussion session and returns its ID."""
+        s_id = session_id or uuid.uuid4().hex[:12]
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO chat_sessions (id, user_id, title) VALUES (?, ?, ?)",
+            (s_id, str(user_id), title)
+        )
+        conn.commit()
+        conn.close()
+        return s_id
+
+    def get_session(self, session_id: str) -> Optional[Dict[str, Any]]:
+        """Retrieves a single session with message count."""
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT s.*, COUNT(m.id) as message_count
+            FROM chat_sessions s
+            LEFT JOIN chat_messages m ON s.id = m.session_id
+            WHERE s.id = ?
+            GROUP BY s.id
+        """, (session_id,))
+        row = cur.fetchone()
+        conn.close()
+        return dict(row) if row else None
+
+    def get_or_create_active_session(self, user_id: str, default_title: str = "بحث لاهوتي جديد") -> Dict[str, Any]:
+        """Gets the most recently active session for a user or creates a new one."""
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT s.*, COUNT(m.id) as message_count
+            FROM chat_sessions s
+            LEFT JOIN chat_messages m ON s.id = m.session_id
+            WHERE s.user_id = ?
+            GROUP BY s.id
+            ORDER BY s.updated_at DESC
+            LIMIT 1
+        """, (str(user_id),))
+        row = cur.fetchone()
+        conn.close()
+        if row:
+            return dict(row)
+
+        s_id = self.create_session(user_id, default_title)
+        return {
+            "id": s_id,
+            "user_id": str(user_id),
+            "title": default_title,
+            "message_count": 0,
+            "created_at": datetime.now().isoformat(),
+            "updated_at": datetime.now().isoformat()
+        }
+
+    def list_user_sessions(self, user_id: str, limit: int = 30) -> List[Dict[str, Any]]:
+        """Lists discussion sessions for a user ordered by most recently updated."""
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT s.*, COUNT(m.id) as message_count
+            FROM chat_sessions s
+            LEFT JOIN chat_messages m ON s.id = m.session_id
+            WHERE s.user_id = ?
+            GROUP BY s.id
+            ORDER BY s.updated_at DESC
+            LIMIT ?
+        """, (str(user_id), limit))
+        rows = cur.fetchall()
+        conn.close()
+        return [dict(r) for r in rows]
+
+    def update_session_title(self, session_id: str, title: str) -> None:
+        """Updates discussion session title and touches updated_at."""
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE chat_sessions SET title = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (title, session_id)
+        )
+        conn.commit()
+        conn.close()
+
+    def delete_session(self, session_id: str) -> bool:
+        """Deletes session and all its messages."""
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM chat_messages WHERE session_id = ?", (session_id,))
+        cur.execute("DELETE FROM chat_sessions WHERE id = ?", (session_id,))
+        deleted = cur.rowcount > 0
+        conn.commit()
+        conn.close()
+        return deleted
+
+    def add_chat_message(
+        self,
+        session_id: str,
+        role: str,
+        content: str,
+        citations: Optional[List[Dict[str, Any]]] = None
+    ) -> int:
+        """Appends a message to a session and updates the session's timestamp."""
+        conn = get_connection()
+        cur = conn.cursor()
+        cits_json = json.dumps(citations or [], ensure_ascii=False)
+        cur.execute(
+            "INSERT INTO chat_messages (session_id, role, content, citations) VALUES (?, ?, ?, ?)",
+            (session_id, role, content, cits_json)
+        )
+        msg_id = cur.lastrowid
+        cur.execute(
+            "UPDATE chat_sessions SET updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (session_id,)
+        )
+        conn.commit()
+        conn.close()
+        return msg_id
+
+    def get_session_messages(self, session_id: str, limit: int = 100) -> List[Dict[str, Any]]:
+        """Retrieves chronological messages of a discussion session."""
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT id, session_id, role, content, citations, created_at
+            FROM chat_messages
+            WHERE session_id = ?
+            ORDER BY id ASC
+            LIMIT ?
+        """, (session_id, limit))
+        rows = cur.fetchall()
+        conn.close()
+        results = []
+        for r in rows:
+            d = dict(r)
+            try:
+                d["citations"] = json.loads(d["citations"]) if d.get("citations") else []
+            except Exception:
+                d["citations"] = []
+            results.append(d)
+        return results
+
+    def compile_session(self, session_id: str) -> Dict[str, Any]:
+        """
+        Compiles all turns of a discussion into a unified Master Research Monograph:
+        - Structured Table of Questions
+        - For each question: Full grounded answer and specific citations
+        - Consolidated Theological Synthesis
+        - Unified Patristic Bibliography (deduplicated)
+        """
+        session = self.get_session(session_id)
+        if not session:
+            return {"error": "الجلسة غير موجودة"}
+
+        messages = self.get_session_messages(session_id, limit=200)
+        if not messages:
+            return {
+                "session_id": session_id,
+                "title": session.get("title", "بحث لاهوتي"),
+                "turns_count": 0,
+                "markdown": "لا توجد أسئلة أو إجابات مسجلة في هذا البحث حتى الآن.",
+                "plain_text": "لا توجد أسئلة أو إجابات مسجلة في هذا البحث حتى الآن."
+            }
+
+        # Pair questions and answers
+        turns = []
+        current_user_msg = None
+        for m in messages:
+            if m["role"] == "user":
+                current_user_msg = m
+            elif m["role"] == "assistant" and current_user_msg:
+                turns.append({
+                    "question": current_user_msg["content"],
+                    "answer": m["content"],
+                    "citations": m.get("citations", []),
+                    "created_at": current_user_msg.get("created_at")
+                })
+                current_user_msg = None
+
+        if current_user_msg:
+            # Trailing unanswered question
+            turns.append({
+                "question": current_user_msg["content"],
+                "answer": "قيد المتابعة والدراسة...",
+                "citations": [],
+                "created_at": current_user_msg.get("created_at")
+            })
+
+        # Gather unified bibliography
+        biblio_dict = {}
+        for t in turns:
+            for c in t["citations"]:
+                title = c.get("book_title", "مرجع كنسي")
+                p = c.get("printed_page") or c.get("page_number")
+                author = c.get("author", "غير محدد")
+                tier = c.get("authenticity_tier", 3)
+                key = (title, author)
+                if key not in biblio_dict:
+                    biblio_dict[key] = {"title": title, "author": author, "tier": tier, "pages": set()}
+                if p:
+                    biblio_dict[key]["pages"].add(str(p))
+
+        # Format Markdown Document
+        title = session.get("title", "أطروحة بحثية لاهوتية")
+        if title == "بحث لاهوتي جديد" and turns:
+            title = turns[0]["question"][:60]
+
+        md_lines = [
+            f"# ✠ أطروحة بحثية لاهوتية مجمعة ✠",
+            f"### الموضوع الأساسي: «{title}»",
+            f"*منظومة ELANTONY LIBRARY AI - مكتبة كنيسة المشرق والتقليد القبطي الأرثوذكسي*",
+            f"**تاريخ الجمع والتوثيق:** `{datetime.now().strftime('%Y-%m-%d %H:%M')}` | **عدد المحاور والأسئلة:** `{len(turns)}`",
+            "",
+            "---",
+            "",
+            "## 📋 فهرس المحاور والأسئلة المتفرعة في البحث:",
+        ]
+
+        for i, t in enumerate(turns, 1):
+            md_lines.append(f"{i}. [المحور {i}: {t['question']}](#محور-{i})")
+
+        md_lines.extend(["", "---", ""])
+
+        # Detailed Q&A Sections
+        for i, t in enumerate(turns, 1):
+            md_lines.append(f"## <a id='محور-{i}'></a>🔹 المحور {i}: «{t['question']}»")
+            md_lines.append("")
+            md_lines.append("### 📖 التحليل والإجابة الموثقة:")
+            md_lines.append(t['answer'])
+            md_lines.append("")
+
+            if t['citations']:
+                md_lines.append("#### 🏛️ الشواهد والمراجع المعتمدة لهذا المحور:")
+                for c_idx, c in enumerate(t['citations'], 1):
+                    p_info = f"صـ {c.get('printed_page') or c.get('page_number')}"
+                    auth = c.get('author') or 'الآباء'
+                    md_lines.append(f"- **[{c_idx}] {c.get('book_title')}** ({auth}) - {p_info} | `Tier {c.get('authenticity_tier', 3)}`")
+                    if c.get("excerpt"):
+                        md_lines.append(f"  > ❝ {c['excerpt'][:220]}... ❞")
+                md_lines.append("")
+
+            md_lines.append("---")
+            md_lines.append("")
+
+        # Unified Bibliography
+        md_lines.append("## 📚 المكتبة البيبليوغرافية الموحدة للبحث (Consolidated Patristic Bibliography):")
+        if biblio_dict:
+            for b_idx, (k, b_info) in enumerate(biblio_dict.items(), 1):
+                pages_str = ", ".join(sorted(b_info["pages"], key=lambda x: int(x) if x.isdigit() else 0))
+                pages_label = f"الصفحات المستشهد بها: [{pages_str}]" if pages_str else "كامل المرجع"
+                md_lines.append(f"{b_idx}. **{b_info['title']}** — الكاتب/الأب: `{b_info['author']}` | المرتبة: `Tier {b_info['tier']}` | {pages_label}")
+        else:
+            md_lines.append("تم الاعتماد على الأصول الآبائية الموثقة في سياق المحاور أعلاه.")
+
+        md_lines.extend([
+            "",
+            "---",
+            "*(تم تجميع وتوثيق هذه الدراسة بواسطة ELANTONY LIBRARY AI - خدمة التراث الكنسي الأرثوذكسي)*"
+        ])
+
+        full_md = "\n".join(md_lines)
+
+        # Plain text conversion for Telegram / WhatsApp
+        plain_text = (
+            full_md.replace("# ", "")
+            .replace("## ", "")
+            .replace("### ", "")
+            .replace("#### ", "")
+            .replace("**", "")
+            .replace("`", "")
+            .replace("---", "═══════════════════════════════════")
+        )
+
+        return {
+            "session_id": session_id,
+            "title": title,
+            "turns_count": len(turns),
+            "turns": turns,
+            "bibliography": list(biblio_dict.values()),
+            "markdown": full_md,
+            "plain_text": plain_text
         }
 
     def run_maintenance(self) -> Dict[str, Any]:
