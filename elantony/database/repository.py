@@ -68,7 +68,12 @@ class DatabaseRepository:
             ("storage_provider", "TEXT DEFAULT 'local'"),
             ("storage_reference", "TEXT"),
             ("ocr_status", "TEXT DEFAULT 'none'"),
-            ("indexing_status", "TEXT DEFAULT 'pending'")
+            ("indexing_status", "TEXT DEFAULT 'pending'"),
+            ("source_types", "TEXT DEFAULT '[]'"),
+            ("authenticity_tier", "INTEGER DEFAULT 3"),
+            ("classification_confidence", "REAL DEFAULT 0.0"),
+            ("matched_fathers", "TEXT DEFAULT '[]'"),
+            ("needs_review", "INTEGER DEFAULT 0")
         ]
         for col_name, col_def in migration_columns:
             if col_name not in existing_cols:

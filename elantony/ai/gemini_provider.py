@@ -50,11 +50,11 @@ class GeminiAIProvider(BaseAIProvider):
     # Priority order for models supported on Gemini API
     CANDIDATE_MODELS = [
         "gemini-2.5-flash",
-        "gemini-flash-latest",
-        "gemini-2.5-pro",
+        "gemini-2.5-flash-lite",
         "gemini-3.8-flash",
-        "gemini-1.5-flash",
-        "gemini-2.0-flash"
+        "gemini-3.5-flash",
+        "gemini-2.5-pro",
+        "gemini-flash-latest"
     ]
 
     def __init__(self, api_key: Optional[str] = None):
@@ -100,7 +100,6 @@ class GeminiAIProvider(BaseAIProvider):
             full_context = "\n\n".join(context_blocks)
 
             prompt = (
-                f"{THEOLOGICAL_STRUCTURED_SYSTEM_PROMPT}\n\n"
                 f"=== الشواهد الكنسية المعتمدة المسترجعة من كتب المكتبة (Context) ===\n"
                 f"{full_context}\n\n"
                 f"=== السؤال المطروح من الباحث ===\n"
@@ -117,8 +116,15 @@ class GeminiAIProvider(BaseAIProvider):
 
             for model_name in self.CANDIDATE_MODELS:
                 try:
-                    model = genai.GenerativeModel(model_name)
-                    response = model.generate_content(prompt, generation_config=generation_config)
+                    model = genai.GenerativeModel(
+                        model_name=model_name,
+                        system_instruction=THEOLOGICAL_STRUCTURED_SYSTEM_PROMPT
+                    )
+                    response = model.generate_content(
+                        prompt,
+                        generation_config=generation_config,
+                        request_options={"timeout": 30}
+                    )
                     if response and response.text:
                         return response.text.strip()
                 except Exception as model_err:
@@ -130,3 +136,75 @@ class GeminiAIProvider(BaseAIProvider):
 
         # Seamless fallback
         return self.fallback.generate_answer(question, context_chunks, dedicated_books=dedicated_books)
+
+    def generate_chat_response(
+        self,
+        messages: List[Dict[str, str]],
+        context_chunks: List[ChunkEntity]
+    ) -> str:
+        """
+        Conversational assistant response: maintains multi-turn dialog memory
+        while anchoring theological facts strictly in library citations.
+        """
+        if not self.is_available() or not messages:
+            latest = messages[-1]["content"] if messages else ""
+            return self.fallback.generate_answer(latest, context_chunks)
+
+        try:
+            import google.generativeai as genai
+            genai.configure(api_key=self.api_key)
+
+            # Build grounded context
+            context_blocks = []
+            for idx, c in enumerate(context_chunks, 1):
+                clean_chunk = c.chunk_text.strip().replace("\n", " ")
+                context_blocks.append(f"[{idx}] {c.source_reference} (مرتبة التوثيق: {c.authenticity_tier}):\n❝ {clean_chunk} ❞")
+            full_context = "\n\n".join(context_blocks)
+
+            # Conversation turns
+            dialog_lines = []
+            for m in messages[:-1]:
+                role_label = "الباحث" if m["role"] == "user" else "المساعد اللاهوتي"
+                dialog_lines.append(f"{role_label}: {m['content']}")
+
+            history_context = "\n".join(dialog_lines) if dialog_lines else "بداية المحادثة."
+            latest_query = messages[-1]["content"] if messages else ""
+
+            prompt = (
+                f"=== الشواهد الكنسية المسترجعة من كتب المكتبة (Library Grounding) ===\n"
+                f"{full_context}\n\n"
+                f"=== سياق الحديث والنقاش السابق بينك وبين الباحث (Chat Context) ===\n"
+                f"{history_context}\n\n"
+                f"=== استفسار الباحث الحالي ===\n"
+                f"الباحث: {latest_query}\n\n"
+                f"المساعد اللاهوتي (إجابة موثقة تجيب مباشرة وتراعي ما تم مناقشته مسبقاً):"
+            )
+
+            generation_config = genai.types.GenerationConfig(
+                temperature=0.2,
+                top_p=0.9,
+                max_output_tokens=2200
+            )
+
+            for model_name in self.CANDIDATE_MODELS:
+                try:
+                    model = genai.GenerativeModel(
+                        model_name=model_name,
+                        system_instruction=THEOLOGICAL_STRUCTURED_SYSTEM_PROMPT
+                    )
+                    response = model.generate_content(
+                        prompt,
+                        generation_config=generation_config,
+                        request_options={"timeout": 30}
+                    )
+                    if response and response.text:
+                        return response.text.strip()
+                except Exception as model_err:
+                    continue
+
+        except Exception as e:
+            logger.warning(f"Conversational generation error: {e}")
+
+        latest = messages[-1]["content"] if messages else ""
+        return self.fallback.generate_answer(latest, context_chunks)
+

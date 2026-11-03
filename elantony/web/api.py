@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
 """
 ELANTONY LIBRARY AI - Web & Cloud REST API
-Provides cloud health checks, Mobile PWA routes, and search endpoints.
+Provides conversational ChatGPT-like Research Portal, FTS5 Search,
+and Admin Management Endpoints.
 """
 
+import os
 import asyncio
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Query, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -26,14 +28,15 @@ bot_engine: Optional[TelegramBotEngine] = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Manages Telegram Bot worker on application startup and shutdown."""
+    """Manages optional embedded bot worker if explicitly enabled."""
     global bot_task, bot_engine
-    if settings.telegram_bot_token:
+    enable_embedded_bot = os.getenv("ENABLE_BOT_IN_API", "false").lower() == "true"
+    if enable_embedded_bot and settings.telegram_bot_token:
         bot_engine = TelegramBotEngine()
         bot_task = asyncio.create_task(bot_engine.run())
-        logger.info("Telegram Bot worker launched in background task.")
+        logger.info("Embedded Telegram Bot worker launched in API lifespan.")
     else:
-        logger.info("No Telegram Bot token provided; running in web-only mode.")
+        logger.info("API running in standalone Web mode (Telegram Bot managed by daemon service).")
 
     yield
 
@@ -49,8 +52,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="ELANTONY LIBRARY AI",
-    description="Ecclesiastical Smart Library & RAG Cloud Platform",
-    version="2.0.0",
+    description="Ecclesiastical Smart Library & Conversational Research Assistant",
+    version="2.5.0",
     lifespan=lifespan
 )
 
@@ -68,183 +71,675 @@ class AskRequest(BaseModel):
     limit: Optional[int] = 4
 
 
+class ChatMessage(BaseModel):
+    role: str  # "user" or "assistant"
+    content: str
+
+
+class ChatRequest(BaseModel):
+    messages: List[ChatMessage]
+    session_id: Optional[str] = "default"
+
 
 WEB_PORTAL_HTML = """<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>✠ ELANTONY LIBRARY AI - المكتبة القبطية الأرثوذكسية الذكية</title>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <title>✠ ELANTONY LIBRARY AI - المساعد الذكي لمكتبة القديس أنطونيوس</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
         :root {
-            --bg-main: #0B0F19;
-            --bg-card: #151D2E;
-            --bg-card-hover: #1E293B;
+            --bg-darker: #090D16;
+            --bg-sidebar: #0F172A;
+            --bg-chat: #131D31;
+            --bg-bubble-ai: #1E293B;
+            --bg-bubble-user: #2563EB;
+            --card-border: #334155;
             --accent: #3B82F6;
-            --accent-hover: #2563EB;
+            --accent-hover: #1D4ED8;
             --gold: #F59E0B;
             --text-main: #F8FAFC;
             --text-sub: #94A3B8;
-            --border: #334155;
-            --radius: 12px;
+            --radius-bubble: 16px;
         }
+
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Cairo', sans-serif; }
-        body { background: var(--bg-main); color: var(--text-main); line-height: 1.6; min-height: 100vh; padding: 24px 16px; }
-        .container { max-width: 960px; margin: 0 auto; }
-        header { text-align: center; margin-bottom: 32px; padding: 20px 0; }
-        .logo-badge { display: inline-flex; align-items: center; gap: 8px; background: rgba(59, 130, 246, 0.15); border: 1px solid var(--accent); color: var(--accent); padding: 6px 16px; border-radius: 9999px; font-size: 14px; font-weight: 700; margin-bottom: 16px; }
-        h1 { font-size: 2.2rem; font-weight: 800; margin-bottom: 8px; color: #FFF; }
-        .subtitle { color: var(--text-sub); font-size: 1.1rem; max-width: 650px; margin: 0 auto 16px auto; }
-        .stats-bar { display: flex; justify-content: center; gap: 24px; flex-wrap: wrap; margin-top: 16px; }
-        .stat-item { background: var(--bg-card); border: 1px solid var(--border); padding: 8px 18px; border-radius: 8px; font-size: 13px; color: var(--text-sub); }
-        .stat-item strong { color: var(--gold); font-size: 15px; }
+        body { background: var(--bg-darker); color: var(--text-main); height: 100vh; display: flex; overflow: hidden; }
 
-        .search-container { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); margin-bottom: 24px; }
-        .input-group { display: flex; gap: 10px; margin-bottom: 14px; }
-        .search-input { flex: 1; background: #0F172A; border: 1px solid var(--border); color: #FFF; padding: 14px 18px; border-radius: 8px; font-size: 16px; outline: none; transition: 0.2s; }
-        .search-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2); }
-        .btn-search { background: var(--accent); color: #FFF; border: none; padding: 0 28px; border-radius: 8px; font-size: 16px; font-weight: 700; cursor: pointer; transition: 0.2s; }
-        .btn-search:hover { background: var(--accent-hover); }
+        /* Sidebar */
+        .sidebar {
+            width: 280px;
+            background: var(--bg-sidebar);
+            border-left: 1px solid var(--card-border);
+            display: flex;
+            flex-direction: column;
+            transition: all 0.3s ease;
+            z-index: 20;
+        }
+        .sidebar-header {
+            padding: 18px;
+            border-bottom: 1px solid var(--card-border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .app-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 800;
+            font-size: 16px;
+            color: #FFF;
+        }
+        .app-brand span { color: var(--gold); }
+        .btn-new-chat {
+            margin: 14px 18px;
+            background: rgba(59, 130, 246, 0.15);
+            border: 1px dashed var(--accent);
+            color: #60A5FA;
+            padding: 10px;
+            border-radius: 10px;
+            font-weight: 700;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: 0.2s;
+        }
+        .btn-new-chat:hover { background: var(--accent); color: #FFF; border-style: solid; }
+        .chat-history {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0 14px;
+        }
+        .chat-history-item {
+            padding: 10px 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            color: var(--text-sub);
+            cursor: pointer;
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            transition: 0.2s;
+        }
+        .chat-history-item:hover, .chat-history-item.active {
+            background: rgba(255,255,255,0.06);
+            color: #FFF;
+        }
+        .sidebar-footer {
+            padding: 16px;
+            border-top: 1px solid var(--card-border);
+            font-size: 12px;
+            color: var(--text-sub);
+            background: rgba(0,0,0,0.2);
+        }
+        .sidebar-footer a { color: #60A5FA; text-decoration: none; font-weight: 600; }
 
-        .pills { display: flex; gap: 8px; flex-wrap: wrap; }
-        .pill { background: rgba(255,255,255,0.06); border: 1px solid var(--border); color: var(--text-sub); padding: 4px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: 0.2s; }
-        .pill:hover { background: rgba(59, 130, 246, 0.2); border-color: var(--accent); color: #FFF; }
+        /* Main Container */
+        .main-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-chat);
+            position: relative;
+        }
+        .top-navbar {
+            height: 60px;
+            border-bottom: 1px solid var(--card-border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(8px);
+        }
+        .nav-title { font-weight: 700; font-size: 15px; display: flex; align-items: center; gap: 8px; }
+        .live-badge { display: inline-flex; align-items: center; gap: 6px; background: rgba(34, 197, 94, 0.15); color: #4ADE80; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; }
+        .live-dot { width: 8px; height: 8px; background: #22C55E; border-radius: 50%; animation: pulse 2s infinite; }
 
-        .results { margin-top: 24px; }
-        .result-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; margin-bottom: 14px; transition: 0.2s; }
-        .result-card:hover { border-color: var(--accent); background: var(--bg-card-hover); }
-        .result-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; }
-        .book-title { font-weight: 700; color: #60A5FA; font-size: 16px; }
-        .page-badge { background: rgba(245, 158, 11, 0.15); color: var(--gold); border: 1px solid rgba(245, 158, 11, 0.3); padding: 3px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; }
-        .snippet-text { color: #CBD5E1; font-size: 14px; line-height: 1.7; border-right: 3px solid var(--accent); padding-right: 12px; }
+        @keyframes pulse {
+            0% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(1.2); }
+            100% { opacity: 1; transform: scale(1); }
+        }
 
-        .bot-banner { text-align: center; margin-top: 40px; padding: 24px; background: rgba(59, 130, 246, 0.08); border: 1px dashed var(--accent); border-radius: var(--radius); }
-        .btn-bot { display: inline-block; background: #0088cc; color: white; padding: 10px 24px; border-radius: 8px; text-decoration: none; font-weight: 700; margin-top: 12px; transition: 0.2s; }
-        .btn-bot:hover { background: #0077b5; }
-        .loading { display: none; text-align: center; padding: 24px; color: var(--text-sub); }
+        /* Messages Window */
+        .messages-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .messages-container {
+            max-width: 900px;
+            margin: 0 auto;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 22px;
+        }
+
+        /* Message Bubbles */
+        .msg-row {
+            display: flex;
+            gap: 14px;
+            width: 100%;
+        }
+        .msg-row.user {
+            justify-content: flex-start;
+            flex-direction: row-reverse;
+        }
+        .msg-avatar {
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            font-weight: 900;
+            flex-shrink: 0;
+        }
+        .msg-avatar.ai { background: linear-gradient(135deg, #2563EB, #1D4ED8); color: #FFF; box-shadow: 0 4px 12px rgba(37,99,235,0.3); }
+        .msg-avatar.user { background: #475569; color: #FFF; }
+
+        .msg-content {
+            max-width: 82%;
+            display: flex;
+            flex-direction: column;
+        }
+        .bubble {
+            padding: 16px 20px;
+            border-radius: var(--radius-bubble);
+            font-size: 15px;
+            line-height: 1.7;
+            word-break: break-word;
+        }
+        .msg-row.user .bubble {
+            background: var(--bg-bubble-user);
+            color: #FFF;
+            border-top-left-radius: 4px;
+        }
+        .msg-row.ai .bubble {
+            background: var(--bg-bubble-ai);
+            color: var(--text-main);
+            border: 1px solid var(--card-border);
+            border-top-right-radius: 4px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+        }
+
+        /* Markdown formatting inside assistant bubble */
+        .bubble h1, .bubble h2, .bubble h3, .bubble h4 { color: #60A5FA; margin: 12px 0 6px 0; }
+        .bubble ul, .bubble ol { margin: 8px 24px; }
+        .bubble li { margin-bottom: 4px; }
+        .bubble strong { color: #F59E0B; }
+        .bubble blockquote { border-right: 3px solid var(--gold); padding-right: 12px; margin: 8px 0; color: #CBD5E1; font-style: italic; }
+
+        /* Citations Box */
+        .citations-section {
+            margin-top: 10px;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--card-border);
+            border-radius: 10px;
+            padding: 12px;
+        }
+        .citations-header {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--gold);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .citations-list {
+            margin-top: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .citation-item {
+            background: rgba(30, 41, 59, 0.8);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 8px;
+            padding: 10px 12px;
+            font-size: 13px;
+        }
+        .citation-title { font-weight: 700; color: #93C5FD; display: flex; justify-content: space-between; }
+        .citation-badge { background: rgba(245, 158, 11, 0.2); color: var(--gold); padding: 2px 8px; border-radius: 4px; font-size: 11px; }
+        .citation-excerpt { color: #94A3B8; font-size: 12px; margin-top: 6px; border-right: 2px solid var(--accent); padding-right: 8px; }
+
+        /* Hero / Empty State */
+        .hero {
+            text-align: center;
+            margin: auto 0;
+            padding: 40px 20px;
+        }
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(59, 130, 246, 0.12);
+            border: 1px solid var(--accent);
+            color: #60A5FA;
+            padding: 6px 16px;
+            border-radius: 30px;
+            font-size: 14px;
+            font-weight: 700;
+            margin-bottom: 16px;
+        }
+        .hero h2 { font-size: 2rem; font-weight: 800; color: #FFF; margin-bottom: 8px; }
+        .hero p { color: var(--text-sub); font-size: 15px; max-width: 600px; margin: 0 auto 28px auto; }
+        .prompt-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 14px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .prompt-card {
+            background: var(--bg-bubble-ai);
+            border: 1px solid var(--card-border);
+            padding: 14px 16px;
+            border-radius: 12px;
+            text-align: right;
+            cursor: pointer;
+            transition: 0.2s;
+            font-size: 14px;
+            color: #CBD5E1;
+        }
+        .prompt-card:hover {
+            border-color: var(--accent);
+            background: #253349;
+            transform: translateY(-2px);
+            color: #FFF;
+        }
+
+        /* Bottom Input Bar */
+        .input-area {
+            padding: 16px 20px;
+            border-top: 1px solid var(--card-border);
+            background: var(--bg-sidebar);
+        }
+        .input-box-wrapper {
+            max-width: 900px;
+            margin: 0 auto;
+            position: relative;
+            background: #0F172A;
+            border: 1px solid var(--card-border);
+            border-radius: 14px;
+            display: flex;
+            align-items: flex-end;
+            padding: 8px 14px;
+            transition: 0.2s;
+        }
+        .input-box-wrapper:focus-within {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+        }
+        .chat-textarea {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: #FFF;
+            font-size: 15px;
+            resize: none;
+            outline: none;
+            max-height: 180px;
+            min-height: 24px;
+            line-height: 1.5;
+            padding: 6px 0;
+        }
+        .btn-send {
+            background: var(--accent);
+            color: #FFF;
+            border: none;
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: 0.2s;
+            margin-right: 8px;
+            flex-shrink: 0;
+        }
+        .btn-send:hover { background: var(--accent-hover); }
+        .btn-send:disabled { background: #334155; cursor: not-allowed; opacity: 0.6; }
+        .input-disclaimer {
+            text-align: center;
+            font-size: 12px;
+            color: var(--text-sub);
+            margin-top: 8px;
+        }
+
+        /* Loading Dots */
+        .typing-dots { display: inline-flex; gap: 4px; padding: 6px 0; }
+        .typing-dots span { width: 6px; height: 6px; background: #60A5FA; border-radius: 50%; animation: blink 1.4s infinite; }
+        .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes blink { 0%, 100% { opacity: 0.2; } 50% { opacity: 1; } }
+
+        @media (max-width: 768px) {
+            .sidebar { display: none; }
+        }
     </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <div class="logo-badge">✠ ELANTONY LIBRARY AI</div>
-            <h1>المكتبة القبطية الأرثوذكسية الذكية</h1>
-            <p class="subtitle">محرك البحث المعرفي والذكاء الاصطناعي التوليدي عبر 3,656 كتاباً ومئات الآلاف من المقتطفات الآبائية الموثقة</p>
-            <div class="stats-bar" id="statsBar">
-                <div class="stat-item">📚 إجمالي الكتب: <strong>3,656</strong></div>
-                <div class="stat-item">📑 المقاطع المفهرسة: <strong id="chunkCount">311,634+</strong></div>
-                <div class="stat-item">⛪ التراث: <strong>قبطي أرثوذكسي أصيل</strong></div>
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="app-brand">
+                <span>✠</span> ELANTONY AI
             </div>
-        </header>
+        </div>
+        <button class="btn-new-chat" onclick="startNewChat()">
+            <span>➕</span> محادثة جديدة
+        </button>
+        <div class="chat-history" id="chatHistoryList">
+            <!-- Sessions populate dynamically -->
+        </div>
+        <div class="sidebar-footer">
+            <div>🏛️ <strong>3,639</strong> كتاباً مفهرساً</div>
+            <div>🤖 <strong>Gemini 2.5 Flash</strong> (صفر هلوسة)</div>
+            <div style="margin-top: 8px;">
+                <a href="https://t.me/ElantonyLibrarybot" target="_blank">📱 فتح بوت التيليجرام</a>
+            </div>
+        </div>
+    </aside>
 
-        <div class="search-container">
-            <div class="input-group">
-                <input type="text" id="searchInput" class="search-input" placeholder="ابحث في بطون الكتب أو اسأل سؤالاً لاهوتياً (مثال: طوفان نوح، تجسد الكلمة)..." autofocus>
-                <button class="btn-search" onclick="performSearch()">بحث</button>
+    <!-- Main Chat Container -->
+    <main class="main-container">
+        <!-- Top Navbar -->
+        <div class="top-navbar">
+            <div class="nav-title">
+                <span>✠</span> رفيق وباحث مكتبة القديس أنطونيوس
             </div>
-            <div class="pills">
-                <span style="font-size: 12px; color: var(--text-sub); align-self: center;">أمثلة سريعة:</span>
-                <span class="pill" onclick="quickSearch('طوفان نوح هل كان عالميا')">طوفان نوح</span>
-                <span class="pill" onclick="quickSearch('تجسد الكلمة اثناسيوس')">تجسد الكلمة</span>
-                <span class="pill" onclick="quickSearch('سر الافخارستيا والتناول')">سر الافخارستيا</span>
-                <span class="pill" onclick="quickSearch('أقوال الآباء عن الصلاة الدائمة')">الصلاة الدائمة</span>
-                <span class="pill" onclick="quickSearch('تفسير رسالة رومية')">تفاسير العهد الجديد</span>
+            <div class="live-badge">
+                <div class="live-dot"></div>
+                متصل بالمكتبة الدائمة
             </div>
         </div>
 
-        <div class="loading" id="loadingIndicator">
-            ⏳ جاري البحث في فهارس المكتبة الشاملة...
+        <!-- Messages Area -->
+        <div class="messages-area" id="messagesArea">
+            <div class="messages-container" id="messagesContainer">
+                <!-- Hero screen when no messages -->
+                <div class="hero" id="heroScreen">
+                    <div class="hero-badge">✠ المكتبة القبطية الأرثوذكسية الذكية</div>
+                    <h2>كيف يمكنني مساعدتك في بحثك الكنسي اليوم؟</h2>
+                    <p>أنا رفيقك البحثي المتخصص؛ أستحضر لك إجابات موثقة بالصفحة والمجلد من بطون 3,639 كتاباً ومرجعاً كنسياً بدون أي هلوسة.</p>
+                    <div class="prompt-cards">
+                        <div class="prompt-card" onclick="sendPrompt('ما هو مفهوم التجسد الإلهي عند القديس أثناسيوس الرسولي؟')">
+                            📜 <strong>التجسد عند أثناسيوس</strong>
+                            <div style="font-size: 12px; color: var(--text-sub); margin-top: 4px;">عقيدة تجسد الكلمة وتجديد الطبيعة</div>
+                        </div>
+                        <div class="prompt-card" onclick="sendPrompt('قارن بين إقامة السيد المسيح للموتى وإقامة إيليا النبي للموتى في تعليم الآباء')">
+                            ⚖️ <strong>اللاهوت المقارن للقيامة</strong>
+                            <div style="font-size: 12px; color: var(--text-sub); margin-top: 4px;">الفارق اللاهوتي والسلطان الذاتي</div>
+                        </div>
+                        <div class="prompt-card" onclick="sendPrompt('ما هي تعاليم القديس أنطونيوس كوكب البرية عن الصلاة الدائمة ونقاوة الفكر؟')">
+                            🕊️ <strong>روحيات آباء البرية</strong>
+                            <div style="font-size: 12px; color: var(--text-sub); margin-top: 4px;">حرب الأفكار وجهاد التوبة والهدوء</div>
+                        </div>
+                        <div class="prompt-card" onclick="sendPrompt('شرح طقس صلاة الصلح في القداس الباسيلي وأبعادها اللاهوتية')">
+                            ⛪ <strong>طقوس ولتورجيا الكنيسة</strong>
+                            <div style="font-size: 12px; color: var(--text-sub); margin-top: 4px;">المصالحة العظمى وقبلة المحبة والسلام</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <div class="results" id="resultsContainer"></div>
-
-        <div class="bot-banner">
-            <h3>🤖 تود الوصول لكامل المكتبة عبر تيليجرام 24/7؟</h3>
-            <p style="color: var(--text-sub); font-size: 14px; margin-top: 4px;">تحدث مع المساعد الذكي، وتصفح الفهرس التفاعلي، واقرأ الكتب على هاتفك مباشرة.</p>
-            <a href="https://t.me/ElantonyLibrarybot" target="_blank" class="btn-bot">💬 فتح البوت في تيليجرام @ElantonyLibrarybot</a>
+        <!-- Input Area -->
+        <div class="input-area">
+            <div class="input-box-wrapper">
+                <textarea 
+                    id="chatInput" 
+                    class="chat-textarea" 
+                    placeholder="تفضل بكتابة سؤالك اللاهوتي أو طلبك البحثي هنا... (اضغط Enter للإرسال)"
+                    rows="1"
+                    onkeydown="handleKey(event)"
+                    oninput="autoResize(this)"
+                ></textarea>
+                <button class="btn-send" id="btnSend" onclick="sendMessage()">
+                    ➤
+                </button>
+            </div>
+            <div class="input-disclaimer">
+                المساعد مستند بالكامل إلى نصوص المراجع الكنسية المعتمدة ومحمي بضوابط التحقق الصارم من الاقتباس.
+            </div>
         </div>
-    </div>
+    </main>
 
     <script>
-        async function loadStats() {
-            try {
-                const res = await fetch('/api/stats');
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data.indexed_chunks) {
-                        document.getElementById('chunkCount').innerText = Number(data.indexed_chunks).toLocaleString() + '+';
-                    }
-                }
-            } catch(e) {}
-        }
-        loadStats();
+        let chatMessages = [];
+        const messagesContainer = document.getElementById('messagesContainer');
+        const heroScreen = document.getElementById('heroScreen');
+        const chatInput = document.getElementById('chatInput');
+        const btnSend = document.getElementById('btnSend');
+        const messagesArea = document.getElementById('messagesArea');
 
-        function quickSearch(q) {
-            document.getElementById('searchInput').value = q;
-            performSearch();
+        function autoResize(textarea) {
+            textarea.style.height = 'auto';
+            textarea.style.height = Math.min(textarea.scrollHeight, 180) + 'px';
         }
 
-        document.getElementById('searchInput').addEventListener('keydown', function(e) {
-            if (e.key === 'Enter') performSearch();
-        });
-
-        async function performSearch() {
-            const q = document.getElementById('searchInput').value.trim();
-            if (!q) return;
-
-            const container = document.getElementById('resultsContainer');
-            const loading = document.getElementById('loadingIndicator');
-
-            container.innerHTML = '';
-            loading.style.display = 'block';
-
-            try {
-                const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&limit=8`);
-                loading.style.display = 'none';
-
-                if (!res.ok) throw new Error('Search failed');
-                const data = await res.json();
-
-                if (!data.results || data.results.length === 0) {
-                    container.innerHTML = `
-                        <div class="result-card" style="text-align: center; color: var(--text-sub);">
-                            🔍 لم يتم العثور على مقاطع نصية مباشرة تطابق بحثك. جرب كلمات بديلة أو مرادفات لاهوتية.
-                        </div>`;
-                    return;
-                }
-
-                data.results.forEach(item => {
-                    const card = document.createElement('div');
-                    card.className = 'result-card';
-                    card.innerHTML = `
-                        <div class="result-header">
-                            <span class="book-title">📖 ${item.book_title || 'مرجع كنسي'}</span>
-                            <span class="page-badge">صـ ${item.page_number || '1'}</span>
-                        </div>
-                        <div class="snippet-text">"${item.chunk_text}"</div>
-                    `;
-                    container.appendChild(card);
-                });
-            } catch (err) {
-                loading.style.display = 'none';
-                container.innerHTML = `<div class="result-card" style="color: #EF4444;">حدث خطأ أثناء البحث: ${err.message}</div>`;
+        function handleKey(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
             }
         }
+
+        function startNewChat() {
+            chatMessages = [];
+            messagesContainer.innerHTML = '';
+            messagesContainer.appendChild(heroScreen);
+            heroScreen.style.display = 'block';
+            chatInput.value = '';
+            chatInput.focus();
+        }
+
+        function sendPrompt(text) {
+            chatInput.value = text;
+            sendMessage();
+        }
+
+        async function sendMessage() {
+            const text = chatInput.value.trim();
+            if (!text) return;
+
+            if (heroScreen) heroScreen.style.display = 'none';
+
+            // 1. Append User Message
+            chatMessages.push({ role: 'user', content: text });
+            appendMessageBubble('user', text);
+            chatInput.value = '';
+            chatInput.style.height = 'auto';
+            btnSend.disabled = true;
+
+            // 2. Append Typing Indicator
+            const loadingId = appendLoadingBubble();
+            scrollToBottom();
+
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ messages: chatMessages })
+                });
+
+                removeLoadingBubble(loadingId);
+
+                if (!response.ok) {
+                    throw new Error('فشل الاتصال بمحرك الذكاء الاصطناعي');
+                }
+
+                const data = await response.json();
+                const aiResponse = data.response;
+                const citations = data.citations || [];
+
+                chatMessages.push({ role: 'assistant', content: aiResponse });
+                appendMessageBubble('assistant', aiResponse, citations);
+                saveSessionHistory(text);
+
+            } catch (err) {
+                removeLoadingBubble(loadingId);
+                appendMessageBubble('assistant', '⚠️ حدث خطأ أثناء معالجة السؤال: ' + err.message);
+            } finally {
+                btnSend.disabled = false;
+                scrollToBottom();
+                chatInput.focus();
+            }
+        }
+
+        function appendMessageBubble(role, content, citations = []) {
+            const row = document.createElement('div');
+            row.className = `msg-row ${role === 'user' ? 'user' : 'ai'}`;
+
+            const avatar = document.createElement('div');
+            avatar.className = `msg-avatar ${role === 'user' ? 'user' : 'ai'}`;
+            avatar.textContent = role === 'user' ? '👤' : '✠';
+
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'msg-content';
+
+            const bubble = document.createElement('div');
+            bubble.className = 'bubble';
+            if (role === 'assistant') {
+                bubble.innerHTML = marked.parse(content);
+            } else {
+                bubble.textContent = content;
+            }
+
+            contentDiv.appendChild(bubble);
+
+            // Append Citations section if available
+            if (citations && citations.length > 0) {
+                const citeSection = document.createElement('div');
+                citeSection.className = 'citations-section';
+
+                const citeHeader = document.createElement('div');
+                citeHeader.className = 'citations-header';
+                citeHeader.innerHTML = `<span>📚 الشواهد والمراجع المعتمدة (${citations.length})</span> <span>▼</span>`;
+                
+                const citeList = document.createElement('div');
+                citeList.className = 'citations-list';
+
+                citations.forEach((c, idx) => {
+                    const item = document.createElement('div');
+                    item.className = 'citation-item';
+                    const pLabel = c.printed_page ? `صـ ${c.printed_page} (مطبوعة)` : `صـ ${c.page_number} (PDF)`;
+                    item.innerHTML = `
+                        <div class="citation-title">
+                            <span>📖 ${idx + 1}. ${c.book_title}</span>
+                            <span class="citation-badge">Tier ${c.authenticity_tier || 3}</span>
+                        </div>
+                        <div style="font-size: 11px; color: #94A3B8; margin-top: 2px;">
+                            ✍️ ${c.author || 'آباء الكنيسة'} | 📄 ${pLabel}
+                        </div>
+                        <div class="citation-excerpt">❝ ${c.excerpt} ❞</div>
+                    `;
+                    citeList.appendChild(item);
+                });
+
+                citeSection.appendChild(citeHeader);
+                citeSection.appendChild(citeList);
+                contentDiv.appendChild(citeSection);
+            }
+
+            row.appendChild(avatar);
+            row.appendChild(contentDiv);
+            messagesContainer.appendChild(row);
+            scrollToBottom();
+        }
+
+        function appendLoadingBubble() {
+            const id = 'loading_' + Date.now();
+            const row = document.createElement('div');
+            row.id = id;
+            row.className = 'msg-row ai';
+            row.innerHTML = `
+                <div class="msg-avatar ai">✠</div>
+                <div class="msg-content">
+                    <div class="bubble">
+                        <div class="typing-dots">
+                            <span></span><span></span><span></span>
+                        </div>
+                        <span style="font-size: 12px; color: #94A3B8; margin-right: 8px;">جاري فحص المراجع وصياغة الإجابة الموثقة...</span>
+                    </div>
+                </div>
+            `;
+            messagesContainer.appendChild(row);
+            return id;
+        }
+
+        function removeLoadingBubble(id) {
+            const el = document.getElementById(id);
+            if (el) el.remove();
+        }
+
+        function scrollToBottom() {
+            messagesArea.scrollTop = messagesArea.scrollHeight;
+        }
+
+        function saveSessionHistory(firstQuery) {
+            try {
+                let history = JSON.parse(localStorage.getItem('elantony_chat_sessions') || '[]');
+                if (!history.includes(firstQuery)) {
+                    history.unshift(firstQuery);
+                    if (history.length > 20) history.pop();
+                    localStorage.setItem('elantony_chat_sessions', JSON.stringify(history));
+                    renderHistory();
+                }
+            } catch (e) {}
+        }
+
+        function renderHistory() {
+            const list = document.getElementById('chatHistoryList');
+            if (!list) return;
+            try {
+                const history = JSON.parse(localStorage.getItem('elantony_chat_sessions') || '[]');
+                list.innerHTML = '';
+                history.forEach(item => {
+                    const div = document.createElement('div');
+                    div.className = 'chat-history-item';
+                    div.textContent = '💬 ' + item;
+                    div.onclick = () => sendPrompt(item);
+                    list.appendChild(div);
+                });
+            } catch (e) {}
+        }
+
+        window.onload = () => {
+            renderHistory();
+            chatInput.focus();
+        };
     </script>
 </body>
 </html>
 """
 
+
 @app.get("/", response_class=HTMLResponse)
 async def web_portal():
-    """Serves the interactive Arabic Mobile & Web search portal."""
+    """Serves the interactive ChatGPT-like Coptic Research Portal."""
     return HTMLResponse(content=WEB_PORTAL_HTML)
 
 
 @app.get("/health")
 async def health_check():
-    """Cloud Container Health Check Endpoint (Docker / Kubernetes / Cloud Providers)."""
+    """Health Check Endpoint."""
     try:
         stats = repo.get_library_stats()
         db_healthy = True
@@ -261,8 +756,7 @@ async def health_check():
             "environment": settings.app_env,
             "database_connected": db_healthy,
             "total_books": stats.get("total_books", 0),
-            "indexed_chunks": stats.get("indexed_chunks", 0),
-            "telegram_worker_active": bool(bot_task and not bot_task.done())
+            "indexed_chunks": stats.get("indexed_chunks", 0)
         }
     )
 
@@ -286,7 +780,7 @@ async def api_search(q: str = Query(..., min_length=1), limit: int = 10):
 
 @app.post("/api/ask")
 async def api_ask(req: AskRequest):
-    """Grounded RAG Q&A."""
+    """Single-turn grounded RAG Q&A."""
     q = req.question.strip()
     if not q:
         raise HTTPException(status_code=400, detail="Empty question")
@@ -305,10 +799,54 @@ async def api_ask(req: AskRequest):
     }
 
 
+@app.post("/api/chat")
+async def api_chat(req: ChatRequest):
+    """
+    Multi-turn Conversational AI Endpoint.
+    Maintains dialogue history while anchoring answers strictly in library citations.
+    """
+    if not req.messages:
+        raise HTTPException(status_code=400, detail="قائمة الرسائل فارغة")
+
+    latest_msg = req.messages[-1].content.strip()
+    if not latest_msg:
+        raise HTTPException(status_code=400, detail="الاستفسار فارغ")
+
+    # 1. Retrieve library context
+    chunks = search_engine.search_fts5(latest_msg, limit=5)
+    ai_provider = get_ai_provider()
+
+    # 2. Conversational reasoning with past dialogue turns
+    raw_history = [{"role": m.role, "content": m.content} for m in req.messages]
+    if hasattr(ai_provider, "generate_chat_response"):
+        answer = ai_provider.generate_chat_response(raw_history, chunks)
+    else:
+        answer = ai_provider.generate_answer(latest_msg, chunks)
+
+    # 3. Format citations
+    citations = []
+    for c in chunks:
+        citations.append({
+            "book_title": c.book_title,
+            "page_number": c.page_number,
+            "printed_page": c.printed_page,
+            "source_reference": c.source_reference,
+            "author": c.author,
+            "source_types": c.source_types,
+            "authenticity_tier": c.authenticity_tier,
+            "relevance_score": c.relevance_score,
+            "excerpt": c.chunk_text[:300]
+        })
+
+    return {
+        "response": answer,
+        "citations": citations
+    }
+
 
 @app.get("/api/v1/admin/dashboard")
 async def admin_dashboard():
-    """Returns comprehensive administrative metrics, tier breakdown, and source distribution."""
+    """Returns administrative metrics and source distribution."""
     metrics = repo.get_admin_metrics()
     ai_provider = get_ai_provider()
     return {
