@@ -39,7 +39,10 @@ from elantony.telegram.keyboards import (
     get_catalog_alphabet_inline_keyboard,
     get_catalog_paginated_books_keyboard,
     get_random_book_inline_keyboard,
-    get_encyclopedias_inline_keyboard
+    get_encyclopedias_inline_keyboard,
+    get_reference_card_keyboard,
+    get_source_filter_keyboard,
+    format_reference_card
 )
 
 # User state tracker for conversational flow
@@ -286,6 +289,55 @@ class TelegramHandlerService:
         # Sanitize input
         text = sanitize_user_input(raw_text)
 
+        # Slash Command: /admin_dashboard
+        if text.startswith("/admin_dashboard"):
+            if not is_user_admin(user_id):
+                await self.send_message(client, chat_id, "⛔ هذا الأمر مخصص لمدير النظام فقط.")
+                return
+            metrics = repo.get_admin_metrics()
+            source_lines = []
+            for s, cnt in list(metrics['source_types'].items())[:5]:
+                clean_s = s.replace('[', '').replace(']', '').replace('"', '')
+                source_lines.append(f"  • {clean_s}: `{cnt:,}` كتاباً")
+
+            dash_text = (
+                "📊 *لوحة الإشراف والمراقبة المركزية (Admin Dashboard)* ✠\n\n"
+                f"📚 *إجمالي الكتب الموثقة:* `{metrics['unique_books']:,}` مجلداً\n"
+                f"📄 *إجمالي الصفحات:* `{metrics['total_pages']:,}` صفحة\n"
+                f"💾 *الحجم الكلي:* `{metrics['total_size_mb']:,} MB`\n"
+                f"⚡ *المقاطع الدلالية في FTS5:* `{metrics['indexed_chunks']:,}` فقرة\n\n"
+                "🏛️ *مراتب الموثوقية (Authenticity Tiers):*\n"
+                + "\n".join([f"  • *{t}:* `{cnt:,}` كتاباً" for t, cnt in metrics['authenticity_tiers'].items()]) + "\n\n"
+                "📂 *تصنيفات المصادر الكنسية (Source Types):*\n"
+                + "\n".join(source_lines)
+            )
+            await self.send_message(client, chat_id, dash_text, reply_markup=get_back_to_main_inline_keyboard())
+            return
+
+        # Slash Commands parsing (/ask, /father, /topic, /source)
+        active_filter = None
+        if text.startswith("/ask ") or text.startswith("/ask@"):
+            text = text.split(" ", 1)[1].strip()
+        elif text.startswith("/father ") or text.startswith("/father@"):
+            text = text.split(" ", 1)[1].strip()
+            active_filter = "PRIMARY_PATRISTIC"
+        elif text.startswith("/topic ") or text.startswith("/topic@"):
+            text = text.split(" ", 1)[1].strip()
+        elif text.startswith("/source ") or text.startswith("/source@"):
+            parts = text.split(" ", 2)
+            if len(parts) >= 2:
+                src_term = parts[1].strip()
+                if "آبائ" in src_term or "patristic" in src_term.lower():
+                    active_filter = "PRIMARY_PATRISTIC"
+                elif "دراس" in src_term or "theology" in src_term.lower() or "عقيد" in src_term:
+                    active_filter = "THEOLOGICAL_STUDIES"
+                elif "طقس" in src_term or "liturg" in src_term.lower():
+                    active_filter = "LITURGICAL_SOURCES"
+                elif "تاريخ" in src_term or "histor" in src_term.lower():
+                    active_filter = "HISTORICAL_SOURCES"
+                if len(parts) >= 3:
+                    text = parts[2].strip()
+
         # 3. Main Command Routing (/start, /menu, /help, etc.)
         if text in [
             "/start", "/menu", "/help",
@@ -488,8 +540,8 @@ class TelegramHandlerService:
             await self.send_message(client, chat_id, answer, reply_markup={"inline_keyboard": keyboard})
             return
 
-        # Default Flow: Instant Semantic RAG Search across whole library with Synonym Expansion
-        chunks = search_engine.search_fts5(text, limit=6)
+        # Default Flow: Instant Semantic RAG Search across whole library with Source-Aware Ranking
+        chunks = search_engine.search_fts5(text, limit=6, filter_source_type=active_filter)
         dedicated_books = search_engine.find_dedicated_books(text, limit=3)
         repo.log_search(user_id, text, len(chunks))
 
@@ -518,28 +570,30 @@ class TelegramHandlerService:
             await self.send_message(client, chat_id, reply, reply_markup=get_main_menu_inline_keyboard())
             return
 
+        # Store last query in user state for interactive source filtering
+        _user_states[user_id] = _user_states.get(user_id, {})
+        _user_states[user_id]["last_query"] = text
+
         ai_provider = get_ai_provider()
         answer = ai_provider.generate_answer(text, chunks, dedicated_books=dedicated_books)
 
-        keyboard = []
-        if dedicated_books:
-            for b in dedicated_books[:3]:
-                short_title = b["clean_title"]
-                if len(short_title) > 30:
-                    short_title = short_title[:30] + "..."
-                keyboard.append([{"text": f"📘 {short_title}", "callback_data": f"binfo:{b['sha256'][:16]}"}])
+        # 1. Send Structured Theological Synthesis
+        await self.send_message(client, chat_id, answer)
 
-        # Compact chunk reader buttons (2 per row)
-        chunk_row = []
-        for idx, c in enumerate(chunks[:4], 1):
-            chunk_row.append({"text": f"📖 شاهد {idx} (ص {c.page_number})", "callback_data": f"page:{c.sha256[:16]}:{c.page_number}"})
+        # 2. Send Top 3 Verified Reference Cards with Interactive Action Buttons (Phase 8)
+        for idx, c in enumerate(chunks[:3], 1):
+            card_text = format_reference_card(c, idx)
+            card_kb = get_reference_card_keyboard(c.sha256[:16], c.page_number, idx)
+            await self.send_message(client, chat_id, card_text, reply_markup={"inline_keyboard": card_kb})
 
-        for i in range(0, len(chunk_row), 2):
-            keyboard.append(chunk_row[i:i+2])
-
-        keyboard.append([{"text": "🔙 العودة للقائمة الرئيسية", "callback_data": "nav:main"}])
-
-        await self.send_message(client, chat_id, answer, reply_markup={"inline_keyboard": keyboard})
+        # 3. Send Filter & Navigation Bar
+        filter_markup = get_source_filter_keyboard(active_filter or "ALL")
+        filter_markup["inline_keyboard"].append([{"text": "🔙 العودة للقائمة الرئيسية", "callback_data": "nav:main"}])
+        await self.send_message(
+            client, chat_id,
+            "🔍 *تصفية نتائج البحث حسب نوع المرجع:*",
+            reply_markup=filter_markup
+        )
 
     async def handle_callback_query(self, client: httpx.AsyncClient, cb: Dict[str, Any]) -> None:
         """Handles all inline button clicks with rich responsive actions."""
@@ -1044,4 +1098,83 @@ class TelegramHandlerService:
                 f"📂 *كتب قسم {term} (اضغط على اسم الكتاب لفتحه):*",
                 reply_markup={"inline_keyboard": keyboard}
             )
+            return
+
+        # 13. Action: src:<filter_code> (Filter search results by Source Type)
+        if data.startswith("src:"):
+            filter_code = data.split("src:", 1)[1]
+            last_query = _user_states.get(user_id, {}).get("last_query")
+            if not last_query:
+                await self.send_message(
+                    client, chat_id,
+                    "🔍 *تصفية المصادر الكنسية:*\nيرجى كتابة سؤالك أو موضوع البحث أولاً لتطبيق التصفية.",
+                    reply_markup=get_main_menu_inline_keyboard()
+                )
+                return
+
+            filter_type = None if filter_code == "ALL" else filter_code
+            chunks = search_engine.search_fts5(last_query, limit=5, filter_source_type=filter_type)
+            if not chunks:
+                await self.send_message(
+                    client, chat_id,
+                    f"⚠️ لم يتم العثور على مراجع تطابق «{last_query}» ضمن هذا التصنيف تحديداً.",
+                    reply_markup=get_source_filter_keyboard(filter_code)
+                )
+                return
+
+            filter_labels = {
+                "ALL": "كافة المصادر",
+                "PRIMARY_PATRISTIC": "المصادر الآبائية الأصلية",
+                "THEOLOGICAL_STUDIES": "الدراسات اللاهوتية والعقائدية",
+                "LITURGICAL_SOURCES": "المصادر الطقسية والليتورجية",
+                "HISTORICAL_SOURCES": "المصادر التاريخية"
+            }
+            lbl = filter_labels.get(filter_code, filter_code)
+            await self.send_message(client, chat_id, f"🎯 *نتائج التصفية حسب:* «{lbl}» ({len(chunks)} مراجع):")
+
+            for idx, c in enumerate(chunks[:3], 1):
+                card_text = format_reference_card(c, idx)
+                card_kb = get_reference_card_keyboard(c.sha256[:16], c.page_number, idx)
+                await self.send_message(client, chat_id, card_text, reply_markup={"inline_keyboard": card_kb})
+
+            filter_markup = get_source_filter_keyboard(filter_code)
+            filter_markup["inline_keyboard"].append([{"text": "🔙 العودة للقائمة الرئيسية", "callback_data": "nav:main"}])
+            await self.send_message(client, chat_id, "⚙️ *تغيير التصنيف:*", reply_markup=filter_markup)
+            return
+
+        # 14. Action: rel:<ref>:<page_num> (Find Related Patristic Excerpts)
+        if data.startswith("rel:"):
+            parts = data.split(":")
+            if len(parts) >= 3:
+                ref, page_num = parts[1], int(parts[2])
+                book = repo.get_book_by_ref(ref)
+                if not book:
+                    await self.send_message(client, chat_id, "⚠️ لم يتم العثور على بيانات هذا المرجع.")
+                    return
+
+                # Retrieve nearby or related excerpts from the same book
+                sha256 = book["sha256"]
+                conn = get_connection()
+                cur = conn.cursor()
+                cur.execute("""
+                    SELECT page_number, chunk_text, source_reference
+                    FROM church_chunks_fts
+                    WHERE sha256 LIKE ? AND page_number != ?
+                    LIMIT 3
+                """, (f"{sha256[:16]}%", page_num))
+                related_rows = cur.fetchall()
+                conn.close()
+
+                if not related_rows:
+                    await self.send_message(client, chat_id, "⚠️ لم يتم العثور على شواهد أخرى مفهرسة من نفس الكتاب.")
+                    return
+
+                clean_title = book["file_name"].replace(".pdf", "")
+                await self.send_message(client, chat_id, f"🔍 *شواهد أخرى متصلة من كتاب:* «{clean_title}»:")
+                for r_idx, row in enumerate(related_rows, 1):
+                    p_num = row[0]
+                    excerpt = clean_theological_text(row[1])[:280] + "..."
+                    rel_msg = f"🔖 *شاهد متصل ({r_idx}):* صـ {p_num}\n❝ {excerpt} ❞"
+                    card_kb = get_reference_card_keyboard(sha256[:16], p_num, r_idx)
+                    await self.send_message(client, chat_id, rel_msg, reply_markup={"inline_keyboard": card_kb})
             return

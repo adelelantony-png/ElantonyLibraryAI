@@ -15,6 +15,9 @@ from elantony.database.connection import get_connection
 from elantony.database.models import ChunkEntity
 from elantony.core.logging import logger
 from elantony.core.text_cleaner import clean_theological_text, extract_coherent_sentences
+import json
+from elantony.classifier.source_classifier import ChurchSourceClassifier, SourceType, AuthenticityTier
+from elantony.ocr.advanced_ocr import ArabicOcrPostProcessor
 
 ARABIC_STOPWORDS: Set[str] = {
     # Question operators & interrogatives
@@ -228,12 +231,16 @@ class ChurchSearchEngine:
         conn.close()
         return found_books
 
-    def search_fts5(self, query: str, limit: int = 6) -> List[ChunkEntity]:
+    def search_fts5(
+        self,
+        query: str,
+        limit: int = 6,
+        filter_source_type: Optional[str] = None
+    ) -> List[ChunkEntity]:
         """
-        Executes multi-tier cascade search across 311,634+ indexed chunks.
-        Strictly enforces Topic Anchors to eliminate irrelevant false positives,
-        normalizes Alef/Hamza across FTS, matches chunks inside dedicated volumes,
-        and restores clean Arabic text.
+        Executes Advanced Hybrid & Source-Aware Retrieval across indexed chunks.
+        Applies Patristic Authority Weighting (Tier 1-5), metadata filtering,
+        printed page extraction, and strict anti-hallucination topic anchors.
         """
         keywords = extract_search_keywords(query)
         if not keywords:
@@ -329,26 +336,112 @@ class ChurchSearchEngine:
 
         conn.close()
 
-        # Step 4: Clean, Normalize and Format Output Chunks
-        results: List[ChunkEntity] = []
+        # Step 4: Fetch Metadata, Apply Authenticity Weighting & Hierarchy Ranking
+        target_fathers = [f for f, kws in ChurchSourceClassifier.PATRISTIC_FATHERS.items() if any(k in query.lower() for k in kws)]
+        
+        # Batch lookup book metadata
+        shas = list({r["sha256"] for r in rows})
+        book_meta_map: Dict[str, Dict[str, Any]] = {}
+        if shas:
+            try:
+                conn_meta = get_connection()
+                cur_m = conn_meta.cursor()
+                placeholders = ",".join(["?" for _ in shas])
+                cur_m.execute(f"""
+                    SELECT sha256, author, source_types, authenticity_tier, matched_fathers
+                    FROM church_books
+                    WHERE sha256 IN ({placeholders})
+                """, shas)
+                for bm in cur_m.fetchall():
+                    s_types = []
+                    if bm["source_types"]:
+                        try:
+                            s_types = json.loads(bm["source_types"])
+                        except Exception:
+                            s_types = [bm["source_types"]]
+                    book_meta_map[bm["sha256"]] = {
+                        "author": bm["author"] or "آباء ومعلمو الكنيسة",
+                        "source_types": s_types,
+                        "authenticity_tier": bm["authenticity_tier"] or 3,
+                        "matched_fathers": bm["matched_fathers"] or ""
+                    }
+                conn_meta.close()
+            except Exception as meta_err:
+                logger.debug(f"Book metadata batch lookup error: {meta_err}")
+
+        # Filter by source type and compute authenticity weight
+        candidate_items = []
         for r in rows:
+            sha = r["sha256"]
+            b_meta = book_meta_map.get(sha, {
+                "author": "آباء ومعلمو الكنيسة",
+                "source_types": ["THEOLOGICAL_STUDIES"],
+                "authenticity_tier": 3,
+                "matched_fathers": ""
+            })
+
+            # Check source type filter if provided
+            if filter_source_type:
+                if filter_source_type not in b_meta["source_types"] and filter_source_type != "ALL":
+                    continue
+
             cleaned_text = clean_theological_text(r["chunk_text"])
             if len(cleaned_text) < 40:
                 continue
 
-            clean_ref = r["source_reference"]
             clean_title = r["book_title"].replace(".pdf", "")
+            phys_page = int(r["page_number"])
+            printed_page = ArabicOcrPostProcessor.extract_printed_page_number(r["chunk_text"], phys_page)
 
-            results.append(ChunkEntity(
-                sha256=r["sha256"],
+            # Authenticity Multiplier based on source hierarchy & patristic query awareness
+            tier = b_meta["authenticity_tier"]
+            is_father_match = False
+            if target_fathers:
+                is_father_match = any(tf in b_meta["matched_fathers"] or tf in clean_title for tf in target_fathers)
+
+            if target_fathers and is_father_match:
+                weight = 1.8  # Top priority: original text attributed to the requested Father
+                relevance_score = 0.96
+            elif tier == 1:
+                weight = 1.5  # Primary Patristic original
+                relevance_score = 0.92
+            elif tier == 2:
+                weight = 1.3  # Scholarly Patristic study
+                relevance_score = 0.86
+            elif tier == 3:
+                weight = 1.0  # Master writings / Encyclopedias
+                relevance_score = 0.79
+            elif tier == 4:
+                weight = 0.95 # Liturgical / Historical
+                relevance_score = 0.74
+            else:
+                weight = 0.7 if target_fathers else 0.85 # Educational catechesis
+                relevance_score = 0.68
+
+            page_label = f"صـ {printed_page} (مطبوعة)" if printed_page != phys_page else f"صـ {phys_page}"
+            ref_str = f"كتاب: «{clean_title}»، {page_label}"
+
+            entity = ChunkEntity(
+                sha256=sha,
                 book_title=clean_title,
-                page_number=int(r["page_number"]),
+                file_name=clean_title,
+                page_number=phys_page,
                 chunk_index=int(r["chunk_index"]),
-                source_reference=f"[كتاب: {clean_title}، ص: {r['page_number']}]",
+                source_reference=ref_str,
                 chunk_text=cleaned_text,
-                rank=round(float(r["rank"]), 3) if r["rank"] is not None else 0.0
-            ))
+                rank=round(float(r["rank"]), 3) if r["rank"] is not None else 0.0,
+                author=b_meta["author"],
+                source_types=b_meta["source_types"],
+                authenticity_tier=tier,
+                printed_page=printed_page,
+                relevance_score=relevance_score,
+                citation_type="QUOTATION"
+            )
+            candidate_items.append((weight, relevance_score, entity))
 
+        # Sort: Highest authority weight first, then highest relevance score
+        candidate_items.sort(key=lambda x: (x[0], x[1]), reverse=True)
+        results = [item[2] for item in candidate_items[:limit]]
         return results
 
     def search_scoped_book(self, sha256: str, query: str, limit: int = 4) -> List[ChunkEntity]:

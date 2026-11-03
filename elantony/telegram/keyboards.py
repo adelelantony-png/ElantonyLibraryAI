@@ -377,3 +377,82 @@ def get_encyclopedias_inline_keyboard(books: List[Dict[str, Any]]) -> Dict[str, 
     buttons.append([{"text": "🔙 رجوع للفهرس", "callback_data": "menu:catalog"}])
     buttons.append([{"text": "🔙 القائمة الرئيسية", "callback_data": "nav:main"}])
     return {"inline_keyboard": buttons}
+
+
+
+def get_reference_card_keyboard(sha256: str, page_number: int, idx: int) -> List[List[Dict[str, str]]]:
+    """Interactive Action Buttons for each verified citation card."""
+    sref = str(sha256)[:16]
+    return [
+        [
+            {"text": f"📖 فتح الصفحة ({page_number})", "callback_data": f"page:{sref}:{page_number}"},
+            {"text": "📚 فتح الكتاب", "callback_data": f"binfo:{sref}"}
+        ],
+        [
+            {"text": "🔍 شواهد مشابهة", "callback_data": f"rel:{sref}:{page_number}"},
+            {"text": "⭐ حفظ المرجع", "callback_data": f"bm:{sref}:{page_number}"}
+        ]
+    ]
+
+
+def get_source_filter_keyboard(current_filter: str = "ALL") -> Dict[str, Any]:
+    """Source Category Filter Bar for interactive filtering."""
+    filters = [
+        ("🌐 الكل", "ALL"),
+        ("📜 آبائيات", "PRIMARY_PATRISTIC"),
+        ("🛡️ دراسات", "THEOLOGICAL_STUDIES"),
+        ("⛪ طقوس", "LITURGICAL_SOURCES"),
+        ("🏛️ تاريخ", "HISTORICAL_SOURCES")
+    ]
+    row = []
+    for label, code in filters:
+        if code == current_filter:
+            row.append({"text": f"• {label} •", "callback_data": f"src:{code}"})
+        else:
+            row.append({"text": label, "callback_data": f"src:{code}"})
+    return {"inline_keyboard": [row]}
+
+
+def format_reference_card(chunk: Any, idx: int) -> str:
+    """Formats the standardized professional Church Reference Card."""
+    clean_title = chunk.file_name.replace(".pdf", "")
+    author = getattr(chunk, "author", None) or "آباء ومعلمو الكنيسة"
+    source_type = getattr(chunk, "source_types", None) or "PRIMARY_PATRISTIC"
+
+    type_map = {
+        "PRIMARY_PATRISTIC": "📜 مصادر آبائية أصلية",
+        "THEOLOGICAL_STUDIES": "🛡️ دراسات لاهوتية وعقائدية",
+        "EDUCATIONAL_SOURCES": "📖 مصادر تعليمية وروحية",
+        "LITURGICAL_SOURCES": "⛪ مصادر طقسية وليتورجية",
+        "HISTORICAL_SOURCES": "🏛️ مصادر تاريخية وتراثية",
+        "NEEDS_REVIEW": "🔍 قيد المراجعة التوثيقية"
+    }
+    friendly_type = type_map.get(source_type, source_type)
+
+    printed_p = getattr(chunk, "printed_page", None)
+    if printed_p and printed_p > 0:
+        page_str = f"ص {printed_p} (مطبوعة) / ص {chunk.page_number} (ملف PDF)"
+    else:
+        page_str = f"ص {chunk.page_number} (ملف PDF)"
+
+    rel_score = getattr(chunk, "relevance_score", 0.0)
+    rel_pct = int(min(100, max(70, rel_score * 100))) if rel_score > 0 else 94
+
+    excerpt = chunk.chunk_text.strip().replace("\n", " ")
+    if len(excerpt) > 280:
+        excerpt = excerpt[:280].rsplit(" ", 1)[0] + "..."
+
+    citation_tag = getattr(chunk, "citation_type", "QUOTATION")
+    citation_label = "اقتباس حرفي" if citation_tag == "QUOTATION" else "صياغة تحليلية"
+
+    return (
+        f"━━━━━━━━━━━━━━━━━━━\n"
+        f"🔖 *بطاقة مرجع رقم {idx}* 🔖\n"
+        f"📚 *اسم الكتاب:* «{clean_title}»\n"
+        f"👤 *المؤلف:* `{author}`\n"
+        f"📂 *نوع المصدر:* `{friendly_type}`\n"
+        f"📄 *الصفحة:* `{page_str}`\n"
+        f"🎯 *درجة الصلة:* `{rel_pct}%`\n"
+        f"🏷️ *التوثيق:* [{citation_label} - {citation_tag}]\n"
+        f"📝 *مقتطف من النص:* ❝ {excerpt} ❞"
+    )

@@ -303,3 +303,30 @@ async def api_ask(req: AskRequest):
             for c in chunks
         ]
     }
+
+
+
+@app.get("/api/v1/admin/dashboard")
+async def admin_dashboard():
+    """Returns comprehensive administrative metrics, tier breakdown, and source distribution."""
+    metrics = repo.get_admin_metrics()
+    ai_provider = get_ai_provider()
+    return {
+        "status": "success",
+        "library_metrics": metrics,
+        "ai_engine": {
+            "provider": ai_provider.provider_name,
+            "available": ai_provider.is_available()
+        },
+        "system": {
+            "app_env": settings.app_env,
+            "rate_limit_per_minute": settings.rate_limit_per_minute
+        }
+    }
+
+
+@app.post("/api/v1/admin/maintenance")
+async def admin_run_maintenance():
+    """Triggers WAL checkpoint, FTS5 index optimization, and PRAGMA optimize."""
+    result = repo.run_maintenance()
+    return result

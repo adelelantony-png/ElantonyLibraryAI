@@ -1,13 +1,15 @@
 # -*- coding: utf-8 -*-
 """
 ArchiveMaster - ELANTONY LIBRARY AI
-Theological Gemini RAG AI Provider
-Leverages Google Gemini API (Free tier / Pay-as-you-go) with strict
-anti-hallucination prompt guardrails and automatic model fallback.
+Theological Gemini RAG AI Provider (Phases 6 & 7)
+Leverages Google Gemini API with strict anti-hallucination guardrails,
+verified citation typology (QUOTATION, PARAPHRASE, SYNTHESIS, EXTERNAL_KNOWLEDGE),
+and structured theological axis synthesis.
 """
 
 from typing import List, Optional, Dict, Any
 import os
+import re
 
 from elantony.ai.base import BaseAIProvider
 from elantony.ai.rule_based_provider import RuleBasedChurchProvider
@@ -15,24 +17,35 @@ from elantony.database.models import ChunkEntity
 from elantony.core.config import settings
 from elantony.core.logging import logger
 
-THEOLOGICAL_SYSTEM_PROMPT = """أنت «خادم وباحث لاهوتي وكنسي» في منظومة ELANTONY LIBRARY AI التابعة لمكتبة كنيسة المشرق القبطية الأرثوذكسية.
-مهمتك: الإجابة عن الأسئلة اللاهوتية، العقائدية، الروحية، والطقسية استناداً حصرياً ومباشراً إلى نصوص المراجع والشواهد الآبائية المرفقة في السياق أدناه.
+THEOLOGICAL_STRUCTURED_SYSTEM_PROMPT = """أنت «خادم وباحث لاهوتي وكنسي أول» في منظومة ELANTONY LIBRARY AI التابعة لمكتبة كنيسة المشرق القبطية الأرثوذكسية.
+مهمتك: الإجابة عن الأسئلة اللاهوتية، العقائدية، الروحية، والطقسية استناداً حصرياً ومباشراً إلى الشواهد والمراجع المرفقة في السياق (Context).
 
-القواعد الصارمة لمنع الهلوسة (Zero-Hallucination Guardrails):
-1. كل معلومة أو تعليم تقدمه يجب أن يكون مستنداً إلى أحد الشواهد المرفقة في السياق.
-2. يمنع منعاً باتاً اختلاق أي مراجع، أو نسب أقوال لآباء لم تذكر نصوصهم في السياق، أو افتراض أرقام صفحات غير موجودة.
-3. وثق دائماً المرجع ورقم الصفحة بصيغة دقيقة: [اسم الكتاب، ص: X].
-4. رتب إجابتك بتنسيق كنسي وقور وواضح:
-   - 📌 **الخلاصة والشرح اللاهوتي / الروحي**: إيضاح المفهوم بأسلوب كنسي عميق مستخلص من النصوص.
-   - 📖 **شواهد بطون أمهات الكتب**: اقتباس العبارات الآبائية الجوهرية مع توثيق اسم السفر/الكتاب ورقم الصفحة.
-   - ✨ **التدريب والتطبيق الروحي**: كيف يعيش المؤمن هذا التعليم في جهاده اليومي وحياته مع الله.
-5. إذا لم تحتوِ الشواهد المرفقة على إجابة كافية ومباشرة، قل بأمانة علمية وروحية:
-   «لم أعثر في المراجع المفهرسة حالياً على نصوص مباشرة تغطي هذه المسألة بدقة كاملة، ويرجى البحث بكلمات أخرى أو الرجوع للمراجع المتخصصة».
+معايير التوثيق الكنسي الصارم ومنع الهلوسة (Verified Citation & Zero-Hallucination Guardrails):
+1. كل حقيقة أو عقيدة أو استشهاد تقدمه يجب أن يكون مستنداً إلى أحد الشواهد المرفقة في السياق.
+2. يمنع منعاً باتاً اختلاق أي مرجع، أو نسبة أقوال لآباء لم تذكر نصوصهم في السياق، أو افتراض أرقام صفحات وهمية.
+3. يجب التمييز بوضوح بين أنواع التوثيق الكنسي:
+   - [اقتباس حرفي - QUOTATION]: نقل العبارة بنصها الحرفي بين علامتي «...» مع ذكر المرجع ورقم الصفحة.
+   - [صياغة تحليلية - PARAPHRASE]: تلخيص وشرح لفكرة مذكورة في الشاهد.
+   - [استنتاج مركب - SYNTHESIS]: الربط بين أكثر من شاهد لتأكيد مفهوم لاهوتي موحد.
+   - [معلومة تمهيدية - EXTERNAL_KNOWLEDGE]: خلفية لغوية أو تاريخية تمهيدية عامة (يجب ذكر أنها معلومة تمهيدية عامة وليست مقتطفة مباشرة من شواهد المكتبة).
+4. توثيق رقم الصفحة:
+   - اذكر رقم الصفحة كما ورد في الشاهد (سواء الصفحة المطبوعة أو صفحة ملف PDF).
+   - إذا تعذر الجزم بالصفحة المطبوعة، اذكر صراحة: [صفحة PDF: X - الصفحة المطبوعة قيد المراجعة].
+5. إذا طلب السؤال جانباً لم يرد في الشواهد المرفقة، لا تختلق إجابة على الإطلاق، بل اذكر بأمانة علمية:
+   «لم نعثر في شواهد المكتبة المفهرسة حالياً على نص مباشر يغطي هذا الجانب تحديداً».
+
+هيكل الإجابة المنظمة (Structured Theological Thesis):
+- 📌 **المقدمة**: تعريف موجز ودقيق للمفهوم اللاهوتي أو العقائدي.
+- 🏛️ **المحور الأول**: البيان اللاهوتي والآبائي (مع الشواهد الموثقة).
+- 📜 **المحور الثاني**: الأبعاد الخلاصية / الكتابية / الطقسية المرتبطة.
+- 🕊️ **المحور الثالث**: التطبيق الروحي والجهاد المعاش في فكر الكنيسة.
+- 📚 **المصادر والمراجع الموثقة**:
+  قائمة مرقمة بكل كتاب تم الاقتباس منه مع اسم المؤلف، نوع المصدر، ورقم الصفحة ونوع التوثيق.
 """
 
 
 class GeminiAIProvider(BaseAIProvider):
-    """Google Gemini API Provider with strict anti-hallucination guardrails and multi-model fallback."""
+    """Google Gemini API Provider with strict verified citation typology and structured answer generation."""
 
     # Priority order for models supported on Gemini API
     CANDIDATE_MODELS = [
@@ -62,7 +75,7 @@ class GeminiAIProvider(BaseAIProvider):
         dedicated_books: Optional[List[Dict[str, Any]]] = None
     ) -> str:
         """
-        Synthesizes a response strictly grounded in context_chunks.
+        Synthesizes a response strictly grounded in context_chunks with verified citation classification.
         Falls back to grounded rule-based provider if offline or key is missing.
         """
         if not self.is_available() or not context_chunks:
@@ -73,28 +86,33 @@ class GeminiAIProvider(BaseAIProvider):
 
             genai.configure(api_key=self.api_key)
 
-            # Build grounded context
+            # Build grounded context with full authenticity tier and page metadata
             context_blocks = []
             for idx, c in enumerate(context_chunks, 1):
                 clean_chunk = c.chunk_text.strip().replace("\n", " ")
-                context_blocks.append(f"[{idx}] {c.source_reference}:\n❝ {clean_chunk} ❞")
+                tier_label = f"مرتبة التوثيق: {c.authenticity_tier}"
+                source_label = f"التصنيف: {c.source_types or 'عام'}"
+                context_blocks.append(
+                    f"[{idx}] {c.source_reference} ({tier_label} | {source_label}):\n"
+                    f"❝ {clean_chunk} ❞"
+                )
 
             full_context = "\n\n".join(context_blocks)
 
             prompt = (
-                f"{THEOLOGICAL_SYSTEM_PROMPT}\n\n"
-                f"=== الشواهد الكنسية المسترجعة من كتب المكتبة (Context) ===\n"
+                f"{THEOLOGICAL_STRUCTURED_SYSTEM_PROMPT}\n\n"
+                f"=== الشواهد الكنسية المعتمدة المسترجعة من كتب المكتبة (Context) ===\n"
                 f"{full_context}\n\n"
                 f"=== السؤال المطروح من الباحث ===\n"
                 f"«{question}»\n\n"
-                f"الإجابة الموثقة الكنسية:"
+                f"الإجابة المنهجية الموثقة:"
             )
 
-            # Try candidate models with graceful fallback
+            # Strict low temperature to prevent hallucination
             generation_config = genai.types.GenerationConfig(
-                temperature=0.2,       # Low temperature prevents hallucination
-                top_p=0.9,
-                max_output_tokens=1500
+                temperature=0.15,
+                top_p=0.85,
+                max_output_tokens=2000
             )
 
             for model_name in self.CANDIDATE_MODELS:

@@ -72,3 +72,5 @@ htmlcov/
 # Portable Binaries & Setup Installers
 tesseract/
 installers/
+
+/tessdata/

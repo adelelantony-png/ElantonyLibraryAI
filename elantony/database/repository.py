@@ -82,6 +82,9 @@ class DatabaseRepository:
         cur.execute("CREATE INDEX IF NOT EXISTS idx_church_books_status ON church_books(extraction_status)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_church_books_category ON church_books(category)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_church_books_author ON church_books(author)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_church_books_tier ON church_books(authenticity_tier)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_church_books_source_types ON church_books(source_types)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_church_books_needs_review ON church_books(needs_review)")
 
         # 2. Virtual Table for Full-Text & Semantic Search (FTS5)
         cur.execute("""
@@ -518,6 +521,103 @@ class DatabaseRepository:
         rows = [dict(r) for r in cur.fetchall()]
         conn.close()
         return rows
+
+
+    def get_admin_metrics(self) -> Dict[str, Any]:
+        """Calculates comprehensive administrative and research metrics for monitoring dashboard."""
+        conn = get_connection()
+        cur = conn.cursor()
+
+        # 1. Total counts
+        cur.execute("SELECT COUNT(*), SUM(page_count), SUM(file_size) FROM church_books WHERE is_duplicate_of IS NULL")
+        unique_books, total_pages, total_size = cur.fetchone()
+
+        # 2. Authenticity Tiers
+        cur.execute("""
+            SELECT authenticity_tier, COUNT(*) 
+            FROM church_books 
+            WHERE is_duplicate_of IS NULL 
+            GROUP BY authenticity_tier 
+            ORDER BY authenticity_tier ASC
+        """)
+        tier_counts = {f"Tier {r[0]}": r[1] for r in cur.fetchall()}
+
+        # 3. Source Types
+        cur.execute("""
+            SELECT source_types, COUNT(*) 
+            FROM church_books 
+            WHERE is_duplicate_of IS NULL 
+            GROUP BY source_types 
+            ORDER BY COUNT(*) DESC
+        """)
+        source_counts = {r[0] or "UNCLASSIFIED": r[1] for r in cur.fetchall()}
+
+        # 4. OCR & Extraction Status
+        cur.execute("""
+            SELECT ocr_status, COUNT(*) 
+            FROM church_books 
+            WHERE is_duplicate_of IS NULL 
+            GROUP BY ocr_status
+        """)
+        ocr_counts = {r[0] or "none": r[1] for r in cur.fetchall()}
+
+        # 5. Indexed chunks
+        try:
+            cur.execute("SELECT MAX(id) FROM church_chunks_fts_docsize")
+            val = cur.fetchone()[0]
+            indexed_chunks = val if val is not None else 0
+        except Exception:
+            indexed_chunks = 0
+
+        # 6. Recent searches
+        cur.execute("""
+            SELECT query, results_count, created_at 
+            FROM search_telemetry 
+            ORDER BY id DESC 
+            LIMIT 10
+        """)
+        recent_searches = [dict(r) for r in cur.fetchall()]
+
+        conn.close()
+
+        return {
+            "unique_books": unique_books or 0,
+            "total_pages": total_pages or 0,
+            "total_size_mb": round((total_size or 0) / (1024 * 1024), 2),
+            "indexed_chunks": indexed_chunks,
+            "authenticity_tiers": tier_counts,
+            "source_types": source_counts,
+            "ocr_status": ocr_counts,
+            "recent_searches": recent_searches
+        }
+
+    def run_maintenance(self) -> Dict[str, Any]:
+        """Runs periodic SQLite maintenance: WAL checkpoint, FTS5 optimize, and schema analysis."""
+        conn = get_connection()
+        cur = conn.cursor()
+        actions = []
+
+        try:
+            cur.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+            actions.append("wal_checkpoint_truncate_success")
+        except Exception as e:
+            actions.append(f"wal_checkpoint_err: {e}")
+
+        try:
+            cur.execute("INSERT INTO church_chunks_fts(church_chunks_fts) VALUES('optimize')")
+            actions.append("fts5_optimize_success")
+        except Exception as e:
+            actions.append(f"fts5_optimize_err: {e}")
+
+        try:
+            cur.execute("PRAGMA optimize")
+            actions.append("pragma_optimize_success")
+        except Exception as e:
+            actions.append(f"pragma_optimize_err: {e}")
+
+        conn.commit()
+        conn.close()
+        return {"status": "completed", "maintenance_actions": actions}
 
 
 # Singleton repository instance
