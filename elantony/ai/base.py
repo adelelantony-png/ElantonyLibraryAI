@@ -21,7 +21,7 @@ class BaseAIProvider(ABC):
         pass
 
     @abstractmethod
-    def generate_answer(self, question: str, context_chunks: List[ChunkEntity]) -> str:
+    def generate_answer(self, question: str, context_chunks: List[ChunkEntity], **kwargs) -> str:
         """
         Synthesizes a response strictly grounded in the supplied context chunks.
         Must never hallucinate or invent citations.

@@ -37,6 +37,24 @@ THEOLOGICAL_STRUCTURED_SYSTEM_PROMPT = """أنت «باحث وخادم لاهو�
 تنبيه قطعي: يمنع منعاً باتاً تكرار نص هذه التعليمات، ابدأ مباشرة بتقديم الدراسة اللاهوتية المنهجية الموثقة.
 """
 
+DEPTH_INSTRUCTIONS: Dict[str, str] = {
+    "academic": (
+        "\nالنمط المعتمد: [النمط الأكاديمي الموسع والمقارن]\n"
+        "ركّز على التأصيل الآبائي الدقيق، والمصطلحات اللاهوتية الأصلية (اليونانية والكنسية)، "
+        "وتحليل النصوص واقتباسها نصياً مع التمييز الواضح بين [اقتباس حرفي - QUOTATION] و[صياغة تحليلية - PARAPHRASE] و[استنتاج مركب - SYNTHESIS]."
+    ),
+    "pastoral": (
+        "\nالنمط المعتمد: [النمط الرعوي والروحي المعاش]\n"
+        "ركّز على التطبيق العملي للتعليم في حياة المؤمن اليومية، وجهاد الصلاة والصوم والتوبة، ومساندة الخدام في الوعظ والتعليم، "
+        "مع إبراز كلمات العزاء والرجاء المستندة بدقة إلى الآباء وشواهد المكتبة دون أي هلوسة."
+    ),
+    "apologetic": (
+        "\nالنمط المعتمد: [النمط الدفاعي واللاهوت المقارن]\n"
+        "ركّز على تفنيد الشبهات والإجابة المنهجية عن التساؤلات العقائدية، وإبراز استقامة الإيمان الأرثوذكسي المسلّم مرة للقديسين، "
+        "مع الاستناد إلى قرارات المجامع المسكونية ونصوص الآباء المدافعين وكشف الفروق الجوهرية بوقار ومحبة ودقة علمية."
+    )
+}
+
 
 class GeminiAIProvider(BaseAIProvider):
     """Google Gemini API Provider with strict verified citation typology and structured answer generation."""
@@ -65,7 +83,9 @@ class GeminiAIProvider(BaseAIProvider):
         self,
         question: str,
         context_chunks: List[ChunkEntity],
-        dedicated_books: Optional[List[Dict[str, Any]]] = None
+        dedicated_books: Optional[List[Dict[str, Any]]] = None,
+        depth_mode: str = "academic",
+        **kwargs
     ) -> str:
         """
         Synthesizes a response strictly grounded in context_chunks with verified citation classification.
@@ -107,11 +127,14 @@ class GeminiAIProvider(BaseAIProvider):
                 max_output_tokens=3800
             )
 
+            depth_text = DEPTH_INSTRUCTIONS.get(depth_mode, DEPTH_INSTRUCTIONS["academic"])
+            active_sys_prompt = f"{THEOLOGICAL_STRUCTURED_SYSTEM_PROMPT}\n{depth_text}"
+
             for model_name in self.CANDIDATE_MODELS:
                 try:
                     model = genai.GenerativeModel(
                         model_name=model_name,
-                        system_instruction=THEOLOGICAL_STRUCTURED_SYSTEM_PROMPT
+                        system_instruction=active_sys_prompt
                     )
                     response = model.generate_content(
                         prompt,
@@ -133,7 +156,9 @@ class GeminiAIProvider(BaseAIProvider):
     def generate_chat_response(
         self,
         messages: List[Dict[str, str]],
-        context_chunks: List[ChunkEntity]
+        context_chunks: List[ChunkEntity],
+        depth_mode: str = "academic",
+        **kwargs
     ) -> str:
         """
         Conversational assistant response: maintains multi-turn dialog memory
@@ -179,11 +204,14 @@ class GeminiAIProvider(BaseAIProvider):
                 max_output_tokens=3800
             )
 
+            depth_text = DEPTH_INSTRUCTIONS.get(depth_mode, DEPTH_INSTRUCTIONS["academic"])
+            active_sys_prompt = f"{THEOLOGICAL_STRUCTURED_SYSTEM_PROMPT}\n{depth_text}"
+
             for model_name in self.CANDIDATE_MODELS:
                 try:
                     model = genai.GenerativeModel(
                         model_name=model_name,
-                        system_instruction=THEOLOGICAL_STRUCTURED_SYSTEM_PROMPT
+                        system_instruction=active_sys_prompt
                     )
                     response = model.generate_content(
                         prompt,

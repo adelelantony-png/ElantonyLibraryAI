@@ -35,7 +35,8 @@ class RuleBasedChurchProvider(BaseAIProvider):
         self,
         question: str,
         context_chunks: List[ChunkEntity],
-        dedicated_books: Optional[List[Dict[str, Any]]] = None
+        dedicated_books: Optional[List[Dict[str, Any]]] = None,
+        **kwargs
     ) -> str:
         if not context_chunks and not dedicated_books:
             return (

@@ -858,10 +858,11 @@ class TelegramHandlerService:
         dialogue_history.append({"role": "user", "content": text})
 
         ai_provider = get_ai_provider()
+        user_depth = _user_states.get(user_id, {}).get("depth_mode", "academic")
         if len(dialogue_history) > 1 and hasattr(ai_provider, "generate_chat_response"):
-            answer = ai_provider.generate_chat_response(dialogue_history, chunks)
+            answer = ai_provider.generate_chat_response(dialogue_history, chunks, depth_mode=user_depth)
         else:
-            answer = ai_provider.generate_answer(text, chunks, dedicated_books=dedicated_books)
+            answer = ai_provider.generate_answer(text, chunks, dedicated_books=dedicated_books, depth_mode=user_depth)
 
         # Prepare citations for persistent saving
         citations_data = []

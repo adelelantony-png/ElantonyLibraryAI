@@ -2,15 +2,16 @@
 """
 ELANTONY LIBRARY AI - Web & Cloud REST API
 Provides conversational ChatGPT-like Research Portal, FTS5 Search,
-and Admin Management Endpoints.
+Word (.docx) Export, Book Viewing, and Admin Management Endpoints.
 """
 
 import os
 import asyncio
+from pathlib import Path
 from typing import Dict, Any, Optional, List
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Query, HTTPException
-from fastapi.responses import HTMLResponse, JSONResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, Response, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -53,7 +54,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="ELANTONY LIBRARY AI",
     description="Ecclesiastical Smart Library & Conversational Research Assistant",
-    version="2.6.0",
+    version="2.7.0",
     lifespan=lifespan
 )
 
@@ -69,17 +70,21 @@ app.add_middleware(
 class AskRequest(BaseModel):
     question: str
     limit: Optional[int] = 4
+    depth_mode: Optional[str] = "academic"
 
 
 class ChatMessage(BaseModel):
     role: str  # "user" or "assistant"
     content: str
+    turn_number: Optional[int] = None
+    citations: Optional[List[Dict[str, Any]]] = None
 
 
 class ChatRequest(BaseModel):
     messages: List[ChatMessage]
     session_id: Optional[str] = None
     user_id: Optional[str] = "web"
+    depth_mode: Optional[str] = "academic"
 
 
 class CreateSessionRequest(BaseModel):
@@ -92,7 +97,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>✠ ELANTONY LIBRARY AI - المساعد الذكي لمكتبة القديس أنطونيوس</title>
+    <title>✠ ELANTONY LIBRARY AI - المساعد والباحث اللاهوتي الذكي</title>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
@@ -106,6 +111,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             --accent: #3B82F6;
             --accent-hover: #1D4ED8;
             --gold: #F59E0B;
+            --gold-light: #FDE68A;
             --text-main: #F8FAFC;
             --text-sub: #94A3B8;
             --radius-bubble: 16px;
@@ -116,7 +122,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
 
         /* Sidebar */
         .sidebar {
-            width: 280px;
+            width: 300px;
             background: var(--bg-sidebar);
             border-left: 1px solid var(--card-border);
             display: flex;
@@ -125,7 +131,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             z-index: 20;
         }
         .sidebar-header {
-            padding: 18px;
+            padding: 16px 18px;
             border-bottom: 1px solid var(--card-border);
             display: flex;
             align-items: center;
@@ -135,9 +141,10 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             display: flex;
             align-items: center;
             gap: 10px;
-            font-weight: 800;
+            font-weight: 900;
             font-size: 16px;
             color: #FFF;
+            letter-spacing: 0.5px;
         }
         .app-brand span { color: var(--gold); }
         .btn-new-chat {
@@ -145,7 +152,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             background: rgba(59, 130, 246, 0.15);
             border: 1px dashed var(--accent);
             color: #60A5FA;
-            padding: 10px;
+            padding: 11px;
             border-radius: 10px;
             font-weight: 700;
             font-size: 14px;
@@ -156,36 +163,84 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             gap: 8px;
             transition: 0.2s;
         }
-        .btn-new-chat:hover { background: var(--accent); color: #FFF; border-style: solid; }
+        .btn-new-chat:hover { background: var(--accent); color: #FFF; border-style: solid; transform: translateY(-1px); }
+        
+        .chat-history-title {
+            padding: 6px 18px;
+            font-size: 11px;
+            font-weight: 800;
+            color: var(--text-sub);
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
         .chat-history {
             flex: 1;
             overflow-y: auto;
             padding: 0 14px;
         }
         .chat-history-item {
-            padding: 10px 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 9px 12px;
             border-radius: 8px;
             font-size: 13px;
             color: var(--text-sub);
             cursor: pointer;
             margin-bottom: 4px;
+            transition: 0.2s;
+            border: 1px solid transparent;
+        }
+        .chat-history-item:hover, .chat-history-item.active {
+            background: rgba(255,255,255,0.08);
+            color: #FFF;
+            border-color: rgba(255,255,255,0.1);
+        }
+        .chat-history-item.active {
+            background: rgba(59, 130, 246, 0.15);
+            border-color: var(--accent);
+            color: #93C5FD;
+            font-weight: 700;
+        }
+        .chat-item-text {
+            flex: 1;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            padding-left: 6px;
+        }
+        .chat-item-actions {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .btn-sess-act {
+            opacity: 0;
+            background: none;
+            border: none;
+            font-size: 12px;
+            cursor: pointer;
+            padding: 3px 6px;
+            border-radius: 4px;
             transition: 0.2s;
+            color: var(--text-sub);
         }
-        .chat-history-item:hover, .chat-history-item.active {
-            background: rgba(255,255,255,0.06);
-            color: #FFF;
-        }
+        .chat-history-item:hover .btn-sess-act { opacity: 0.8; }
+        .btn-sess-act:hover { opacity: 1; background: rgba(255,255,255,0.12); color: #FFF; }
+        .btn-sess-del:hover { background: rgba(239,68,68,0.25); color: #EF4444; }
+
         .sidebar-footer {
-            padding: 16px;
+            padding: 14px 18px;
             border-top: 1px solid var(--card-border);
             font-size: 12px;
             color: var(--text-sub);
-            background: rgba(0,0,0,0.2);
+            background: rgba(0,0,0,0.25);
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
         }
-        .sidebar-footer a { color: #60A5FA; text-decoration: none; font-weight: 600; }
+        .sidebar-footer strong { color: var(--gold); }
+        .sidebar-footer a { color: #60A5FA; text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
 
         /* Main Container */
         .main-container {
@@ -196,31 +251,60 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             position: relative;
         }
         .top-navbar {
-            height: 60px;
+            min-height: 62px;
             border-bottom: 1px solid var(--card-border);
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 0 20px;
-            background: rgba(15, 23, 42, 0.7);
-            backdrop-filter: blur(8px);
+            padding: 8px 20px;
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(10px);
+            gap: 12px;
+            flex-wrap: wrap;
         }
-        .nav-title { font-weight: 700; font-size: 15px; display: flex; align-items: center; gap: 8px; }
-        .live-badge { display: inline-flex; align-items: center; gap: 6px; background: rgba(34, 197, 94, 0.15); color: #4ADE80; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; }
-        .live-dot { width: 8px; height: 8px; background: #22C55E; border-radius: 50%; animation: pulse 2s infinite; }
+        .nav-title { font-weight: 800; font-size: 15px; display: flex; align-items: center; gap: 8px; color: #FFF; }
+        .nav-title span { color: var(--gold); }
 
-        @keyframes pulse {
-            0% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.4; transform: scale(1.2); }
-            100% { opacity: 1; transform: scale(1); }
+        /* Depth Selector */
+        .depth-selector-group {
+            display: flex;
+            align-items: center;
+            background: #090D16;
+            border: 1px solid var(--card-border);
+            border-radius: 10px;
+            padding: 3px;
+            gap: 2px;
+        }
+        .depth-label {
+            font-size: 11px;
+            font-weight: 800;
+            color: var(--gold);
+            padding: 0 8px;
+        }
+        .btn-depth {
+            background: none;
+            border: none;
+            color: var(--text-sub);
+            padding: 5px 10px;
+            border-radius: 7px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .btn-depth:hover { color: #FFF; background: rgba(255,255,255,0.05); }
+        .btn-depth.active {
+            background: var(--accent);
+            color: #FFF;
+            box-shadow: 0 2px 6px rgba(37,99,235,0.4);
         }
 
-        .nav-actions { display: flex; align-items: center; gap: 10px; }
+        .nav-actions { display: flex; align-items: center; gap: 8px; }
         .btn-nav {
-            padding: 6px 14px;
+            padding: 6px 13px;
             border-radius: 8px;
             font-weight: 700;
-            font-size: 13px;
+            font-size: 12px;
             cursor: pointer;
             display: inline-flex;
             align-items: center;
@@ -231,6 +315,8 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
         }
         .btn-compile { background: rgba(245, 158, 11, 0.15); border-color: var(--gold); color: #FBBF24; }
         .btn-compile:hover { background: var(--gold); color: #000; }
+        .btn-docx-nav { background: rgba(16, 185, 129, 0.15); border-color: #10B981; color: #34D399; }
+        .btn-docx-nav:hover { background: #10B981; color: #000; }
         .btn-export-nav { background: rgba(59, 130, 246, 0.15); border-color: var(--accent); color: #60A5FA; }
         .btn-export-nav:hover { background: var(--accent); color: #FFF; }
 
@@ -238,7 +324,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
         .modal-overlay {
             position: fixed;
             inset: 0;
-            background: rgba(0, 0, 0, 0.78);
+            background: rgba(0, 0, 0, 0.82);
             backdrop-filter: blur(6px);
             display: none;
             align-items: center;
@@ -252,11 +338,11 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             border: 1px solid var(--card-border);
             border-radius: 16px;
             width: 100%;
-            max-width: 960px;
+            max-width: 980px;
             max-height: 88vh;
             display: flex;
             flex-direction: column;
-            box-shadow: 0 25px 50px rgba(0,0,0,0.6);
+            box-shadow: 0 25px 50px rgba(0,0,0,0.7);
             overflow: hidden;
         }
         .modal-header {
@@ -279,6 +365,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             display: flex;
             align-items: center;
             gap: 8px;
+            flex-wrap: wrap;
         }
         .btn-modal-act {
             background: rgba(59, 130, 246, 0.15);
@@ -292,6 +379,12 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             transition: 0.2s;
         }
         .btn-modal-act:hover { background: var(--accent); color: #FFF; }
+        .btn-modal-docx {
+            background: rgba(16, 185, 129, 0.2);
+            border-color: #10B981;
+            color: #6EE7B7;
+        }
+        .btn-modal-docx:hover { background: #10B981; color: #000; }
         .btn-modal-close {
             background: none;
             border: none;
@@ -313,42 +406,6 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
         .modal-body strong { color: var(--gold); }
         .modal-body blockquote { border-right: 4px solid var(--gold); padding-right: 14px; margin: 12px 0; color: #CBD5E1; font-style: italic; background: rgba(255,255,255,0.02); padding: 8px 14px; border-radius: 4px; }
 
-        .chat-history-item {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 9px 12px;
-            border-radius: 8px;
-            font-size: 13px;
-            color: var(--text-sub);
-            cursor: pointer;
-            margin-bottom: 4px;
-            transition: 0.2s;
-        }
-        .chat-history-item:hover, .chat-history-item.active {
-            background: rgba(255,255,255,0.08);
-            color: #FFF;
-        }
-        .chat-item-text {
-            flex: 1;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        .btn-del-chat {
-            opacity: 0;
-            color: #EF4444;
-            background: none;
-            border: none;
-            font-size: 13px;
-            cursor: pointer;
-            padding: 2px 6px;
-            border-radius: 4px;
-            transition: 0.2s;
-        }
-        .chat-history-item:hover .btn-del-chat { opacity: 0.7; }
-        .btn-del-chat:hover { opacity: 1; background: rgba(239,68,68,0.2); }
-
         /* Messages Window */
         .messages-area {
             flex: 1;
@@ -359,7 +416,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             gap: 20px;
         }
         .messages-container {
-            max-width: 900px;
+            max-width: 920px;
             margin: 0 auto;
             width: 100%;
             display: flex;
@@ -392,15 +449,29 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
         .msg-avatar.user { background: #475569; color: #FFF; }
 
         .msg-content {
-            max-width: 82%;
+            max-width: 86%;
             display: flex;
             flex-direction: column;
         }
+        .turn-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(245, 158, 11, 0.15);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            color: var(--gold);
+            font-size: 11px;
+            font-weight: 800;
+            padding: 3px 10px;
+            border-radius: 6px;
+            margin-bottom: 6px;
+            align-self: flex-start;
+        }
         .bubble {
-            padding: 16px 20px;
+            padding: 18px 22px;
             border-radius: var(--radius-bubble);
             font-size: 15px;
-            line-height: 1.7;
+            line-height: 1.8;
             word-break: break-word;
         }
         .msg-row.user .bubble {
@@ -416,24 +487,25 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             box-shadow: 0 4px 20px rgba(0,0,0,0.25);
         }
 
-        /* Markdown formatting inside assistant bubble */
-        .bubble h1, .bubble h2, .bubble h3, .bubble h4 { color: #60A5FA; margin: 12px 0 6px 0; }
+        /* Markdown inside assistant */
+        .bubble h1, .bubble h2, .bubble h3, .bubble h4 { color: #60A5FA; margin: 14px 0 6px 0; }
         .bubble ul, .bubble ol { margin: 8px 24px; }
         .bubble li { margin-bottom: 4px; }
         .bubble strong { color: #F59E0B; }
-        .bubble blockquote { border-right: 3px solid var(--gold); padding-right: 12px; margin: 8px 0; color: #CBD5E1; font-style: italic; }
+        .bubble hr { border: 0; height: 1px; background: var(--card-border); margin: 16px 0; }
+        .bubble blockquote { border-right: 3px solid var(--gold); padding-right: 12px; margin: 8px 0; color: #CBD5E1; font-style: italic; background: rgba(255,255,255,0.02); padding: 6px 12px; border-radius: 4px; }
 
         /* Citations Box */
         .citations-section {
-            margin-top: 10px;
-            background: rgba(15, 23, 42, 0.6);
+            margin-top: 12px;
+            background: rgba(15, 23, 42, 0.7);
             border: 1px solid var(--card-border);
-            border-radius: 10px;
-            padding: 12px;
+            border-radius: 12px;
+            padding: 12px 14px;
         }
         .citations-header {
             font-size: 13px;
-            font-weight: 700;
+            font-weight: 800;
             color: var(--gold);
             cursor: pointer;
             display: flex;
@@ -444,24 +516,42 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             margin-top: 10px;
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 10px;
         }
         .citation-item {
-            background: rgba(30, 41, 59, 0.8);
+            background: rgba(30, 41, 59, 0.85);
             border: 1px solid rgba(255,255,255,0.08);
             border-radius: 8px;
-            padding: 10px 12px;
+            padding: 12px;
             font-size: 13px;
         }
-        .citation-title { font-weight: 700; color: #93C5FD; display: flex; justify-content: space-between; }
-        .citation-badge { background: rgba(245, 158, 11, 0.2); color: var(--gold); padding: 2px 8px; border-radius: 4px; font-size: 11px; }
-        .citation-excerpt { color: #94A3B8; font-size: 12px; margin-top: 6px; border-right: 2px solid var(--accent); padding-right: 8px; }
+        .citation-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+        .citation-title { font-weight: 800; color: #93C5FD; font-size: 13px; }
+        .citation-badge { background: rgba(245, 158, 11, 0.2); color: var(--gold); padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+        .citation-meta { font-size: 12px; color: #94A3B8; margin-top: 4px; }
+        .citation-excerpt { color: #CBD5E1; font-size: 12px; margin-top: 8px; border-right: 2px solid var(--accent); padding-right: 10px; line-height: 1.6; }
+        .citation-actions { margin-top: 8px; display: flex; gap: 8px; }
+        .btn-cite-act {
+            font-size: 11px;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 6px;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            transition: 0.2s;
+        }
+        .btn-cite-view { background: rgba(59, 130, 246, 0.15); border: 1px solid var(--accent); color: #93C5FD; }
+        .btn-cite-view:hover { background: var(--accent); color: #FFF; }
+        .btn-cite-dl { background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.15); color: #CBD5E1; }
+        .btn-cite-dl:hover { background: rgba(255, 255, 255, 0.15); color: #FFF; }
 
         /* Hero / Empty State */
         .hero {
             text-align: center;
             margin: auto 0;
-            padding: 40px 20px;
+            padding: 30px 20px;
         }
         .hero-badge {
             display: inline-flex;
@@ -473,22 +563,22 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             padding: 6px 16px;
             border-radius: 30px;
             font-size: 14px;
-            font-weight: 700;
-            margin-bottom: 16px;
+            font-weight: 800;
+            margin-bottom: 14px;
         }
-        .hero h2 { font-size: 2rem; font-weight: 800; color: #FFF; margin-bottom: 8px; }
-        .hero p { color: var(--text-sub); font-size: 15px; max-width: 600px; margin: 0 auto 28px auto; }
+        .hero h2 { font-size: 2rem; font-weight: 900; color: #FFF; margin-bottom: 8px; }
+        .hero p { color: var(--text-sub); font-size: 15px; max-width: 640px; margin: 0 auto 26px auto; line-height: 1.7; }
         .prompt-cards {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
             gap: 14px;
-            max-width: 800px;
+            max-width: 860px;
             margin: 0 auto;
         }
         .prompt-card {
             background: var(--bg-bubble-ai);
             border: 1px solid var(--card-border);
-            padding: 14px 16px;
+            padding: 16px;
             border-radius: 12px;
             text-align: right;
             cursor: pointer;
@@ -505,12 +595,12 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
 
         /* Bottom Input Bar */
         .input-area {
-            padding: 16px 20px;
+            padding: 14px 20px 18px 20px;
             border-top: 1px solid var(--card-border);
             background: var(--bg-sidebar);
         }
         .input-box-wrapper {
-            max-width: 900px;
+            max-width: 920px;
             margin: 0 auto;
             position: relative;
             background: #0F172A;
@@ -523,7 +613,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
         }
         .input-box-wrapper:focus-within {
             border-color: var(--accent);
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
         }
         .chat-textarea {
             flex: 1;
@@ -534,7 +624,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             resize: none;
             outline: none;
             max-height: 180px;
-            min-height: 24px;
+            min-height: 26px;
             line-height: 1.5;
             padding: 6px 0;
         }
@@ -552,9 +642,10 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             transition: 0.2s;
             margin-right: 8px;
             flex-shrink: 0;
+            font-size: 16px;
         }
-        .btn-send:hover { background: var(--accent-hover); }
-        .btn-send:disabled { background: #334155; cursor: not-allowed; opacity: 0.6; }
+        .btn-send:hover { background: var(--accent-hover); transform: scale(1.05); }
+        .btn-send:disabled { background: #334155; cursor: not-allowed; opacity: 0.6; transform: none; }
         .input-disclaimer {
             text-align: center;
             font-size: 12px;
@@ -569,8 +660,10 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
         .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
         @keyframes blink { 0%, 100% { opacity: 0.2; } 50% { opacity: 1; } }
 
-        @media (max-width: 768px) {
+        @media (max-width: 820px) {
             .sidebar { display: none; }
+            .top-navbar { flex-direction: column; align-items: stretch; }
+            .depth-selector-group { justify-content: center; }
         }
     </style>
 </head>
@@ -581,18 +674,23 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             <div class="app-brand">
                 <span>✠</span> ELANTONY AI
             </div>
+            <a href="https://t.me/ElantonyLibrarybot" target="_blank" title="فتح البوت الرسمي على تليجرام" style="color: #60A5FA; font-size: 18px; text-decoration: none;">
+                ✈️
+            </a>
         </div>
         <button class="btn-new-chat" onclick="startNewChat()">
-            <span>➕</span> محادثة جديدة
+            <span>➕</span> محادثة بحثية جديدة
         </button>
+        <div class="chat-history-title">📂 أبحاثك ومناقشاتك المحفوظة</div>
         <div class="chat-history" id="chatHistoryList">
             <!-- Sessions populate dynamically -->
         </div>
         <div class="sidebar-footer">
-            <div>🏛️ <strong>3,639</strong> كتاباً مفهرساً</div>
-            <div>🤖 <strong>Gemini 2.5 Flash</strong> (صفر هلوسة)</div>
-            <div style="margin-top: 8px;">
-                <a href="https://t.me/ElantonyLibrarybot" target="_blank">📱 فتح بوت التيليجرام</a>
+            <div>🏛️ <strong>3,656</strong> كتاباً مفهرساً</div>
+            <div>🧠 <strong>Gemini 3.5 / 2.5 Flash</strong> (صفر هلوسة)</div>
+            <div>📄 <strong>تصدير فوري</strong> Word (.docx)</div>
+            <div style="margin-top: 6px;">
+                <a href="https://t.me/ElantonyLibrarybot" target="_blank">📱 @ElantonyLibrarybot</a>
             </div>
         </div>
     </aside>
@@ -602,19 +700,27 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
         <!-- Top Navbar -->
         <div class="top-navbar">
             <div class="nav-title">
-                <span>✠</span> رفيق وباحث مكتبة القديس أنطونيوس
+                <span>✠</span> المساعد والباحث اللاهوتي الذكي
             </div>
+
+            <!-- Depth Mode Switcher -->
+            <div class="depth-selector-group" title="اختر نمط وعمق الإجابة اللاهوتية">
+                <span class="depth-label">النمط:</span>
+                <button class="btn-depth active" id="depth_academic" onclick="setDepthMode('academic')">🎓 أكاديمي موسع</button>
+                <button class="btn-depth" id="depth_pastoral" onclick="setDepthMode('pastoral')">🕊️ رعوي روحي</button>
+                <button class="btn-depth" id="depth_apologetic" onclick="setDepthMode('apologetic')">⚖️ دفاعي مقارن</button>
+            </div>
+
             <div class="nav-actions">
-                <button class="btn-nav btn-compile" onclick="openCompilationModal()" title="تجميع البحث الحالي سؤال وتحته الإجابات مع الفهرس والمراجع">
-                    <span>📑</span> تجميع البحث (سؤال وتحته الإجابات)
+                <button class="btn-nav btn-compile" onclick="openCompilationModal()" title="تجميع أسئلة وإجابات البحث مع الفهرس والمراجع">
+                    <span>📑</span> تجميع البحث
+                </button>
+                <button class="btn-nav btn-docx-nav" onclick="downloadCurrentExport('docx')" title="تنزيل أطروحة البحث كاملة كملف Microsoft Word منسق">
+                    <span>📄</span> تنزيل Word
                 </button>
                 <button class="btn-nav btn-export-nav" onclick="downloadCurrentExport('markdown')" title="تصدير كملف Markdown">
-                    <span>📥</span> تصدير (.md)
+                    <span>📥</span> .md
                 </button>
-                <div class="live-badge">
-                    <div class="live-dot"></div>
-                    متصل بالمكتبة
-                </div>
             </div>
         </div>
 
@@ -623,25 +729,25 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             <div class="messages-container" id="messagesContainer">
                 <!-- Hero screen when no messages -->
                 <div class="hero" id="heroScreen">
-                    <div class="hero-badge">✠ المكتبة القبطية الأرثوذكسية الذكية</div>
-                    <h2>كيف يمكنني مساعدتك في بحثك الكنسي اليوم؟</h2>
-                    <p>أنا رفيقك البحثي المتخصص؛ أستحضر لك إجابات موثقة بالصفحة والمجلد من بطون 3,639 كتاباً ومرجعاً كنسياً بدون أي هلوسة.</p>
+                    <div class="hero-badge">✠ منظومة ELANTONY LIBRARY الذكية</div>
+                    <h2>كيف يمكنني مساندتك في بحثك الكنسي اليوم؟</h2>
+                    <p>أنا مساعدك اللاهوتي والآبائي المتخصص؛ أستحضر لك دراسات موثقة بالشواهد والصفحات من بطون أمهات الكتب الكنسية المفهرسة مع حفظ سياق النقاش وإمكانية تصدير البحث كاملاً كملف Word.</p>
                     <div class="prompt-cards">
-                        <div class="prompt-card" onclick="sendPrompt('ما هو مفهوم التجسد الإلهي عند القديس أثناسيوس الرسولي؟')">
-                            📜 <strong>التجسد عند أثناسيوس</strong>
-                            <div style="font-size: 12px; color: var(--text-sub); margin-top: 4px;">عقيدة تجسد الكلمة وتجديد الطبيعة</div>
+                        <div class="prompt-card" onclick="sendPrompt('ما مفهوم التجسد الإلهي في الفكر الآبائي عند القديس أثناسيوس الرسولي؟ اذكر المراجع وأرقام الصفحات')">
+                            🎓 <strong>دراسة أكاديمية آبائية:</strong>
+                            <div style="font-size: 12px; color: var(--text-sub); margin-top: 4px;">عقيدة تجسد الكلمة وتجديد الطبيعة مع الشواهد والصفحات</div>
                         </div>
-                        <div class="prompt-card" onclick="sendPrompt('قارن بين إقامة السيد المسيح للموتى وإقامة إيليا النبي للموتى في تعليم الآباء')">
-                            ⚖️ <strong>اللاهوت المقارن للقيامة</strong>
-                            <div style="font-size: 12px; color: var(--text-sub); margin-top: 4px;">الفارق اللاهوتي والسلطان الذاتي</div>
+                        <div class="prompt-card" onclick="sendPrompt('قارن بين إقامة السيد المسيح للموتى بسلطانه وإقامة أنبياء العهد القديم للموتى في تعليم الآباء')">
+                            ⚖️ <strong>دراسة دفاعية ومقارنة:</strong>
+                            <div style="font-size: 12px; color: var(--text-sub); margin-top: 4px;">الفارق الجوهري والسلطان الإلهي الذاتي وتفنيد الشبهات</div>
                         </div>
-                        <div class="prompt-card" onclick="sendPrompt('ما هي تعاليم القديس أنطونيوس كوكب البرية عن الصلاة الدائمة ونقاوة الفكر؟')">
-                            🕊️ <strong>روحيات آباء البرية</strong>
-                            <div style="font-size: 12px; color: var(--text-sub); margin-top: 4px;">حرب الأفكار وجهاد التوبة والهدوء</div>
+                        <div class="prompt-card" onclick="sendPrompt('كيف يعيش المؤمن حياة الصلاة الدائمة ونقاوة الفكر بحسب تعاليم القديس أنطونيوس الكبير؟')">
+                            🕊️ <strong>إرشاد رعوي وروحي:</strong>
+                            <div style="font-size: 12px; color: var(--text-sub); margin-top: 4px;">حرب الأفكار وجهاد التوبة والهدوء في الحياة اليومية</div>
                         </div>
-                        <div class="prompt-card" onclick="sendPrompt('شرح طقس صلاة الصلح في القداس الباسيلي وأبعادها اللاهوتية')">
-                            ⛪ <strong>طقوس ولتورجيا الكنيسة</strong>
-                            <div style="font-size: 12px; color: var(--text-sub); margin-top: 4px;">المصالحة العظمى وقبلة المحبة والسلام</div>
+                        <div class="prompt-card" onclick="sendPrompt('اشرح الأبعاد اللاهوتية والخلاصية لطقس صلاة الصلح وسر الإفخارستيا في القداس الباسيلي')">
+                            ⛪ <strong>تأصيل طقسي وليتورجي:</strong>
+                            <div style="font-size: 12px; color: var(--text-sub); margin-top: 4px;">المصالحة العظمى وقبلة المحبة والسلام والشركة الحية</div>
                         </div>
                     </div>
                 </div>
@@ -654,17 +760,17 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                 <textarea 
                     id="chatInput" 
                     class="chat-textarea" 
-                    placeholder="تفضل بكتابة سؤالك اللاهوتي أو طلبك البحثي هنا... (اضغط Enter للإرسال)"
+                    placeholder="تفضل بكتابة سؤالك اللاهوتي هنا... (يمكنك طرح أسئلة فرعية متتابعة وتجميعها في ملف Word بنقرة واحدة)"
                     rows="1"
                     onkeydown="handleKey(event)"
                     oninput="autoResize(this)"
                 ></textarea>
-                <button class="btn-send" id="btnSend" onclick="sendMessage()">
+                <button class="btn-send" id="btnSend" onclick="sendMessage()" title="إرسال السؤال">
                     ➤
                 </button>
             </div>
             <div class="input-disclaimer">
-                المساعد مستند بالكامل إلى نصوص المراجع الكنسية المعتمدة ومحمي بضوابط التحقق الصارم من الاقتباس.
+                المساعد مستند بالكامل إلى نصوص المراجع الكنسية المعتمدة ومحمي بضوابط منع الهلوسة والتوثيق الحرفي.
             </div>
         </div>
     </main>
@@ -677,9 +783,9 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                     <span>✠</span> أطروحة البحث اللاهوتية المجمعة (سؤال وتحته الإجابات)
                 </div>
                 <div class="modal-actions">
+                    <button class="btn-modal-act btn-modal-docx" onclick="downloadCurrentExport('docx')">📄 تنزيل مستند Word (.docx)</button>
                     <button class="btn-modal-act" onclick="copyCompilationText()">📋 نسخ النص</button>
                     <button class="btn-modal-act" onclick="downloadCurrentExport('markdown')">📥 تنزيل (.md)</button>
-                    <button class="btn-modal-act" onclick="downloadCurrentExport('text')">📄 تنزيل (.txt)</button>
                     <button class="btn-modal-act" onclick="window.print()">🖨️ طباعة</button>
                     <button class="btn-modal-close" onclick="closeCompilationModal()">✕</button>
                 </div>
@@ -693,6 +799,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
     <script>
         let chatMessages = [];
         let currentSessionId = null;
+        let currentDepthMode = "academic";
         let rawCompiledMarkdown = "";
 
         const messagesContainer = document.getElementById('messagesContainer');
@@ -702,6 +809,14 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
         const messagesArea = document.getElementById('messagesArea');
         const compileModal = document.getElementById('compileModal');
         const compileModalBody = document.getElementById('compileModalBody');
+
+        function setDepthMode(mode) {
+            currentDepthMode = mode;
+            ['academic', 'pastoral', 'apologetic'].forEach(m => {
+                const btn = document.getElementById('depth_' + m);
+                if (btn) btn.classList.toggle('active', m === mode);
+            });
+        }
 
         function autoResize(textarea) {
             textarea.style.height = 'auto';
@@ -738,16 +853,29 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                     const textSpan = document.createElement('span');
                     textSpan.className = 'chat-item-text';
                     textSpan.textContent = '💬 ' + (s.title || 'بحث لاهوتي');
+                    textSpan.title = s.title || 'بحث لاهوتي';
                     textSpan.onclick = () => selectSession(s.id);
 
+                    const actionsDiv = document.createElement('div');
+                    actionsDiv.className = 'chat-item-actions';
+
+                    const docxBtn = document.createElement('button');
+                    docxBtn.className = 'btn-sess-act';
+                    docxBtn.title = 'تنزيل كملف Word (.docx)';
+                    docxBtn.textContent = '📄';
+                    docxBtn.onclick = (e) => downloadSessionDocx(e, s.id);
+
                     const delBtn = document.createElement('button');
-                    delBtn.className = 'btn-del-chat';
+                    delBtn.className = 'btn-sess-act btn-sess-del';
                     delBtn.title = 'حذف المناقشة';
                     delBtn.textContent = '✕';
                     delBtn.onclick = (e) => deleteSession(e, s.id);
 
+                    actionsDiv.appendChild(docxBtn);
+                    actionsDiv.appendChild(delBtn);
+
                     item.appendChild(textSpan);
-                    item.appendChild(delBtn);
+                    item.appendChild(actionsDiv);
                     list.appendChild(item);
                 });
 
@@ -779,9 +907,15 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                     heroScreen.style.display = 'block';
                 } else {
                     if (heroScreen) heroScreen.style.display = 'none';
+                    let assistantTurn = 0;
                     messages.forEach(m => {
                         chatMessages.push({ role: m.role, content: m.content });
-                        appendMessageBubble(m.role, m.content, m.citations || []);
+                        let turnNum = null;
+                        if (m.role === 'assistant') {
+                            assistantTurn++;
+                            turnNum = assistantTurn;
+                        }
+                        appendMessageBubble(m.role, m.content, m.citations || [], turnNum);
                     });
                 }
                 scrollToBottom();
@@ -815,7 +949,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
 
         async function deleteSession(e, sessionId) {
             e.stopPropagation();
-            if (!confirm("هل تريد بالتأكيد حذف هذه المناقشة البحثية وسجلها؟")) return;
+            if (!confirm("هل تريد بالتأكيد حذف هذه المناقشة وسجلها بالكامل؟")) return;
             try {
                 const res = await fetch('/api/sessions/' + sessionId, { method: 'DELETE' });
                 if (res.ok) {
@@ -827,6 +961,11 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             } catch (err) {
                 console.error("Error deleting session:", err);
             }
+        }
+
+        function downloadSessionDocx(e, sessionId) {
+            e.stopPropagation();
+            window.open('/api/sessions/' + sessionId + '/export?format=docx', '_blank');
         }
 
         function sendPrompt(text) {
@@ -856,23 +995,25 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                     body: JSON.stringify({
                         messages: chatMessages,
                         session_id: currentSessionId,
-                        user_id: 'web'
+                        user_id: 'web',
+                        depth_mode: currentDepthMode
                     })
                 });
 
                 removeLoadingBubble(loadingId);
 
                 if (!response.ok) {
-                    throw new Error('فشل الاتصال بمحرك الذكاء الاصطناعي');
+                    throw new Error('فشل معالجة السؤال من محرك الذكاء الاصطناعي');
                 }
 
                 const data = await response.json();
                 const aiResponse = data.response;
                 const citations = data.citations || [];
+                const turnNumber = data.turn_number || null;
                 if (data.session_id) currentSessionId = data.session_id;
 
                 chatMessages.push({ role: 'assistant', content: aiResponse });
-                appendMessageBubble('assistant', aiResponse, citations);
+                appendMessageBubble('assistant', aiResponse, citations, turnNumber);
                 
                 // Refresh sessions silently to reflect updated title
                 loadSessions();
@@ -887,7 +1028,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             }
         }
 
-        function appendMessageBubble(role, content, citations = []) {
+        function appendMessageBubble(role, content, citations = [], turnNumber = null) {
             const row = document.createElement('div');
             row.className = `msg-row ${role === 'user' ? 'user' : 'ai'}`;
 
@@ -897,6 +1038,13 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
 
             const contentDiv = document.createElement('div');
             contentDiv.className = 'msg-content';
+
+            if (role === 'assistant' && turnNumber && turnNumber > 1) {
+                const badge = document.createElement('div');
+                badge.className = 'turn-badge';
+                badge.textContent = `💬 المحور رقم ${turnNumber} في هذه المناقشة`;
+                contentDiv.appendChild(badge);
+            }
 
             const bubble = document.createElement('div');
             bubble.className = 'bubble';
@@ -908,14 +1056,14 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
 
             contentDiv.appendChild(bubble);
 
-            // Citations Box
+            // Citations Box with direct book page links
             if (citations && citations.length > 0) {
                 const citeSection = document.createElement('div');
                 citeSection.className = 'citations-section';
 
                 const citeHeader = document.createElement('div');
                 citeHeader.className = 'citations-header';
-                citeHeader.innerHTML = `<span>📚 الشواهد والمراجع المعتمدة (${citations.length})</span> <span>▼</span>`;
+                citeHeader.innerHTML = `<span>📚 الشواهد والكتب الكنسية المعتمدة (${citations.length})</span> <span>▼</span>`;
                 
                 const citeList = document.createElement('div');
                 citeList.className = 'citations-list';
@@ -924,15 +1072,31 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                     const item = document.createElement('div');
                     item.className = 'citation-item';
                     const pLabel = c.printed_page ? `صـ ${c.printed_page} (مطبوعة)` : `صـ ${c.page_number} (PDF)`;
+                    
+                    let actionsHtml = '';
+                    if (c.sha256) {
+                        actionsHtml = `
+                            <div class="citation-actions">
+                                <a href="/api/books/${c.sha256}/view#page=${c.page_number}" target="_blank" class="btn-cite-act btn-cite-view">
+                                    📖 فتح الكتاب (صـ ${c.page_number})
+                                </a>
+                                <a href="/api/books/${c.sha256}/download" target="_blank" class="btn-cite-act btn-cite-dl">
+                                    💾 تنزيل PDF
+                                </a>
+                            </div>
+                        `;
+                    }
+
                     item.innerHTML = `
-                        <div class="citation-title">
-                            <span>📖 ${idx + 1}. ${c.book_title}</span>
+                        <div class="citation-top">
+                            <span class="citation-title">📖 ${idx + 1}. ${c.book_title}</span>
                             <span class="citation-badge">Tier ${c.authenticity_tier || 3}</span>
                         </div>
-                        <div style="font-size: 11px; color: #94A3B8; margin-top: 2px;">
+                        <div class="citation-meta">
                             ✍️ ${c.author || 'آباء الكنيسة'} | 📄 ${pLabel}
                         </div>
                         <div class="citation-excerpt">❝ ${c.excerpt} ❞</div>
+                        ${actionsHtml}
                     `;
                     citeList.appendChild(item);
                 });
@@ -960,7 +1124,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                         <div class="typing-dots">
                             <span></span><span></span><span></span>
                         </div>
-                        <span style="font-size: 12px; color: #94A3B8; margin-right: 8px;">جاري فحص المراجع وصياغة الإجابة الموثقة...</span>
+                        <span style="font-size: 13px; color: #94A3B8; margin-right: 8px;">جاري فحص المراجع واستخلاص الأقوال والتحليل الآبائي...</span>
                     </div>
                 </div>
             `;
@@ -1027,7 +1191,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
 
 @app.get("/", response_class=HTMLResponse)
 async def web_portal():
-    """Serves the interactive ChatGPT-like Coptic Research Portal."""
+    """Serves the interactive ChatGPT-like Coptic Research Portal with full Bot features."""
     return HTMLResponse(content=WEB_PORTAL_HTML)
 
 
@@ -1074,20 +1238,21 @@ async def api_search(q: str = Query(..., min_length=1), limit: int = 10):
 
 @app.post("/api/ask")
 async def api_ask(req: AskRequest):
-    """Single-turn grounded RAG Q&A."""
+    """Single-turn grounded RAG Q&A with depth support."""
     q = req.question.strip()
     if not q:
         raise HTTPException(status_code=400, detail="Empty question")
 
     chunks = search_engine.search_fts5(q, limit=req.limit or 4)
     ai_provider = get_ai_provider()
-    answer = ai_provider.generate_answer(q, chunks)
+    depth_mode = req.depth_mode or "academic"
+    answer = ai_provider.generate_answer(q, chunks, depth_mode=depth_mode)
 
     return {
         "question": q,
         "answer": answer,
         "sources": [
-            {"reference": c.source_reference, "page": c.page_number, "title": c.book_title}
+            {"reference": c.source_reference, "page": c.page_number, "title": c.book_title, "sha256": c.sha256}
             for c in chunks
         ]
     }
@@ -1137,10 +1302,27 @@ async def compile_discussion_session(session_id: str):
 
 @app.get("/api/sessions/{session_id}/export")
 async def export_discussion_session(session_id: str, format: str = "markdown"):
-    """Exports compiled research monograph as a downloadable file."""
+    """
+    Exports compiled research monograph as a downloadable file.
+    Supports formats: 'docx' (Microsoft Word), 'markdown' (.md), or 'text' (.txt).
+    """
     res = repo.compile_session(session_id)
     if "error" in res:
         raise HTTPException(status_code=404, detail=res["error"])
+
+    if format == "docx":
+        from elantony.services.docx_exporter import generate_session_docx
+        doc_dir = settings.base_dir / "data" / "compiled_researches"
+        doc_dir.mkdir(parents=True, exist_ok=True)
+        docx_path = doc_dir / f"research_{session_id}.docx"
+        generate_session_docx(res, str(docx_path))
+        with open(docx_path, "rb") as f:
+            docx_bytes = f.read()
+        return Response(
+            content=docx_bytes,
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            headers={"Content-Disposition": f"attachment; filename*=UTF-8''research_{session_id}.docx"}
+        )
 
     content = res["markdown"] if format == "markdown" else res["plain_text"]
     filename = f"research_{session_id}.md" if format == "markdown" else f"research_{session_id}.txt"
@@ -1153,11 +1335,33 @@ async def export_discussion_session(session_id: str, format: str = "markdown"):
     )
 
 
+@app.get("/api/books/{sha256}/view")
+@app.get("/api/books/{sha256}/download")
+async def get_book_file(sha256: str, download: bool = False):
+    """Streams book PDF for browser viewing or direct download."""
+    book = repo.get_book_by_sha(sha256)
+    if not book:
+        raise HTTPException(status_code=404, detail="الكتاب غير موجود في سجلات المكتبة")
+
+    file_path = book.get("original_path") or book.get("file_path")
+    if not file_path or not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="ملف الكتاب غير متوفر على القرص المحلي")
+
+    filename = os.path.basename(file_path)
+    return FileResponse(
+        path=file_path,
+        media_type="application/pdf",
+        filename=filename,
+        content_disposition_type="attachment" if download else "inline"
+    )
+
+
 @app.post("/api/chat")
 async def api_chat(req: ChatRequest):
     """
     Multi-turn Conversational AI Endpoint.
     Maintains dialogue history while anchoring answers strictly in library citations.
+    Supports theological depth modes: 'academic', 'pastoral', 'apologetic'.
     Saves conversation to persistent database session.
     """
     if not req.messages:
@@ -1176,15 +1380,16 @@ async def api_chat(req: ChatRequest):
     # 1. Retrieve library context
     chunks = search_engine.search_fts5(latest_msg, limit=6)
     ai_provider = get_ai_provider()
+    depth_mode = req.depth_mode or "academic"
 
     # 2. Conversational reasoning with past dialogue turns
     raw_history = [{"role": m.role, "content": m.content} for m in req.messages]
     if hasattr(ai_provider, "generate_chat_response"):
-        answer = ai_provider.generate_chat_response(raw_history, chunks)
+        answer = ai_provider.generate_chat_response(raw_history, chunks, depth_mode=depth_mode)
     else:
-        answer = ai_provider.generate_answer(latest_msg, chunks)
+        answer = ai_provider.generate_answer(latest_msg, chunks, depth_mode=depth_mode)
 
-    # 3. Format citations
+    # 3. Format citations with sha256 for live book viewer
     citations = []
     for c in chunks:
         citations.append({
@@ -1196,8 +1401,12 @@ async def api_chat(req: ChatRequest):
             "source_types": c.source_types,
             "authenticity_tier": c.authenticity_tier,
             "relevance_score": c.relevance_score,
+            "sha256": c.sha256,
             "excerpt": c.chunk_text[:300]
         })
+
+    # Turn number in discussion
+    turn_number = (len(raw_history) // 2) + 1
 
     # 4. Save to persistent discussion session
     try:
@@ -1215,7 +1424,8 @@ async def api_chat(req: ChatRequest):
     return {
         "response": answer,
         "citations": citations,
-        "session_id": session_id
+        "session_id": session_id,
+        "turn_number": turn_number
     }
 
 
