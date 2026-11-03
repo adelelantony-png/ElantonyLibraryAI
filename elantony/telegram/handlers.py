@@ -266,6 +266,105 @@ class TelegramHandlerService:
             )
             return
 
+        # Document / Direct PDF Book Upload Handler
+        if "document" in message:
+            doc = message["document"]
+            file_name = doc.get("file_name", "book.pdf")
+            file_size = doc.get("file_size", 0)
+            file_id = doc.get("file_id")
+
+            if not file_name.lower().endswith(".pdf"):
+                await self.send_message(
+                    client, chat_id,
+                    "⚠️ *عذراً، يدعم المساعد استقبال ملفات الكتب بصيغة PDF فقط.*",
+                    reply_markup=get_back_to_main_inline_keyboard()
+                )
+                return
+
+            if file_size > 50 * 1024 * 1024:
+                await self.send_message(
+                    client, chat_id,
+                    "⚠️ *حجم الملف كبير (أكثر من 50 ميجابايت) للإرسال المباشر عبر تيليجرام.*\nيرجى نسخه مباشرة داخل مجلد المكتبة بالكمبيوتر وسيلتقطه النظام فوراً في الخلفية.",
+                    reply_markup=get_back_to_main_inline_keyboard()
+                )
+                return
+
+            # Admin authorization check for uploading new books
+            if not is_user_admin(user_id):
+                await self.send_message(
+                    client, chat_id,
+                    "⛔ *خاصية إضافة وتزويد المكتبة بكتب جديدة مخصصة للمسؤول (Admin) فقط.*"
+                )
+                return
+
+            await self.send_message(
+                client, chat_id,
+                f"⏳ *جاري استلام كتاب:* «{file_name}»\n"
+                f"📊 *الحجم:* `{file_size / (1024*1024):.1f} MB`\n\n"
+                "يرجى الانتظار بضع ثوانٍ أثناء التنزيل، والفحص اللغوي، والتصنيف الكنسي، والفهرسة الذكية..."
+            )
+
+            try:
+                get_file_url = f"{self.api_base}/getFile?file_id={file_id}"
+                file_info_res = await client.get(get_file_url, timeout=15.0)
+                if file_info_res.status_code == 200:
+                    tg_file_path = file_info_res.json().get("result", {}).get("file_path")
+                    if tg_file_path:
+                        download_url = f"https://api.telegram.org/file/bot{self.bot_token}/{tg_file_path}"
+                        intake_dir = Path(r"I:\2021\2020\✠ Cross Coptic Library ✠\كتب جديدة_وارد_تيليجرام")
+                        if not intake_dir.parent.exists():
+                            intake_dir = settings.base_dir / "books" / "telegram_uploads"
+                        intake_dir.mkdir(parents=True, exist_ok=True)
+                        dest_file = intake_dir / file_name
+
+                        async with client.stream("GET", download_url, timeout=90.0) as resp:
+                            if resp.status_code == 200:
+                                with open(dest_file, "wb") as f_out:
+                                    async for chunk_bytes in resp.aiter_bytes():
+                                        f_out.write(chunk_bytes)
+
+                        from services.permanent_assistant.ingestion_pipeline import auto_ingestor
+                        result = auto_ingestor.ingest_pdf(dest_file)
+
+                        if result.get("success"):
+                            tier = result.get("authenticity_tier", 3)
+                            pages = result.get("pages", 0)
+                            chunks = result.get("chunks_count", 0)
+                            author = result.get("author", "غير محدد")
+                            s_types = ", ".join(result.get("source_types", ["دراسات كنسية"]))
+
+                            confirm_msg = (
+                                "🎉 *تم استلام الكتاب ودمجه في عقل المكتبة الذكية بنجاح!* ✠\n\n"
+                                f"📚 *اسم الكتاب:* «{dest_file.stem}»\n"
+                                f"👤 *المؤلف المعتمد:* `{author}`\n"
+                                f"📄 *عدد الصفحات:* `{pages}` صفحة\n"
+                                f"⚡ *المقاطع الدلالية في FTS5:* `+{chunks}` مقطعاً\n"
+                                f"🏛️ *مرتبة التوثيق:* `Tier {tier}`\n"
+                                f"🏷️ *التصنيف:* `{s_types}`\n\n"
+                                "💡 *الكتاب الآن مفهرس ومتاح للبحث والأسئلة الذكية فوراً!*"
+                            )
+                            sref = result.get("sha256", "")[:16]
+                            await self.send_message(
+                                client, chat_id, confirm_msg,
+                                reply_markup=get_book_card_inline_keyboard(sref)
+                            )
+                            return
+                        else:
+                            await self.send_message(
+                                client, chat_id,
+                                f"⚠️ تعذر استكمال فهرسة الكتاب: {result.get('error')}",
+                                reply_markup=get_back_to_main_inline_keyboard()
+                            )
+                            return
+            except Exception as doc_err:
+                logger.error(f"Telegram document ingestion error: {doc_err}")
+                await self.send_message(
+                    client, chat_id,
+                    f"⚠️ حدث خطأ أثناء تنزيل أو معالجة الكتاب: {doc_err}",
+                    reply_markup=get_back_to_main_inline_keyboard()
+                )
+                return
+
         raw_text = message.get("text", "").strip()
         if not raw_text:
             return
