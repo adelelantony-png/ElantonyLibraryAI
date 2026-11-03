@@ -12,15 +12,15 @@ from typing import List, Dict, Any, Optional
 
 def get_main_menu_reply_keyboard() -> Dict[str, Any]:
     """
-    Returns the persistent 8-section master reply keyboard below the text box.
+    Returns the persistent master reply keyboard below the text box.
     """
     return {
         "keyboard": [
-            [{"text": "🤖 المساعد الذكي"}, {"text": "📑 تجميع البحث"}],
-            [{"text": "🔄 بحث جديد"}, {"text": "📑 فهرس المكتبة الشامل"}],
-            [{"text": "📚 البحث في المكتبة"}, {"text": "📖 اسأل كتابًا"}],
-            [{"text": "⛪ أقوال الآباء"}, {"text": "⭐ أبحاثي المحفوظة"}],
-            [{"text": "📊 إحصائيات المكتبة"}, {"text": "ℹ️ حول المكتبة"}]
+            [{"text": "🤖 اسأل المساعد الذكي"}, {"text": "📑 تجميع البحث (Word)"}],
+            [{"text": "🔄 بحث جديد"}, {"text": "📂 أبحاثي السابقة"}],
+            [{"text": "📑 فهرس المكتبة الشامل"}, {"text": "📚 البحث في المكتبة"}],
+            [{"text": "📖 اسأل كتابًا"}, {"text": "⛪ أقوال الآباء"}],
+            [{"text": "⚙️ عمق الإجابة"}, {"text": "ℹ️ حول المكتبة"}]
         ],
         "resize_keyboard": True,
         "is_persistent": True
@@ -34,27 +34,46 @@ def get_main_menu_inline_keyboard() -> Dict[str, Any]:
     return {
         "inline_keyboard": [
             [
+                {"text": "🧠 المساعد اللاهوتي الفائق (ذاكرة مستمرة)", "callback_data": "menu:ask_ai"},
+                {"text": "📑 تجميع البحث (Word)", "callback_data": "session:compile"}
+            ],
+            [
+                {"text": "🔄 بدء بحث جديد", "callback_data": "session:new"},
+                {"text": "📂 أبحاثي السابقة", "callback_data": "session:history"}
+            ],
+            [
                 {"text": "📑 فهرس المكتبة الشامل (موضوعات / آباء / أبجدي)", "callback_data": "menu:catalog"}
             ],
             [
-                {"text": "🤖 اسأل المساعد الذكي", "callback_data": "menu:ask_ai"},
-                {"text": "📚 ابحث في المكتبة", "callback_data": "menu:search"}
+                {"text": "📚 ابحث في المكتبة", "callback_data": "menu:search"},
+                {"text": "📖 اسأل كتاباً محدداً", "callback_data": "menu:ask_book"}
             ],
             [
-                {"text": "📖 اسأل كتاباً محدداً", "callback_data": "menu:ask_book"},
-                {"text": "⛪ درر أقوال الآباء", "callback_data": "menu:fathers"}
+                {"text": "⛪ درر أقوال الآباء", "callback_data": "menu:fathers"},
+                {"text": "🏛️ أمهات الكتب والموسوعات", "callback_data": "cat:encyclopedias"}
             ],
             [
-                {"text": "🏛️ أمهات الكتب والموسوعات", "callback_data": "cat:encyclopedias"},
-                {"text": "🎲 كتاب عشوائي للاطلاع", "callback_data": "cat:random"}
-            ],
-            [
-                {"text": "⭐ أبحاثي المحفوظة", "callback_data": "menu:bookmarks"},
+                {"text": "⚙️ عمق الإجابة والنمط", "callback_data": "menu:depth"},
                 {"text": "📊 إحصائيات المكتبة", "callback_data": "menu:stats"}
             ],
             [
                 {"text": "🔄 تحديث اللوحة", "callback_data": "nav:main"}
             ]
+        ]
+    }
+
+
+def get_depth_selection_inline_keyboard(current_mode: str = "academic") -> Dict[str, Any]:
+    """Inline keyboard for switching theological depth & AI reasoning styles."""
+    academic_check = "✓ " if current_mode == "academic" else ""
+    pastoral_check = "✓ " if current_mode == "pastoral" else ""
+    apologetic_check = "✓ " if current_mode == "apologetic" else ""
+    return {
+        "inline_keyboard": [
+            [{"text": f"{academic_check}🎓 نمط أكاديمي موسع (نصوص أصلية + مراجع دقيقة)", "callback_data": "depth:academic"}],
+            [{"text": f"{pastoral_check}🕊️ نمط رعوي وروحي (مباشر ومبسط للشباب)", "callback_data": "depth:pastoral"}],
+            [{"text": f"{apologetic_check}⚖️ نمط دفاعي مقارن (ردود وبراهين)", "callback_data": "depth:apologetic"}],
+            [{"text": "🔙 العودة للقائمة الرئيسية", "callback_data": "nav:main"}]
         ]
     }
 

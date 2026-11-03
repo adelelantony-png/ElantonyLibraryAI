@@ -27,6 +27,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Common Windows Tesseract paths (including portable bundle)
 CANDIDATE_TESSERACT_PATHS = [
+    r"G:\Program Files\Tesseract-OCR\tesseract.exe",
     str(BASE_DIR / "tesseract" / "bin" / "tesseract.exe"),
     str(BASE_DIR / "tesseract" / "tesseract.exe"),
     r"D:\Prog\ArchiveMasterFinal\tesseract\bin\tesseract.exe",

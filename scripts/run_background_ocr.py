@@ -62,20 +62,42 @@ def prevent_windows_sleep():
 
 def configure_tesseract(custom_bin: Optional[str] = None) -> Optional[str]:
     """Configures pytesseract binary and local tessdata prefix."""
-    tess_bin = find_tesseract_binary(custom_bin)
+    preferred_bins = [
+        custom_bin,
+        r"G:\Program Files\Tesseract-OCR\tesseract.exe",
+        r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+    ]
+    tess_bin = None
+    for pb in preferred_bins:
+        if pb and os.path.exists(pb):
+            tess_bin = pb
+            break
+
+    if not tess_bin:
+        tess_bin = find_tesseract_binary(custom_bin)
+
     if not tess_bin:
         return None
 
     pytesseract.pytesseract.tesseract_cmd = tess_bin
 
-    # Point TESSDATA_PREFIX to local project tessdata if exists, else standard install dir
-    local_tessdata = BASE_DIR / "tessdata"
-    if local_tessdata.exists() and (local_tessdata / "ara.traineddata").exists():
-        os.environ["TESSDATA_PREFIX"] = str(local_tessdata)
+    # Point TESSDATA_PREFIX to G:\Program Files\Tesseract-OCR\tessdata if present
+    g_tessdata = Path(r"G:\Program Files\Tesseract-OCR\tessdata")
+    if g_tessdata.exists() and (g_tessdata / "ara.traineddata").exists():
+        os.environ["TESSDATA_PREFIX"] = str(g_tessdata)
     else:
-        install_tessdata = Path(tess_bin).parent / "tessdata"
-        if install_tessdata.exists():
-            os.environ["TESSDATA_PREFIX"] = str(install_tessdata)
+        local_tessdata = BASE_DIR / "tessdata"
+        if local_tessdata.exists() and (local_tessdata / "ara.traineddata").exists():
+            os.environ["TESSDATA_PREFIX"] = str(local_tessdata)
+        else:
+            install_tessdata = Path(tess_bin).parent / "tessdata"
+            if install_tessdata.exists():
+                os.environ["TESSDATA_PREFIX"] = str(install_tessdata)
+
+    # Add xpdf-tools to PATH if present
+    xpdf_bin = r"G:\Program Files\xpdf-tools\bin64"
+    if os.path.exists(xpdf_bin) and xpdf_bin not in os.environ.get("PATH", ""):
+        os.environ["PATH"] = xpdf_bin + os.pathsep + os.environ.get("PATH", "")
 
     return tess_bin
 
@@ -83,13 +105,13 @@ def configure_tesseract(custom_bin: Optional[str] = None) -> Optional[str]:
 def ocr_single_page_image(
     page: fitz.Page,
     languages: str = "ara+eng",
-    dpi: int = 200
+    dpi: int = 150
 ) -> str:
     """
     Renders a PDF page to image and extracts text via Tesseract OCR.
     """
     try:
-        # Render page to pixmap with reasonable DPI (200 is fast and highly legible)
+        # Render page to pixmap with reasonable DPI (150 is fast and highly legible)
         zoom = dpi / 72.0
         mat = fitz.Matrix(zoom, zoom)
         pix = page.get_pixmap(matrix=mat, alpha=False)
@@ -97,8 +119,8 @@ def ocr_single_page_image(
         # Convert to PIL Image in memory
         img = Image.open(io.BytesIO(pix.tobytes("png")))
 
-        # Run OCR
-        text = pytesseract.image_to_string(img, lang=languages, config="--psm 1")
+        # Run OCR with PSM 3 (fully automatic page segmentation)
+        text = pytesseract.image_to_string(img, lang=languages, config="--psm 3")
         return text.strip()
     except Exception as e:
         return ""
@@ -152,20 +174,39 @@ def process_book_ocr(
             continue
 
         page = doc[pnum - 1]
-        page_text = ocr_single_page_image(page, languages=tess_languages)
+        
+        # Check if page already has digital text (save hours of OCR)
+        digital_text = page.get_text("text").strip()
+        if len(digital_text) > 40:
+            page_text = digital_text
+            ocr_flag = ""
+        else:
+            page_text = ocr_single_page_image(page, languages=tess_languages)
+            ocr_flag = " (OCR)"
 
-        if page_text and len(page_text.strip()) > 20:
+        # Check and un-reverse visual reversed Arabic lines
+        if page_text:
+            cleaned_lines = []
+            for l in page_text.split("\n"):
+                l_str = l.strip()
+                if any(w.startswith("ة") or (w.startswith("اً") and len(w) > 2) for w in l_str.split()):
+                    cleaned_lines.append(l_str[::-1])
+                else:
+                    cleaned_lines.append(l_str)
+            page_text = "\n".join(cleaned_lines).strip()
+
+        if page_text and len(page_text) > 20:
             pages_completed.append(pnum)
             page_chunks = split_text_into_semantic_chunks(page_text, chunk_size=chunk_size, chunk_overlap=chunk_overlap)
             for cidx, ctext in enumerate(page_chunks):
-                source_ref = f"[كتاب: {clean_title} (OCR)، ص: {pnum}]"
+                source_ref = f"[كتاب: {clean_title}{ocr_flag}، ص: {pnum}]"
                 recognized_chunks.append((
                     sha256, clean_title, pnum, cidx, source_ref, ctext
                 ))
 
             # Append to text file
             with open(out_file, "a", encoding="utf-8") as f:
-                f.write(f"\n--- [صفحة {pnum} / Page {pnum} (OCR)] ---\n")
+                f.write(f"\n--- [صفحة {pnum} / Page {pnum}{ocr_flag}] ---\n")
                 f.write(page_text + "\n")
 
         # Sleep briefly to keep CPU cool
