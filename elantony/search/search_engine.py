@@ -97,12 +97,20 @@ def normalize_alef_variants(word: str) -> List[str]:
     return list(variants)
 
 
+CONVERSATIONAL_BOILERPLATE = {
+    "مفهوم", "الفكر", "فكر", "الآبائي", "الابائي", "اقوال", "أقوال", "الموضوع", 
+    "موضوع", "المراجع", "مراجع", "أرقام", "ارقام", "الصفحات", "صفحات", "اذكر", 
+    "شرح", "تفسير", "رسولي", "الرسولي", "قديس", "القديس", "انبا", "الأنبا", "بابا", "البابا",
+    "حول", "هذا", "هذه", "أهم", "اهم", "وما", "ما", "كيف", "لماذا", "هل"
+}
+
+
 def extract_search_keywords(raw_query: str) -> List[str]:
-    """Cleans query, strips punctuation and removes conversational stopwords."""
-    clean = re.sub(r'[\'\"«».,،؛؟!\(\)\[\]\{\}:/\\_#*~`\-]', " ", raw_query).strip()
+    """Cleans query, strips punctuation and removes conversational stopwords and query directives."""
+    clean = re.sub(r'[^\w\s]', ' ', raw_query).strip()
     tokens = [w.strip() for w in clean.split() if len(w.strip()) > 1]
-    keywords = [w for w in tokens if w not in ARABIC_STOPWORDS]
-    return keywords if keywords else tokens
+    keywords = [w for w in tokens if w not in ARABIC_STOPWORDS and w not in CONVERSATIONAL_BOILERPLATE]
+    return keywords if keywords else [w for w in tokens if w not in ARABIC_STOPWORDS]
 
 
 def expand_theological_synonyms(keywords: List[str]) -> Tuple[List[str], List[str]]:
@@ -145,27 +153,32 @@ def expand_theological_synonyms(keywords: List[str]) -> Tuple[List[str], List[st
 
 def is_chunk_high_quality(text: str) -> bool:
     """Verifies that a chunk contains meaningful Arabic theological text rather than OCR noise or URLs."""
-    if not text or len(text.strip()) < 50:
+    if not text or len(text.strip()) < 75:
         return False
 
-    # Filter out Table of Contents / Index pages (checking both raw and normalized)
+    # Filter out Table of Contents / Index / Bibliography pages
     normalized_peek = text.replace("امل", "الم")
-    if any(toc in normalized_peek for toc in ["فهرس الموضوعات", "فهرس المحتويات", "قائمة المحتويات", "الصفحة رقم الموضوع", "الصفحة رقم"]):
+    if any(toc in normalized_peek for toc in [
+        "فهرس الموضوعات", "فهرس المحتويات", "قائمة المحتويات", "الصفحة رقم الموضوع", 
+        "الصفحة رقم", "قائمة المراجع", "فهرس الآيات", "فهرس الأعلام", "مراجع الكتاب"
+    ]):
         return False
 
-    # Filter out Table of Contents pages filled with list of page numbers
-    if len(re.findall(r'\b\d{2,4}\b', text)) > 6:
+    # Filter out Table of Contents pages filled with list of page numbers or dotted leaders
+    if len(re.findall(r'\b\d{2,4}\b', text)) > 5:
+        return False
+    if text.count("....") > 2 or text.count("...") > 5:
         return False
 
     # Check for excessive URL / watermark spam
     url_matches = len(re.findall(r'www\.|\.com|\.org|http', text, re.IGNORECASE))
-    if url_matches > 3:
+    if url_matches > 2:
         return False
 
     # Check Arabic character ratio
     arabic_chars = len(re.findall(r'[\u0600-\u06FF]', text))
     total_chars = len(text.strip())
-    if total_chars > 0 and (arabic_chars / total_chars) < 0.45:
+    if total_chars > 0 and (arabic_chars / total_chars) < 0.50:
         return False
 
     return True
@@ -177,56 +190,107 @@ class ChurchSearchEngine:
     def find_dedicated_books(self, query: str, limit: int = 4) -> List[Dict[str, Any]]:
         """
         Finds complete dedicated volumes in the church catalog specifically focusing on the topic.
-        Guarantees whole-word matching and zero generic/stopword false positives.
+        If a specific Church Father is mentioned in the query, books by or directly about that Father
+        take absolute priority over general modern books.
         """
         keywords = extract_search_keywords(query)
         if not keywords:
             return []
 
-        # Filter out stopwords and short particles
-        valid_kws = [k for k in keywords if k not in ARABIC_STOPWORDS and len(k) >= 3]
-        if not valid_kws:
-            return []
+        valid_kws = [k for k in keywords if k not in ARABIC_STOPWORDS and k not in CONVERSATIONAL_BOILERPLATE and len(k) >= 3]
+
+        # Collect topic keywords and their un-prefixed stems (e.g. التجسد -> تجسد)
+        topic_stems = set()
+        for kw in valid_kws:
+            topic_stems.add(kw)
+            if (kw.startswith("ال") or kw.startswith("أل") or kw.startswith("إل")) and len(kw) > 4:
+                topic_stems.add(kw[2:])
+            elif not kw.startswith("ال") and len(kw) >= 3:
+                topic_stems.add("ال" + kw)
+
+        # Check for targeted church fathers
+        detected_fathers = []
+        for father_name, father_kws in ChurchSourceClassifier.PATRISTIC_FATHERS.items():
+            if any(k in query.lower() for k in father_kws):
+                detected_fathers.append((father_name, father_kws))
 
         conn = get_connection()
         cur = conn.cursor()
         found_books: List[Dict[str, Any]] = []
         seen_shas = set()
 
-        for kw in valid_kws:
-            # Generate Alef variants for title search
-            variants = normalize_alef_variants(kw)
-            for v in variants:
-                # Whole word patterns: surrounded by spaces, underscores, or start/end
-                cur.execute("""
-                    SELECT sha256, file_name, author, category, page_count
-                    FROM church_books
-                    WHERE (
-                        file_name LIKE ? OR
-                        file_name LIKE ? OR
-                        file_name LIKE ? OR
-                        file_name LIKE ?
-                    ) AND is_duplicate_of IS NULL
-                    ORDER BY page_count DESC
-                    LIMIT ?
-                """, (f"% {v} %", f"%_{v}_%", f"% {v}.pdf", f"{v} %", limit))
-                for b in cur.fetchall():
-                    if b["sha256"] not in seen_shas:
-                        seen_shas.add(b["sha256"])
-                        found_books.append({
-                            "sha256": b["sha256"],
-                            "file_name": b["file_name"],
-                            "clean_title": b["file_name"].replace(".pdf", ""),
-                            "author": b["author"] or "آباء ومعلمو الكنيسة",
-                            "category": b["category"] or "لاهوت وعقيدة",
-                            "page_count": b["page_count"] or 0
-                        })
+        # Tier 1 Priority: Books matching BOTH detected Father AND Topic
+        if detected_fathers and topic_stems:
+            for father_name, father_kws in detected_fathers:
+                for f_kw in father_kws[:3]:
+                    for f_v in normalize_alef_variants(f_kw):
+                        for topic_kw in topic_stems:
+                            for t_v in normalize_alef_variants(topic_kw):
+                                cur.execute("""
+                                    SELECT sha256, file_name, author, category, page_count
+                                    FROM church_books
+                                    WHERE (author LIKE ? OR file_name LIKE ?)
+                                      AND (file_name LIKE ? OR category LIKE ?)
+                                      AND is_duplicate_of IS NULL
+                                    ORDER BY (authenticity_tier = 1) DESC, (file_name LIKE ?) DESC, page_count DESC
+                                    LIMIT ?
+                                """, (f"%{f_v}%", f"%{f_v}%", f"%{t_v}%", f"%{t_v}%", f"%{t_v}%", limit))
+                                for b in cur.fetchall():
+                                    if b["sha256"] not in seen_shas:
+                                        seen_shas.add(b["sha256"])
+                                        found_books.append({
+                                            "sha256": b["sha256"],
+                                            "file_name": b["file_name"],
+                                            "clean_title": b["file_name"].replace(".pdf", ""),
+                                            "author": b["author"] or father_name,
+                                            "category": b["category"] or "كتابات آبائية",
+                                            "page_count": b["page_count"] or 0
+                                        })
+                                        if len(found_books) >= limit:
+                                            break
+                                if len(found_books) >= limit:
+                                    break
+                            if len(found_books) >= limit:
+                                break
                         if len(found_books) >= limit:
                             break
+                    if len(found_books) >= limit:
+                        break
+
+        # Tier 2 Priority: General topic matching if limit not reached
+        if len(found_books) < limit and topic_stems:
+            for kw in topic_stems:
+                variants = normalize_alef_variants(kw)
+                for v in variants:
+                    cur.execute("""
+                        SELECT sha256, file_name, author, category, page_count
+                        FROM church_books
+                        WHERE (
+                            file_name LIKE ? OR
+                            file_name LIKE ? OR
+                            file_name LIKE ? OR
+                            file_name LIKE ?
+                        ) AND is_duplicate_of IS NULL
+                        ORDER BY (authenticity_tier = 1) DESC, page_count DESC
+                        LIMIT ?
+                    """, (f"% {v} %", f"%_{v}_%", f"% {v}.pdf", f"{v} %", limit))
+                    for b in cur.fetchall():
+                        if b["sha256"] not in seen_shas:
+                            seen_shas.add(b["sha256"])
+                            found_books.append({
+                                "sha256": b["sha256"],
+                                "file_name": b["file_name"],
+                                "clean_title": b["file_name"].replace(".pdf", ""),
+                                "author": b["author"] or "آباء ومعلمو الكنيسة",
+                                "category": b["category"] or "لاهوت وعقيدة",
+                                "page_count": b["page_count"] or 0
+                            })
+                            if len(found_books) >= limit:
+                                break
+                    if len(found_books) >= limit:
+                        break
                 if len(found_books) >= limit:
                     break
-            if len(found_books) >= limit:
-                break
 
         conn.close()
         return found_books
@@ -234,7 +298,7 @@ class ChurchSearchEngine:
     def search_fts5(
         self,
         query: str,
-        limit: int = 6,
+        limit: int = 8,
         filter_source_type: Optional[str] = None
     ) -> List[ChunkEntity]:
         """
@@ -274,7 +338,7 @@ class ChurchSearchEngine:
                         FROM church_chunks_fts
                         WHERE sha256 = ? AND church_chunks_fts MATCH ? AND page_number > 1
                         ORDER BY rank
-                        LIMIT 2
+                        LIMIT 4
                     """, (b_sha, anchor_clause))
                     for r in cur.fetchall():
                         ref = r["source_reference"]

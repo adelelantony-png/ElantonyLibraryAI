@@ -102,6 +102,45 @@ class TelegramHandlerService:
             logger.error(f"Error sending message to {chat_id}: {e}")
             return False
 
+    async def send_long_message(
+        self,
+        client: httpx.AsyncClient,
+        chat_id: int,
+        text: str,
+        parse_mode: str = "Markdown",
+        reply_markup: Optional[Dict[str, Any]] = None
+    ) -> bool:
+        """Splits long theological studies into sequential parts respecting Telegram's 4096 char limit."""
+        if len(text) <= 3900:
+            return await self.send_message(client, chat_id, text, parse_mode=parse_mode, reply_markup=reply_markup)
+
+        # Split on section or paragraph boundaries
+        paragraphs = text.split("\n\n")
+        chunks = []
+        curr = []
+        curr_len = 0
+        for p in paragraphs:
+            if curr_len + len(p) + 2 > 3700 and curr:
+                chunks.append("\n\n".join(curr))
+                curr = [p]
+                curr_len = len(p)
+            else:
+                curr.append(p)
+                curr_len += len(p) + 2
+        if curr:
+            chunks.append("\n\n".join(curr))
+
+        total = len(chunks)
+        success = True
+        for i, chunk in enumerate(chunks, 1):
+            header = f"*(الجزء {i} من {total})*\n\n" if total > 1 else ""
+            kb = reply_markup if i == total else None
+            ok = await self.send_message(client, chat_id, header + chunk, parse_mode=parse_mode, reply_markup=kb)
+            if not ok:
+                success = False
+            await asyncio.sleep(0.4)
+        return success
+
     async def send_document(
         self,
         client: httpx.AsyncClient,
@@ -676,8 +715,8 @@ class TelegramHandlerService:
         ai_provider = get_ai_provider()
         answer = ai_provider.generate_answer(text, chunks, dedicated_books=dedicated_books)
 
-        # 1. Send Structured Theological Synthesis
-        await self.send_message(client, chat_id, answer)
+        # 1. Send Structured Deep Theological Synthesis
+        await self.send_long_message(client, chat_id, answer)
 
         # 2. Send Top 3 Verified Reference Cards with Interactive Action Buttons (Phase 8)
         for idx, c in enumerate(chunks[:3], 1):

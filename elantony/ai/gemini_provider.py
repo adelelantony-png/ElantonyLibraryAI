@@ -17,44 +17,37 @@ from elantony.database.models import ChunkEntity
 from elantony.core.config import settings
 from elantony.core.logging import logger
 
-THEOLOGICAL_STRUCTURED_SYSTEM_PROMPT = """أنت «خادم وباحث لاهوتي وكنسي أول» في منظومة ELANTONY LIBRARY AI التابعة لمكتبة كنيسة المشرق القبطية الأرثوذكسية.
-مهمتك: الإجابة عن الأسئلة اللاهوتية، العقائدية، الروحية، والطقسية استناداً حصرياً ومباشراً إلى الشواهد والمراجع المرفقة في السياق (Context).
+THEOLOGICAL_STRUCTURED_SYSTEM_PROMPT = """أنت «باحث وخادم لاهوتي كنسي أول» في منظومة ELANTONY LIBRARY AI التابعة للكنيسة القبطية الأرثوذكسية.
+مهمتك: تقديم دراسات لاهوتية آبائية عميقة، رصينة، ومستفيضة تجيب عن تساؤلات الباحثين بأسلوب أكاديمي كنسي رفيع وموثق حرفياً من أمهات كتب المكتبة المرفقة في السياق (Context).
 
-معايير التوثيق الكنسي الصارم ومنع الهلوسة (Verified Citation & Zero-Hallucination Guardrails):
-1. كل حقيقة أو عقيدة أو استشهاد تقدمه يجب أن يكون مستنداً إلى أحد الشواهد المرفقة في السياق.
-2. يمنع منعاً باتاً اختلاق أي مرجع، أو نسبة أقوال لآباء لم تذكر نصوصهم في السياق، أو افتراض أرقام صفحات وهمية.
-3. يجب التمييز بوضوح بين أنواع التوثيق الكنسي:
-   - [اقتباس حرفي - QUOTATION]: نقل العبارة بنصها الحرفي بين علامتي «...» مع ذكر المرجع ورقم الصفحة.
-   - [صياغة تحليلية - PARAPHRASE]: تلخيص وشرح لفكرة مذكورة في الشاهد.
-   - [استنتاج مركب - SYNTHESIS]: الربط بين أكثر من شاهد لتأكيد مفهوم لاهوتي موحد.
-   - [معلومة تمهيدية - EXTERNAL_KNOWLEDGE]: خلفية لغوية أو تاريخية تمهيدية عامة (يجب ذكر أنها معلومة تمهيدية عامة وليست مقتطفة مباشرة من شواهد المكتبة).
-4. توثيق رقم الصفحة:
-   - اذكر رقم الصفحة كما ورد في الشاهد (سواء الصفحة المطبوعة أو صفحة ملف PDF).
-   - إذا تعذر الجزم بالصفحة المطبوعة، اذكر صراحة: [صفحة PDF: X - الصفحة المطبوعة قيد المراجعة].
-5. إذا طلب السؤال جانباً لم يرد في الشواهد المرفقة، لا تختلق إجابة على الإطلاق، بل اذكر بأمانة علمية:
-   «لم نعثر في شواهد المكتبة المفهرسة حالياً على نص مباشر يغطي هذا الجانب تحديداً».
+معايير العمق الأكاديمي والتوثيق الكنسي الصارم:
+1. العمق والشرح الوافي: تجنب الإجابات السطحية، المختصرة، أو المقتضبة. اشرح المسائل العقائدية بأبعادها الكتابية والآبائية والروحية مع إيراد المصطلحات اللاهوتية الأصلية (مثل: Logos, Theosis / التأله بالنعمة, Homoousios / مساوٍ في الجوهر, Enanthropeo / التجسد والتأنس الكامل).
+2. الشواهد والنصوص الأصلية: أورد نصوصاً واقتباسات مطولة من أقوال الآباء (خاصة الأب المسؤول عنه كالقديس أثناسيوس أو كيرلس الكبير أو باسيليوس أو ذهبي الفم) مأخوذة من الشواهد المرفقة، وضعها بين علامتي تنصيص «...» مع ذكر اسم الكتاب، رقم المقالة/الفصل إن وجد، ورقم الصفحة بدقة.
+3. التمييز بين أنواع التوثيق:
+   - [اقتباس حرفي - QUOTATION]: نقل العبارة بنصها الحرفي من كتاب الأب.
+   - [صياغة تحليلية - PARAPHRASE]: استخلاص وشرح المعنى اللاهوتي والفكري.
+   - [استنتاج مركب - SYNTHESIS]: الربط بين عدة شواهد لتأكيد وحدة الإيمان المسلّم مرة للقديسين.
+4. البناء الهيكلي الأكاديمي المعتمد:
+   - 📌 **المقدمة والعقيدة الأساسية**: التعريف اللاهوتي الجامع والشامل للمفهوم في التقليد الأرثوذكسي القويم.
+   - 🏛️ **المحور الأول: البيان الآبائي والنصوص الموثقة**: شواهد ونصوص الآباء المباشرة المقتبسة من الشواهد، مع شرحها لاهوتياً وفلسفياً.
+   - 📜 **المحور الثاني: الأبعاد الخلاصية واللاهوتية**: أسباب التجسد، إبطال الفساد والموت، تجديد صورة الله في الإنسان، استعادة المعرفة الإلهية، والخلاص الكامل.
+   - 🕊️ **المحور الثالث: التطبيق الكنسي والروحي المعاش**: كيف ينعكس هذا الإيمان في صلاة المؤمن اليومية وجهاده الروحي وسر الإفخارستيا.
+   - 📚 **المصادر والمراجع الموثقة**: قائمة مرقمة بكافة المراجع المستخدمة تشمل: اسم الكتاب، المؤلف، رقم الصفحة المطبوعة ورقم صفحة الـ PDF.
 
-هيكل الإجابة المنظمة (Structured Theological Thesis):
-- 📌 **المقدمة**: تعريف موجز ودقيق للمفهوم اللاهوتي أو العقائدي.
-- 🏛️ **المحور الأول**: البيان اللاهوتي والآبائي (مع الشواهد الموثقة).
-- 📜 **المحور الثاني**: الأبعاد الخلاصية / الكتابية / الطقسية المرتبطة.
-- 🕊️ **المحور الثالث**: التطبيق الروحي والجهاد المعاش في فكر الكنيسة.
-- 📚 **المصادر والمراجع الموثقة**:
-  قائمة مرقمة بكل كتاب تم الاقتباس منه مع اسم المؤلف، نوع المصدر، ورقم الصفحة ونوع التوثيق.
+تنبيه قطعي: يمنع منعاً باتاً تكرار نص هذه التعليمات، ابدأ مباشرة بتقديم الدراسة اللاهوتية المنهجية الموثقة.
 """
 
 
 class GeminiAIProvider(BaseAIProvider):
     """Google Gemini API Provider with strict verified citation typology and structured answer generation."""
 
-    # Priority order for models supported on Gemini API
+    # Priority order for high-quota and active models on Gemini API
     CANDIDATE_MODELS = [
-        "gemini-2.5-flash",
-        "gemini-2.5-flash-lite",
-        "gemini-3.8-flash",
+        "gemini-3.5-flash-lite",
         "gemini-3.5-flash",
-        "gemini-2.5-pro",
-        "gemini-flash-latest"
+        "gemini-flash-lite-latest",
+        "gemini-3.1-flash-lite",
+        "gemini-2.5-flash"
     ]
 
     def __init__(self, api_key: Optional[str] = None):
@@ -107,11 +100,11 @@ class GeminiAIProvider(BaseAIProvider):
                 f"الإجابة المنهجية الموثقة:"
             )
 
-            # Strict low temperature to prevent hallucination
+            # Academic patristic depth configuration
             generation_config = genai.types.GenerationConfig(
-                temperature=0.15,
-                top_p=0.85,
-                max_output_tokens=2000
+                temperature=0.25,
+                top_p=0.9,
+                max_output_tokens=3800
             )
 
             for model_name in self.CANDIDATE_MODELS:
@@ -123,7 +116,7 @@ class GeminiAIProvider(BaseAIProvider):
                     response = model.generate_content(
                         prompt,
                         generation_config=generation_config,
-                        request_options={"timeout": 30}
+                        request_options={"timeout": 60}
                     )
                     if response and response.text:
                         return response.text.strip()
@@ -181,9 +174,9 @@ class GeminiAIProvider(BaseAIProvider):
             )
 
             generation_config = genai.types.GenerationConfig(
-                temperature=0.2,
+                temperature=0.25,
                 top_p=0.9,
-                max_output_tokens=2200
+                max_output_tokens=3800
             )
 
             for model_name in self.CANDIDATE_MODELS:
@@ -195,7 +188,7 @@ class GeminiAIProvider(BaseAIProvider):
                     response = model.generate_content(
                         prompt,
                         generation_config=generation_config,
-                        request_options={"timeout": 30}
+                        request_options={"timeout": 60}
                     )
                     if response and response.text:
                         return response.text.strip()
