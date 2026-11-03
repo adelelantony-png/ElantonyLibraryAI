@@ -1,23 +1,29 @@
 @echo off
 chcp 65001 > nul
-title إلغاء التشغيل التلقائي للمساعد الدائم
+title الغاء التشغيل التلقائي للمساعد الدائم
 color 0C
 
 echo =================================================================
-echo  إلغاء مهمة التشغيل التلقائي لمساعد ELANTONY LIBRARY AI
+echo  الغاء التشغيل التلقائي لمساعد ELANTONY LIBRARY AI
 echo =================================================================
 echo.
 
-set "TASK_NAME=ElantonyPermanentAssistant"
-schtasks /delete /tn "%TASK_NAME%" /f
+set "SHORTCUT=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\ElantonyPermanentAssistant.lnk"
 
-if %ERRORLEVEL% EQU 0 (
-    echo.
-    echo ✓ تم إلغاء مهمة التشغيل التلقائي بنجاح.
-) else (
-    echo.
-    echo ⚠️ لم يتم العثور على المهمة أو تم إلغاؤها مسبقاً.
-)
+if exist "%SHORTCUT%" goto :found
+goto :notfound
 
+:found
+del "%SHORTCUT%" > nul 2>&1
+echo  [OK] تم حذف اختصار بدء التشغيل بنجاح.
+echo  لن يعمل المساعد تلقائيا عند فتح الجهاز بعد الان.
+goto :end
+
+:notfound
+echo  [i] المساعد غير مسجل في بدء التشغيل حاليا.
+goto :end
+
+:end
 echo.
+echo =================================================================
 pause
