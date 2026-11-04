@@ -17,6 +17,7 @@ def get_main_menu_reply_keyboard() -> Dict[str, Any]:
     return {
         "keyboard": [
             [{"text": "🤖 اسأل المساعد الذكي"}, {"text": "📑 تجميع البحث (Word)"}],
+            [{"text": "📜 سنكسار اليوم"}, {"text": "📖 آية وتفسير آبائي"}],
             [{"text": "🔄 بحث جديد"}, {"text": "📂 أبحاثي السابقة"}],
             [{"text": "📑 فهرس المكتبة الشامل"}, {"text": "📚 البحث في المكتبة"}],
             [{"text": "📖 اسأل كتابًا"}, {"text": "⛪ أقوال الآباء"}],
@@ -36,6 +37,10 @@ def get_main_menu_inline_keyboard() -> Dict[str, Any]:
             [
                 {"text": "🧠 المساعد اللاهوتي الفائق (ذاكرة مستمرة)", "callback_data": "menu:ask_ai"},
                 {"text": "📑 تجميع البحث (Word)", "callback_data": "session:compile"}
+            ],
+            [
+                {"text": "📜 سنكسار اليوم القبطي", "callback_data": "menu:synaxarium"},
+                {"text": "📖 آية وتفسير آبائي", "callback_data": "menu:daily_verse"}
             ],
             [
                 {"text": "🔄 بدء بحث جديد", "callback_data": "session:new"},
