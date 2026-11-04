@@ -7,7 +7,15 @@ on Hugging Face Spaces (Free 16GB RAM / 2 vCPU 24/7 Cloud Tier).
 
 import os
 import sys
+import time
 from pathlib import Path
+
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+        sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
 
 # Add project root
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -16,13 +24,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from elantony.core.config import settings
 
 def deploy(token: str, space_name: str = "elantony-library-ai", is_private: bool = False):
-    try:
-        from huggingface_hub import HfApi
-    except ImportError:
-        print("[-] huggingface_hub not installed. Installing...")
-        import subprocess
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "huggingface_hub"])
-        from huggingface_hub import HfApi
+    from huggingface_hub import HfApi
 
     print("=" * 70)
     print(" ✠ ELANTONY LIBRARY AI - ناشر السحابة الآلي (Hugging Face Spaces) ✠")
@@ -43,7 +45,6 @@ def deploy(token: str, space_name: str = "elantony-library-ai", is_private: bool
         print(f" [+] مرحباً بك: {username} (تمت المصادقة بنجاح)")
     except Exception as auth_err:
         print(f"[-] فشل التحقق من الـ Token: {auth_err}")
-        print("    يرجى التأكد من إنشاء Token بصلاحية (Write) من: https://huggingface.co/settings/tokens")
         return False
 
     repo_id = f"{username}/{space_name}"
@@ -59,9 +60,9 @@ def deploy(token: str, space_name: str = "elantony-library-ai", is_private: bool
             private=is_private,
             exist_ok=True
         )
-        print(" [+] الـ Space جاهز ومفعل.")
+        print(" [+] الـ Space جاهز ومفعل بنجاح.")
     except Exception as cr_err:
-        print(f"[-] ملاحظة أثناء إنشاء الـ Space: {cr_err}")
+        print(f" [!] ملاحظة أثناء تجهيز الـ Space: {cr_err}")
 
     # 3. Configure Secrets (Environment Variables)
     print(" [*] جاري مزامنة المفاتيح السرية (Secrets) المشفرة سحابياً...")
@@ -83,71 +84,75 @@ def deploy(token: str, space_name: str = "elantony-library-ai", is_private: bool
         except Exception as sec_err:
             print(f" [!] تنبيه ضبط {key}: {sec_err}")
 
-    # 4. Upload Files
-    print(" [*] جاري رفع ملفات المنظومة وكود المساعد إلى السحابة...")
-    essential_files = [
-        "Dockerfile",
-        "requirements.txt",
-        "README.md",
-        ".dockerignore"
+    # 4. Upload Complete Project Folder in a single clean commit
+    print("\n [*] جاري رفع كود المنظومة وقاعدة البيانات إلى Hugging Face في دفعة واحدة...")
+    print("     (سيتم رفع الكود و 313,000+ مقطع مفهرس في file_archive.db تلقائياً)")
+    
+    ignore_list = [
+        ".git",
+        ".git/*",
+        ".gitignore",
+        "venv",
+        "venv/*",
+        "tools",
+        "tools/*",
+        "books",
+        "books/*",
+        "extracted_text",
+        "extracted_text/*",
+        "processed_text",
+        "processed_text/*",
+        "backups",
+        "backups/*",
+        "reports",
+        "reports/*",
+        "logs",
+        "logs/*",
+        "__pycache__",
+        "__pycache__/*",
+        "*.pyc",
+        "*.pyo",
+        "*.pyd",
+        ".env",
+        ".env.*",
+        "*.bat",
+        "*.txt",
+        "file_archive.db-wal",
+        "file_archive.db-shm"
     ]
 
-    for fname in essential_files:
-        fpath = PROJECT_ROOT / fname
-        if fpath.exists():
-            print(f" [>] رفع: {fname}...")
-            api.upload_file(
-                path_or_fileobj=str(fpath),
-                path_in_repo=fname,
-                repo_id=repo_id,
-                repo_type="space"
-            )
-
-    # Upload Code Directories
-    code_folders = ["elantony", "modules", "scripts"]
-    for folder in code_folders:
-        fdir = PROJECT_ROOT / folder
-        if fdir.exists():
-            print(f" [>] رفع مجلد الكود: {folder}...")
-            api.upload_folder(
-                folder_path=str(fdir),
-                path_in_repo=folder,
-                repo_id=repo_id,
-                repo_type="space",
-                ignore_patterns=["__pycache__/*", "*.pyc", "*.pyo"]
-            )
-
-    # 5. Upload Database file_archive.db
-    db_path = PROJECT_ROOT / "file_archive.db"
-    if db_path.exists():
-        size_mb = db_path.stat().st_size / (1024 * 1024)
-        print(f" [*] جاري رفع قاعدة بيانات المكتبة الآبائية ({size_mb:.1f} MB)...")
-        print("     (قد يستغرق بضع دقائق حسب سرعة رفع الإنترنت لديك...)")
-        api.upload_file(
-            path_or_fileobj=str(db_path),
-            path_in_repo="file_archive.db",
+    try:
+        t0 = time.time()
+        api.upload_folder(
+            folder_path=str(PROJECT_ROOT),
             repo_id=repo_id,
-            repo_type="space"
+            repo_type="space",
+            ignore_patterns=ignore_list,
+            commit_message="Deploy ELANTONY LIBRARY AI cloud container with FTS5 brain"
         )
-        print(" [+] تم رفع قاعدة البيانات بنجاح.")
+        elapsed = time.time() - t0
+        print(f" [+] اكتمل الرفع بنجاح في {elapsed:.1f} ثانية!")
+    except Exception as up_err:
+        print(f"[-] خطأ أثناء رفع المجلد: {up_err}")
+        return False
 
     space_url = f"https://huggingface.co/spaces/{repo_id}"
-    app_url = f"https://{username}-{space_name.replace('_', '-')}.hf.space"
+    app_url = f"https://{username.lower()}-{space_name.lower().replace('_', '-')}.hf.space"
 
     print("\n" + "🎉" * 35)
     print(" ✠ تم النشر السحابي الكامل بنجاح على Hugging Face Spaces! ✠")
-    print(f" 🌐 رابط الـ Space: {space_url}")
-    print(f" 🚀 رابط المساعد المباشر: {app_url}")
-    print(f" 🤖 بوت تليجرام يعمل الآن 24/7 في السحاب: @ElantonyLibrarybot")
+    print(f" 🌐 صفحة إدارة السيرفر السحابي : {space_url}")
+    print(f" 🚀 رابط المساعد المباشر        : {app_url}")
+    print(f" 🤖 بوت تليجرام يعمل الآن 24/7 : @ElantonyLibrarybot")
     print("🎉" * 35 + "\n")
-    print(" 💤 يمكنك الآن إغلاق جهاز الكمبيوتر الشخصي تماماً؛")
-    print("    فالمنظومة أصبحت تعمل في السحابة على مدار الساعة بدون توقف!")
+    print(" 💤 بمجرد اكتمال بناء الحاوية (دقيقة أو دقيقتين على موقع Hugging Face):")
+    print("    يمكنك إغلاق جهاز الكمبيوتر الشخصي تماماً؛ فالمنظومة أصبحت سحابية 100%!")
     print("=" * 70)
     return True
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1:
-        deploy(sys.argv[1])
-    else:
-        tok = input("أدخل Hugging Face Write Token: ").strip()
-        deploy(tok)
+    tok = sys.argv[1] if len(sys.argv) > 1 else os.getenv("HUGGINGFACE_TOKEN", "")
+    if not tok:
+        print("Usage: python deploy_to_huggingface.py <HF_TOKEN> or set HUGGINGFACE_TOKEN env var")
+        sys.exit(1)
+    deploy(tok)

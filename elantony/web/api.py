@@ -117,6 +117,12 @@ class ChatRequest(BaseModel):
     depth_mode: Optional[str] = "academic"
 
 
+class TTSRequest(BaseModel):
+    text: str
+    lang: Optional[str] = "ar"
+    max_chars: Optional[int] = 1200
+
+
 class CreateSessionRequest(BaseModel):
     title: Optional[str] = "بحث لاهوتي جديد"
     user_id: Optional[str] = "web"
@@ -1383,6 +1389,22 @@ async def get_book_file(sha256: str, download: bool = False):
         media_type="application/pdf",
         filename=filename,
         content_disposition_type="attachment" if download else "inline"
+    )
+
+
+@app.post("/api/audio/tts")
+async def api_audio_tts(req: TTSRequest):
+    """Generates MP3 audio for patristic quotes or liturgical prayers."""
+    from elantony.services.audio_service import audio_service
+    if not audio_service.is_available():
+        raise HTTPException(status_code=503, detail="خدمة تحويل النصوص إلى صوت غير متوفرة حالياً")
+    audio_bytes = audio_service.synthesize_speech(req.text, lang=req.lang or "ar", max_chars=req.max_chars or 1200)
+    if not audio_bytes:
+        raise HTTPException(status_code=500, detail="فشل توليد الصوت للنص المدخل")
+    return Response(
+        content=audio_bytes,
+        media_type="audio/mpeg",
+        headers={"Content-Disposition": "inline; filename=patristic_quote.mp3"}
     )
 
 

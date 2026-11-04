@@ -1,34 +1,32 @@
 # -*- coding: utf-8 -*-
 """
-ELANTONY LIBRARY AI - AI Provider Factory
+ArchiveMaster - ELANTONY LIBRARY AI
+AI Provider Factory with Multi-Model Gateway Integration
+Ensures unified access to Gemini, Kimi, DeepInfer, ZenMux, BeatAPI, and RuleBased fallback.
 """
 
 from typing import Optional
 from elantony.ai.base import BaseAIProvider
 from elantony.ai.rule_based_provider import RuleBasedChurchProvider
 from elantony.ai.gemini_provider import GeminiAIProvider
+from elantony.ai.gateway import gateway, MultiModelGateway
 from elantony.core.config import settings
-
-_providers = {
-    "rule_based": RuleBasedChurchProvider(),
-    "gemini": GeminiAIProvider(),
-}
 
 
 def get_ai_provider(provider_name: Optional[str] = None) -> BaseAIProvider:
-    """Resolves and returns the configured AI provider with graceful fallback."""
-    gemini = _providers["gemini"]
+    """
+    Resolves and returns the AI provider.
+    Defaults to the unified MultiModelGateway, which manages dynamic routing and cascading failover.
+    Specific providers can also be requested by name ('gemini', 'kimi', 'deepinfer', 'rule_based', etc.).
+    """
     if provider_name:
-        name = provider_name.lower()
-        provider = _providers.get(name, _providers["rule_based"])
-        return provider if provider.is_available() else _providers["rule_based"]
+        name = provider_name.lower().strip()
+        if name in ("gateway", "multi_model", "auto", "default"):
+            return gateway
+        specific = gateway.get_provider(name)
+        if specific and specific.is_available():
+            return specific
+        return gateway
 
-    # Auto-detection: prioritize Gemini if API key is configured and valid
-    if gemini.is_available():
-        return gemini
-
-    name = settings.ai_provider.lower()
-    provider = _providers.get(name, _providers["rule_based"])
-    if not provider.is_available():
-        return _providers["rule_based"]
-    return provider
+    # By default, provide the resilient Multi-Model Gateway
+    return gateway
