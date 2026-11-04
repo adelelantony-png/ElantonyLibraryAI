@@ -80,12 +80,12 @@ class MultiModelGateway(BaseAIProvider):
 
         # 6. BeatAPI Gateway
         beatapi_key = os.getenv("BEATAPI_KEY", "").strip()
-        beatapi_base = os.getenv("BEATAPI_BASE_URL", "https://api.beatapi.com/v1").strip()
+        beatapi_base = os.getenv("BEATAPI_BASE_URL", "https://api.beatapi.io/v1").strip()
         self._providers["beatapi"] = OpenAICompatibleProvider(
             name="beatapi",
             base_url=beatapi_base,
             api_key=beatapi_key,
-            default_model=os.getenv("BEATAPI_MODEL", "beat-general")
+            default_model=os.getenv("BEATAPI_MODEL", "deepseek-v4.1-flash-free")
         )
 
     @property

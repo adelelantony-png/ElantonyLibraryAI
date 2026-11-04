@@ -124,11 +124,17 @@ class OpenAICompatibleProvider(BaseAIProvider):
                 response = client.post(endpoint, headers=headers, json=payload)
                 if response.status_code != 200:
                     logger.error(f"[{self._name}] API error {response.status_code}: {response.text[:200]}")
-                    raise RuntimeError(f"{self._name} returned status {response.status_code}")
+                    raise RuntimeError(f"{self._name} returned status {response.status_code}: {response.text[:150]}")
 
                 data = response.json()
-                content = data["choices"][0]["message"]["content"]
-                return content.strip()
+                if "choices" in data and data["choices"]:
+                    msg = data["choices"][0].get("message", {})
+                    content = msg.get("content") or msg.get("reasoning_content") or ""
+                    return content.strip()
+                elif "error" in data:
+                    raise RuntimeError(f"{self._name} API error: {data['error'].get('message', 'Unknown error')}")
+                else:
+                    raise RuntimeError(f"{self._name} unexpected response structure: {str(data)[:150]}")
         except Exception as e:
             logger.error(f"[{self._name}] Exception during generation: {e}")
             raise
