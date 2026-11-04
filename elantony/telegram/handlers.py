@@ -611,6 +611,21 @@ class TelegramHandlerService:
             await self.send_daily_verse(client, chat_id)
             return
 
+        # 3.01 Google Drive Harvester Command
+        if text.startswith("/harvest_drive"):
+            if not is_user_admin(user_id):
+                await self.send_message(client, chat_id, "⛔ هذا الأمر مخصص لمدير النظام فقط.")
+                return
+            from elantony.services.gdrive_harvester import gdrive_harvester
+            libs = gdrive_harvester.list_libraries()
+            msg = "🌐 *اختر المكتبة السحابية (Google Drive) المطلوب سحب وفهرسة دفعة من كتبها:*"
+            keyboard = []
+            for lib in libs:
+                keyboard.append([{"text": f"📥 {lib['name'][:30]}", "callback_data": f"gdrive_sync:{lib['id']}"}])
+            keyboard.append([{"text": "🔙 القائمة الرئيسية", "callback_data": "nav:main"}])
+            await self.send_message(client, chat_id, msg, reply_markup={"inline_keyboard": keyboard})
+            return
+
         # 3. Main Command Routing (/start, /menu, /help, etc.)
         if text in [
             "/start", "/menu", "/help",

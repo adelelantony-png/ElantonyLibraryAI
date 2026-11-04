@@ -10,8 +10,10 @@ Catalogs, verifies, and synchronizes foundational Google Drive church libraries:
 - Fr. Bishoy Kamel Complete Works
 """
 
-from typing import List, Dict, Any
+import hashlib
+from typing import List, Dict, Any, Optional
 from pathlib import Path
+
 from elantony.core.config import settings
 from elantony.core.logging import logger
 
@@ -103,6 +105,65 @@ class GDriveHarvesterService:
             if lib["id"] == lib_id:
                 return lib
         return {}
+
+    def download_and_ingest_batch(self, lib_id: str, max_books: int = 5) -> Dict[str, Any]:
+        """
+        Downloads a batch of PDF books from a Google Drive library,
+        deduplicates via SHA-256, and triggers automated indexing.
+        """
+        lib = self.get_library_by_id(lib_id)
+        if not lib:
+            return {"success": False, "error": f"المكتبة غير موجودة: {lib_id}"}
+
+        url = lib["url"]
+        logger.info(f"[GDriveHarvester] Starting batch download from: «{lib['name']}» (max {max_books} books)")
+
+        try:
+            import gdown
+            from services.permanent_assistant.ingestion_pipeline import auto_ingestor
+            from elantony.database.repository import repo
+
+            downloaded_files = gdown.download_folder(
+                url=url,
+                output=str(self.destination_dir),
+                quiet=True,
+                remaining_ok=True,
+                max_number=max_books
+            )
+
+            results = []
+            if not downloaded_files:
+                return {"success": True, "downloaded_count": 0, "indexed_count": 0, "message": "لا توجد ملفات جديدة"}
+
+            for f_path_str in downloaded_files:
+                f_path = Path(f_path_str)
+                if not f_path.name.lower().endswith(".pdf"):
+                    continue
+
+                # Calculate SHA-256
+                hasher = hashlib.sha256()
+                with open(f_path, "rb") as f_in:
+                    while chunk := f_in.read(65536):
+                        hasher.update(chunk)
+                file_hash = hasher.hexdigest()
+
+                if repo.get_book_by_sha(file_hash):
+                    logger.info(f"[GDriveHarvester] Book already indexed: «{f_path.name}» (SHA: {file_hash[:16]})")
+                    results.append({"file": f_path.name, "status": "already_indexed"})
+                    continue
+
+                ingest_res = auto_ingestor.ingest_pdf(f_path)
+                results.append({"file": f_path.name, "status": "indexed", "details": ingest_res})
+
+            return {
+                "success": True,
+                "library_name": lib["name"],
+                "total_processed": len(results),
+                "details": results
+            }
+        except Exception as e:
+            logger.error(f"[GDriveHarvester] Batch download error: {e}")
+            return {"success": False, "error": str(e)}
 
 
 # Global drive harvester service
