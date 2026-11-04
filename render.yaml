@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: elantony-library-ai
+    env: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: ENABLE_BOT_IN_API
+        value: "true"
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: BEATAPI_KEY
+        sync: false
+      - key: DATABASE_DOWNLOAD_URL
+        value: https://huggingface.co/datasets/AdelGeorg/elantony-db/resolve/main/file_archive.zip
