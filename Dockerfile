@@ -50,7 +50,8 @@ ENV HOME=/home/user \
     PYTHONUNBUFFERED=1 \
     APP_ENV=production \
     APP_PORT=7860 \
-    APP_HOST=0.0.0.0
+    APP_HOST=0.0.0.0 \
+    ENABLE_BOT_IN_API=true
 
 WORKDIR $HOME/app
 
@@ -68,5 +69,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
     CMD curl -f http://localhost:7860/health || curl -f http://localhost:8000/health || exit 1
 
-# Launch the unified ELANTONY Cloud & Telegram Server
-CMD ["python", "scripts/run_cloud_bot.py"]
+# Launch the unified ELANTONY Web Research Portal & 24/7 Telegram Bot
+CMD ["python", "-m", "uvicorn", "elantony.web.api:app", "--host", "0.0.0.0", "--port", "7860"]

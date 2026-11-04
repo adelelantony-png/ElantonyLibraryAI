@@ -1,5 +1,9 @@
-# ELANTONY LIBRARY AI - Lightweight 24/7 Cloud Telegram Bot
+# ELANTONY LIBRARY AI - Cloud Production Server Requirements
+fastapi>=0.110.0
+uvicorn[standard]>=0.28.0
 httpx>=0.27.0
 pydantic>=2.0.0
+pydantic-settings>=2.0.0
 python-dotenv>=1.0.0
 google-generativeai>=0.8.0
+python-docx>=1.1.0
