@@ -626,6 +626,29 @@ class TelegramHandlerService:
             await self.send_message(client, chat_id, msg, reply_markup={"inline_keyboard": keyboard})
             return
 
+        # 3.02 Telegram Channels Harvester Command
+        if text.startswith("/harvest_tg") or text in ["قنوات تليجرام", "مكتبات تليجرام"]:
+            from elantony.services.telegram_harvester import telegram_harvester
+            channels = telegram_harvester.get_catalog()
+            stats = telegram_harvester.get_harvested_stats()
+            
+            msg = (
+                "📡 *دليل قنوات ومكتبات تليجرام الكنسية المعتمدة للحصاد* ✠\n\n"
+                f"📊 *الكتب المستلمة والمفهرسة من تليجرام حتى الآن:* `{stats['total_books_harvested']}` كتب (`{stats['total_size_mb']} MB`)\n"
+                f"📁 *المجلد المحلي:* `{stats['directory']}`\n\n"
+                "👇 *اضغط على أي قناة للانتقال إليها وتصفح محتوياتها:*\n\n"
+            )
+            keyboard = []
+            for ch in channels:
+                msg += f"• *{ch['name']}* ({ch['username']})\n  _{ch['category']}_\n\n"
+                clean_user = ch['username'].replace('@', '')
+                keyboard.append([{"text": f"🔗 فتح: {ch['name'][:28]}", "url": f"https://t.me/{clean_user}"}])
+                
+            msg += "💡 *طريقة الإضافة الفورية للمكتبة:*\nعندما تجد أي كتاب يعجبك في أي قناة، اضغط على زر *(Forward / إعادة توجيه)* وأرسله هنا مباشرة للبوت، وسيقوم بتنزيله وفهرسته على جهازك تلقائياً!"
+            keyboard.append([{"text": "🔙 القائمة الرئيسية", "callback_data": "nav:main"}])
+            await self.send_message(client, chat_id, msg, reply_markup={"inline_keyboard": keyboard})
+            return
+
         # 3. Main Command Routing (/start, /menu, /help, etc.)
         if text in [
             "/start", "/menu", "/help",
