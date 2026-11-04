@@ -27,10 +27,40 @@ bot_task: Optional[asyncio.Task] = None
 bot_engine: Optional[TelegramBotEngine] = None
 
 
+def ensure_database():
+    """Verifies that file_archive.db exists and is ready; downloads from Hugging Face dataset if missing."""
+    db_path = Path("file_archive.db")
+    if db_path.exists() and db_path.stat().st_size > 100000:
+        return
+
+    db_download_url = os.getenv(
+        "DATABASE_DOWNLOAD_URL",
+        "https://huggingface.co/datasets/AdelGeorg/elantony-db/resolve/main/file_archive.zip"
+    ).strip()
+
+    if db_download_url:
+        logger.info(f"Database missing in cloud container. Downloading from {db_download_url}...")
+        try:
+            import urllib.request
+            import shutil
+            import zipfile
+            temp_zip = Path("file_archive_temp.zip")
+            req = urllib.request.Request(db_download_url, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=180) as response, open(temp_zip, 'wb') as out_file:
+                shutil.copyfileobj(response, out_file)
+            with zipfile.ZipFile(temp_zip, 'r') as zip_ref:
+                zip_ref.extractall(".")
+            temp_zip.unlink(missing_ok=True)
+            logger.info("Cloud database bootstrap completed successfully.")
+        except Exception as e:
+            logger.warning(f"Failed to bootstrap database from {db_download_url}: {e}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manages optional embedded bot worker if explicitly enabled."""
     global bot_task, bot_engine
+    ensure_database()
     enable_embedded_bot = os.getenv("ENABLE_BOT_IN_API", "false").lower() == "true"
     if enable_embedded_bot and settings.telegram_bot_token:
         bot_engine = TelegramBotEngine()
