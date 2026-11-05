@@ -1522,6 +1522,20 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                 ✈️
             </a>
         </div>
+        <!-- Scholar Profile / Isolation Space -->
+        <div class="scholar-profile-card" style="margin: 0 16px 10px; padding: 8px 12px; background: var(--bg-darker); border: 1px solid var(--card-border); border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; align-items: center; gap: 8px; overflow: hidden; cursor: pointer;" onclick="editScholarProfile()" title="انقر لتعديل اسمك أو صفتك البحثية">
+                <span style="font-size: 16px;">👤</span>
+                <div style="overflow: hidden;">
+                    <div id="scholarNameDisplay" style="font-size: 12px; font-weight: 700; color: var(--text-main); white-space: nowrap; text-overflow: ellipsis;">باحث لاهوتي</div>
+                    <div style="font-size: 10px; color: var(--text-sub);">ملف بحثي مستقل 🔒</div>
+                </div>
+            </div>
+            <button class="btn-admin-icon" onclick="openAdminConsole()" title="لوحة إشراف المدير العام (Admin PIN: 2026)" style="background: none; border: none; font-size: 16px; cursor: pointer; opacity: 0.7; padding: 2px;">
+                🛡️
+            </button>
+        </div>
+
         <button class="btn-new-chat" onclick="startNewChat()">
             <span>➕</span> بحث لاهوتي جديد
         </button>
@@ -1579,6 +1593,9 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                 </button>
                 <button class="btn-nav btn-docx-nav" onclick="downloadCurrentExport('docx')" title="تنزيل أطروحة البحث كاملة كملف Microsoft Word منسق">
                     <span>📄</span> Word
+                </button>
+                <button class="btn-nav btn-admin-nav" onclick="openAdminConsole()" title="لوحة إشراف المدير العام ومتابعة أبحاث كل المستخدمين (PIN: 2026)" style="background: rgba(217, 119, 6, 0.12); border-color: #d97706; color: #d97706; font-weight: 800;">
+                    <span>🛡️</span> الإشراف
                 </button>
             </div>
         </div>
