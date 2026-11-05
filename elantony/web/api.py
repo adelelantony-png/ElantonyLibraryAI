@@ -2018,16 +2018,54 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                     citeList.appendChild(item);
                 });
 
+                // 4. Dynamic Deep-Linked External Patristic Sources
+                const PATRISTIC_MAP = {
+                    'كيرلس الكبير': { en: 'Cyril of Alexandria', pg: 'PG 68-77', ar: 'القديس كيرلس الكبير' },
+                    'أثناسيوس': { en: 'Athanasius of Alexandria', pg: 'PG 25-28', ar: 'القديس أثناسيوس الرسولي' },
+                    'باسيليوس': { en: 'Basil the Great', pg: 'PG 29-32', ar: 'القديس باسيليوس الكبير' },
+                    'ذهبي الفم': { en: 'John Chrysostom', pg: 'PG 47-64', ar: 'القديس يوحنا ذهبي الفم' },
+                    'غريغوريوس النزينزي': { en: 'Gregory Nazianzen', pg: 'PG 35-38', ar: 'القديس غريغوريوس اللاهوتي' },
+                    'غريغوريوس اللاهوتي': { en: 'Gregory Nazianzen', pg: 'PG 35-38', ar: 'القديس غريغوريوس اللاهوتي' },
+                    'غريغوريوس النيسي': { en: 'Gregory of Nyssa', pg: 'PG 44-46', ar: 'القديس غريغوريوس النيسي' },
+                    'أنطونيوس الكبير': { en: 'Anthony the Great', pg: 'PG 40', ar: 'القديس العظيم أنطونيوس' },
+                    'مكاريوس الكبير': { en: 'Macarius the Great', pg: 'PG 34', ar: 'القديس مكاريوس الكبير' },
+                    'ديديموس الضرير': { en: 'Didymus the Blind', pg: 'PG 39', ar: 'القديس ديديموس الضرير' },
+                    'متى المسكين': { en: 'Matta El Meskeen', pg: '', ar: 'القمص متى المسكين' },
+                    'شنودة الثالث': { en: 'Pope Shenouda III', pg: '', ar: 'قداسة البابا شنودة الثالث' }
+                };
+
+                let detectedFather = null;
+                for (let c of citations) {
+                    const authorTxt = (c.author || '') + ' ' + (c.book_title || '');
+                    for (let k in PATRISTIC_MAP) {
+                        if (authorTxt.includes(k)) {
+                            detectedFather = PATRISTIC_MAP[k];
+                            break;
+                        }
+                    }
+                    if (detectedFather) break;
+                }
+
+                const queryContext = (chatMessages.length > 0 ? chatMessages[chatMessages.length - 1].content : '').slice(0, 30);
+                const searchTargetEn = detectedFather ? detectedFather.en : (queryContext || 'Early Church Fathers');
+                const searchTargetAr = detectedFather ? detectedFather.ar : (queryContext || 'آباء الكنيسة');
+                const pgLabel = detectedFather && detectedFather.pg ? ` (${detectedFather.pg})` : '';
+
+                const ccelSearchUrl = `https://www.google.com/search?q=site:ccel.org/fathers+${encodeURIComponent(searchTargetEn)}`;
+                const newAdventSearchUrl = `https://www.google.com/search?q=site:newadvent.org/fathers+${encodeURIComponent(searchTargetEn)}`;
+                const pgUrl = `https://patristica.net/migne/`;
+                const taklaSearchUrl = `https://st-takla.org/search.php?q=${encodeURIComponent(searchTargetAr)}`;
+
                 const extBox = document.createElement('div');
                 extBox.className = 'external-sources-pill-box';
                 extBox.innerHTML = `
-                    <div class="ext-label">🌐 أمهات المراجع والآبائيات الكنسية الدولية المعتمدة:</div>
+                    <div class="ext-label">🌐 مراجع خارجية مدققة لنفس موضوع وآباء هذا البحث (تحقق مباشر):</div>
                     <div class="ext-chips-row">
-                        <a href="https://www.ccel.org/fathers" target="_blank" class="ext-source-chip" title="موسوعة آباء الكنيسة قبل نيقية وما بعد نيقية (38 مجلداً - فيليب شاف)">📚 Nicene & Post-Nicene Fathers (CCEL)</a>
-                        <a href="https://www.newadvent.org/fathers/" target="_blank" class="ext-source-chip" title="موسوعة New Advent الآبائية الشاملة باليونانية والإنجليزية">🏛️ New Advent Fathers</a>
-                        <a href="https://patristica.net/migne/" target="_blank" class="ext-source-chip" title="باترولوجيا ميني اليونانية (161 مجلداً للآباء الشرقيين)">📜 Patrologia Graeca (Migne PG)</a>
-                        <a href="https://katameros.bible/" target="_blank" class="ext-source-chip" title="القطمارس والسنكسار الكنسي الليتورجي المعتمد">⛪ قطمارس وسنكسار الكنيسة</a>
-                        <a href="https://st-takla.org/books" target="_blank" class="ext-source-chip" title="مكتبة وتراث الكنيسة القبطية الأرثوذكسية">📖 تراث الكنيسة القبطية</a>
+                        <a href="${ccelSearchUrl}" target="_blank" class="ext-source-chip" title="بحث نصوص ${searchTargetEn} في موسوعة فيليب شاف النقدية CCEL (38 مجلداً)">📚 نصوص NPNF في CCEL: ${searchTargetEn}</a>
+                        <a href="${newAdventSearchUrl}" target="_blank" class="ext-source-chip" title="نصوص ومخطوطات ${searchTargetEn} بالإنجليزية واليونانية في New Advent">🏛️ نصوص New Advent: ${searchTargetEn}</a>
+                        <a href="${pgUrl}" target="_blank" class="ext-source-chip" title="الأصل اليوناني في باترولوجيا ميني (Patrologia Graeca) 161 مجلداً">📜 أصول Migne PG اليونانية${pgLabel}</a>
+                        <a href="${taklaSearchUrl}" target="_blank" class="ext-source-chip" title="بحث نصوص ومقالات ${searchTargetAr} في مكتبة الكنيسة القبطية">📖 نصوص ومقالات: ${searchTargetAr}</a>
+                        <a href="https://katameros.bible/" target="_blank" class="ext-source-chip" title="ربط الموضوع بالقطمارس والسنكسار الكنسي اليومي">⛪ القطمارس والسنكسار الكنسي</a>
                     </div>
                 `;
                 citeSection.appendChild(citeHeader);
