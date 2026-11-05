@@ -200,6 +200,70 @@ class MultiModelGateway(BaseAIProvider):
             **kwargs
         )
 
+    def generate_chat_response(
+        self,
+        messages: List[Dict[str, str]],
+        context_chunks: List[ChunkEntity],
+        depth_mode: str = "academic",
+        provider_preference: Optional[str] = None,
+        **kwargs
+    ) -> str:
+        """
+        Synthesizes a conversational multi-turn answer using the optimal provider,
+        falling back gracefully across providers if any failure or timeout occurs.
+        """
+        latest = messages[-1]["content"] if messages else ""
+        chosen_provider_name = self.determine_optimal_provider(
+            question=latest,
+            depth_mode=depth_mode,
+            explicit_provider=provider_preference
+        )
+
+        fallback_order = [chosen_provider_name]
+        for candidate in ["gemini", "kimi", "deepinfer", "zenmux", "beatapi", "rule_based"]:
+            if candidate not in fallback_order and self._providers[candidate].is_available():
+                fallback_order.append(candidate)
+        if "rule_based" not in fallback_order:
+            fallback_order.append("rule_based")
+
+        last_error = None
+        for prov_name in fallback_order:
+            provider = self._providers.get(prov_name)
+            if not provider or not provider.is_available():
+                continue
+
+            try:
+                start_time = time.time()
+                logger.info(f"[MultiModelGateway] Routing chat request to '{prov_name}' (Depth: {depth_mode})")
+                if hasattr(provider, "generate_chat_response"):
+                    answer = provider.generate_chat_response(
+                        messages=messages,
+                        context_chunks=context_chunks,
+                        depth_mode=depth_mode,
+                        **kwargs
+                    )
+                else:
+                    answer = provider.generate_answer(
+                        question=latest,
+                        context_chunks=context_chunks,
+                        depth_mode=depth_mode,
+                        **kwargs
+                    )
+                elapsed = time.time() - start_time
+                logger.info(f"[MultiModelGateway] Chat provider '{prov_name}' responded successfully in {elapsed:.2f}s")
+                return answer
+            except Exception as e:
+                logger.warning(f"[MultiModelGateway] Chat provider '{prov_name}' failed: {e}. Cascading...")
+                last_error = e
+
+        logger.error(f"[MultiModelGateway] All chat providers failed. Falling back to rule_based: {last_error}")
+        return self._providers["rule_based"].generate_answer(
+            question=latest,
+            context_chunks=context_chunks,
+            depth_mode=depth_mode,
+            **kwargs
+        )
+
 
 # Global singleton instance
 gateway = MultiModelGateway()

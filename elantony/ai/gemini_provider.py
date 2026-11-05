@@ -59,13 +59,12 @@ DEPTH_INSTRUCTIONS: Dict[str, str] = {
 class GeminiAIProvider(BaseAIProvider):
     """Google Gemini API Provider with strict verified citation typology and structured answer generation."""
 
-    # Priority order for high-quota and active models on Gemini API
+    # Priority order for high-quota, ultra-fast and active models on Gemini API
     CANDIDATE_MODELS = [
-        "gemini-3.5-flash-lite",
-        "gemini-3.5-flash",
-        "gemini-flash-lite-latest",
         "gemini-3.1-flash-lite",
-        "gemini-2.5-flash"
+        "gemini-2.5-flash",
+        "gemini-3.1-flash-lite-preview",
+        "gemini-3.5-flash-lite"
     ]
 
     def __init__(self, api_key: Optional[str] = None):
@@ -124,7 +123,7 @@ class GeminiAIProvider(BaseAIProvider):
             generation_config = genai.types.GenerationConfig(
                 temperature=0.25,
                 top_p=0.9,
-                max_output_tokens=3800
+                max_output_tokens=2600
             )
 
             depth_text = DEPTH_INSTRUCTIONS.get(depth_mode, DEPTH_INSTRUCTIONS["academic"])
@@ -139,7 +138,7 @@ class GeminiAIProvider(BaseAIProvider):
                     response = model.generate_content(
                         prompt,
                         generation_config=generation_config,
-                        request_options={"timeout": 60}
+                        request_options={"timeout": 12}
                     )
                     if response and response.text:
                         return response.text.strip()
@@ -201,7 +200,7 @@ class GeminiAIProvider(BaseAIProvider):
             generation_config = genai.types.GenerationConfig(
                 temperature=0.25,
                 top_p=0.9,
-                max_output_tokens=3800
+                max_output_tokens=2600
             )
 
             depth_text = DEPTH_INSTRUCTIONS.get(depth_mode, DEPTH_INSTRUCTIONS["academic"])
@@ -216,7 +215,7 @@ class GeminiAIProvider(BaseAIProvider):
                     response = model.generate_content(
                         prompt,
                         generation_config=generation_config,
-                        request_options={"timeout": 60}
+                        request_options={"timeout": 12}
                     )
                     if response and response.text:
                         return response.text.strip()
