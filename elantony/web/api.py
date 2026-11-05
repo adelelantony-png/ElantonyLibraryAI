@@ -11,7 +11,7 @@ import asyncio
 from pathlib import Path
 from typing import Dict, Any, Optional, List, Tuple, Set
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Query, HTTPException
+from fastapi import FastAPI, Query, HTTPException, Header
 from fastapi.responses import HTMLResponse, JSONResponse, Response, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -996,7 +996,136 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
         .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
         @keyframes blink { 0%, 100% { opacity: 0.2; } 50% { opacity: 1; } }
 
-        /* Enhanced Reference Viewer Modal */
+        
+        /* Scholar Profile Pill */
+        .scholar-profile-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: var(--card-hover);
+            border: 1px solid var(--card-border);
+            padding: 4px 11px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.2s;
+            color: var(--accent);
+        }
+        .scholar-profile-pill:hover {
+            background: var(--accent-light);
+            border-color: var(--accent);
+        }
+        .scholar-edit-icon { font-size: 11px; opacity: 0.7; }
+
+        /* Admin Console Modal & Buttons */
+        .btn-sidebar-admin {
+            width: 100%;
+            background: rgba(161, 98, 7, 0.12);
+            border: 1px dashed var(--gold);
+            color: var(--accent);
+            padding: 7px 10px;
+            border-radius: 8px;
+            font-size: 11.5px;
+            font-weight: 800;
+            cursor: pointer;
+            margin-top: 6px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: 0.2s;
+            font-family: 'Cairo', sans-serif;
+        }
+        .btn-sidebar-admin:hover {
+            background: var(--gold);
+            color: #FFF;
+        }
+        .admin-modal-card {
+            max-width: 960px !important;
+            width: 92vw !important;
+            max-height: 92vh !important;
+            border-radius: 16px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            background: var(--modal-bg);
+            border: 1px solid var(--card-border);
+            box-shadow: 0 25px 60px rgba(0,0,0,0.4);
+        }
+        .admin-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .admin-stat-card {
+            background: var(--bg-sidebar);
+            border: 1px solid var(--card-border);
+            border-radius: 10px;
+            padding: 14px 18px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .admin-stat-icon { font-size: 26px; }
+        .admin-stat-val { font-size: 22px; font-weight: 900; color: var(--accent); }
+        .admin-stat-lbl { font-size: 12px; color: var(--text-sub); }
+        
+        .admin-section-title {
+            font-size: 15px;
+            font-weight: 800;
+            color: var(--accent);
+            margin: 16px 0 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .scholar-card-item {
+            background: var(--bg-chat);
+            border: 1px solid var(--card-border);
+            border-radius: 10px;
+            padding: 12px 16px;
+            margin-bottom: 10px;
+            transition: 0.2s;
+        }
+        .scholar-card-item:hover { border-color: var(--gold); }
+        .scholar-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+        .scholar-card-name { font-weight: 800; font-size: 14px; color: var(--accent); }
+        .scholar-card-badge {
+            background: var(--accent-light);
+            color: var(--accent);
+            border: 1px solid var(--card-border);
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+        .scholar-queries-list {
+            margin-top: 8px;
+            padding-right: 14px;
+            border-right: 2px solid var(--card-border);
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .scholar-query-row {
+            font-size: 12.5px;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+        .scholar-query-time { font-size: 11px; color: var(--text-sub); flex-shrink: 0; }
+
+/* Enhanced Reference Viewer Modal */
         .ref-modal-card {
             max-width: 980px !important;
             width: 95vw !important;
@@ -1523,6 +1652,63 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
         </div>
     </div>
 
+    
+    <!-- Admin Scholar Telemetry & Activity Console Modal -->
+    <div class="modal-overlay" id="adminConsoleModal">
+        <div class="modal-card admin-modal-card">
+            <div class="ref-modal-header">
+                <div class="ref-modal-title-wrap">
+                    <span class="ref-icon">🔐</span>
+                    <span class="ref-book-name" style="color:var(--accent);">لوحة الإشراف المركزي ومتابعة الباحثين (Admin Console)</span>
+                    <span class="ref-badge-page">مشرف النظام</span>
+                </div>
+                <button class="btn-modal-close-ref" onclick="closeAdminConsole()">✕ إغلاق</button>
+            </div>
+            <div class="modal-body" style="padding: 20px; overflow-y: auto; background: var(--bg-chat);">
+                <!-- Metrics Summary Cards -->
+                <div class="admin-stats-grid">
+                    <div class="admin-stat-card">
+                        <span class="admin-stat-icon">👥</span>
+                        <div>
+                            <div class="admin-stat-val" id="adminTotalScholars">--</div>
+                            <div class="admin-stat-lbl">إجمالي الباحثين النشطين</div>
+                        </div>
+                    </div>
+                    <div class="admin-stat-card">
+                        <span class="admin-stat-icon">💬</span>
+                        <div>
+                            <div class="admin-stat-val" id="adminTotalQueries">--</div>
+                            <div class="admin-stat-lbl">إجمالي الأسئلة اللاهوتية</div>
+                        </div>
+                    </div>
+                    <div class="admin-stat-card">
+                        <span class="admin-stat-icon">📚</span>
+                        <div>
+                            <div class="admin-stat-val">7,200+</div>
+                            <div class="admin-stat-lbl">الكتب والآبائيات المفهرسة</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tabs: Per Scholar vs Live Stream -->
+                <div style="display:flex; gap:8px; margin-bottom:15px; border-bottom:1px solid var(--card-border); padding-bottom:8px;">
+                    <button id="btnAdminTabScholars" class="btn-ref-tool active" onclick="switchAdminSubTab('scholars')">👥 ملفات الباحثين وما بحثوا عنه</button>
+                    <button id="btnAdminTabStream" class="btn-ref-tool" onclick="switchAdminSubTab('stream')">⚡ البث الحي لجميع الأسئلة</button>
+                    <button class="btn-ref-tool" onclick="refreshAdminData()" style="margin-right:auto;">🔄 تحديث فوري</button>
+                </div>
+
+                <!-- Scholars List Container -->
+                <div id="adminScholarsContainer">
+                    <div style="text-align:center; padding:30px; color:var(--text-sub);">جاري استدعاء سجل نشاط الباحثين...</div>
+                </div>
+
+                <!-- Live Stream Container -->
+                <div id="adminStreamContainer" style="display:none;"></div>
+            </div>
+        </div>
+    </div>
+
+
     <!-- Instant Reference Viewer Modal (فتح واستعراض المراجع في أجزاء من الثانية) -->
     <div class="modal-overlay" id="refModal">
         <div class="modal-card ref-modal-card">
@@ -1606,6 +1792,17 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
     </div>
 
     <script>
+        // Scholar Identity & User Isolation
+        let currentUserId = localStorage.getItem('elantony_user_id');
+        let currentUserName = localStorage.getItem('elantony_user_name') || 'باحث لاهوتي';
+        if (!currentUserId) {
+            currentUserId = 'scholar_' + Math.random().toString(36).substring(2, 10);
+            localStorage.setItem('elantony_user_id', currentUserId);
+            localStorage.setItem('elantony_user_name', currentUserName);
+        }
+
+        let adminPinCache = sessionStorage.getItem('elantony_admin_pin') || '';
+
         let chatMessages = [];
         let currentSessionId = null;
         let currentDepthMode = "academic";
@@ -1677,7 +1874,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
 
         async function loadSessions() {
             try {
-                const res = await fetch('/api/sessions?user_id=web');
+                const res = await fetch('/api/sessions?user_id=' + encodeURIComponent(currentUserId));
                 if (!res.ok) return;
                 const data = await res.json();
                 const list = document.getElementById('chatHistoryList');
@@ -1829,7 +2026,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                 const res = await fetch('/api/sessions', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ title: 'بحث لاهوتي جديد', user_id: 'web' })
+                    body: JSON.stringify({ title: 'بحث لاهوتي جديد', user_id: currentUserId })
                 });
                 if (res.ok) {
                     const data = await res.json();
@@ -1895,7 +2092,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                     body: JSON.stringify({
                         messages: chatMessages,
                         session_id: currentSessionId,
-                        user_id: 'web',
+                        user_id: currentUserId,
                         depth_mode: currentDepthMode
                     })
                 });
@@ -2358,6 +2555,172 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             window.open('/api/sessions/' + currentSessionId + '/export?format=' + fmt, '_blank');
         }
 
+        
+        // Scholar Profile & Admin Telemetry Console Functions
+        function initScholarProfileUI() {
+            const disp = document.getElementById('scholarNameDisplay');
+            if (disp) disp.textContent = currentUserName;
+            
+            // Sync with backend profile table
+            fetch('/api/scholar/profile', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: currentUserId, display_name: currentUserName })
+            }).catch(e => console.warn(e));
+        }
+
+        async function editScholarProfile() {
+            const newName = prompt("أدخل اسمك أو صفتك (سيظهر في ملف بحثك الشخصي):", currentUserName);
+            if (newName && newName.trim()) {
+                currentUserName = newName.trim();
+                localStorage.setItem('elantony_user_name', currentUserName);
+                const disp = document.getElementById('scholarNameDisplay');
+                if (disp) disp.textContent = currentUserName;
+
+                await fetch('/api/scholar/profile', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: currentUserId, display_name: currentUserName })
+                });
+                showTopicToast("✨ تم تحديث اسم ملفك الشخصي: «" + currentUserName + "»");
+            }
+        }
+
+        let adminCachedData = null;
+
+        async function openAdminConsole() {
+            if (!adminPinCache) {
+                const pin = prompt("🔐 أدخل الرمز السري للإشراف العام (Admin PIN):");
+                if (!pin) return;
+                adminPinCache = pin.trim();
+                sessionStorage.setItem('elantony_admin_pin', adminPinCache);
+            }
+
+            const modal = document.getElementById('adminConsoleModal');
+            if (modal) modal.classList.add('open');
+            await refreshAdminData();
+        }
+
+        function closeAdminConsole() {
+            const modal = document.getElementById('adminConsoleModal');
+            if (modal) modal.classList.remove('open');
+        }
+
+        async function refreshAdminData() {
+            try {
+                const res = await fetch('/api/admin/scholars_activity?pin=' + encodeURIComponent(adminPinCache));
+                if (!res.ok) {
+                    sessionStorage.removeItem('elantony_admin_pin');
+                    adminPinCache = '';
+                    alert("⛔ رمز الإشراف غير صحيح أو تم رفض الصلاحية.");
+                    closeAdminConsole();
+                    return;
+                }
+                adminCachedData = await res.json();
+                renderAdminDashboard(adminCachedData);
+            } catch (err) {
+                console.error("Admin fetch error:", err);
+            }
+        }
+
+        function renderAdminDashboard(data) {
+            document.getElementById('adminTotalScholars').textContent = data.total_scholars || 0;
+            document.getElementById('adminTotalQueries').textContent = data.total_questions || 0;
+
+            // Render Scholars
+            const container = document.getElementById('adminScholarsContainer');
+            if (!container) return;
+            container.innerHTML = '';
+
+            if (!data.scholars || data.scholars.length === 0) {
+                container.innerHTML = '<div style="text-align:center; padding:30px; color:var(--text-sub);">لا يوجد مستخدمون حتى الآن.</div>';
+            } else {
+                data.scholars.forEach(s => {
+                    const card = document.createElement('div');
+                    card.className = 'scholar-card-item';
+                    
+                    let queriesHtml = '';
+                    if (s.recent_queries && s.recent_queries.length > 0) {
+                        queriesHtml = '<div class="scholar-queries-list">';
+                        s.recent_queries.forEach(q => {
+                            queriesHtml += `
+                                <div class="scholar-query-row">
+                                    <span>❓ <bdi dir="auto">${escapeHtml(q.content)}</bdi></span>
+                                    <span class="scholar-query-time">${q.created_at || ''}</span>
+                                </div>
+                            `;
+                        });
+                        queriesHtml += '</div>';
+                    } else {
+                        queriesHtml = '<div style="font-size:12px; color:var(--text-sub); margin-top:6px;">لم يطرح أسئلة بعد في الجلسات الحالية.</div>';
+                    }
+
+                    card.innerHTML = `
+                        <div class="scholar-card-header">
+                            <div>
+                                <span class="scholar-card-name">👤 ${escapeHtml(s.display_name)}</span>
+                                <span style="font-size:11px; color:var(--text-sub); margin-right:8px;">(${s.user_id})</span>
+                            </div>
+                            <div>
+                                <span class="scholar-card-badge">💬 ${s.query_count} أسئلة</span>
+                                <span class="scholar-card-badge" style="margin-right:5px;">📁 ${s.session_count} أبحاث</span>
+                                <button class="btn-ref-tool" onclick="inspectScholarSessions('${s.user_id}')" style="margin-right:8px; padding:3px 8px; font-size:11px;" title="فتح وعرض سجل أبحاث هذا الباحث">👁️ معاينة أبحاثه</button>
+                            </div>
+                        </div>
+                        <div style="font-size:11px; color:var(--text-sub);">آخر نشاط: ${s.last_active || 'غير محدد'}</div>
+                        ${queriesHtml}
+                    `;
+                    container.appendChild(card);
+                });
+            }
+
+            // Render Live Stream
+            const streamBox = document.getElementById('adminStreamContainer');
+            if (streamBox && data.live_stream) {
+                streamBox.innerHTML = '';
+                data.live_stream.forEach(item => {
+                    const row = document.createElement('div');
+                    row.className = 'scholar-card-item';
+                    row.innerHTML = `
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                            <span style="font-weight:700; color:var(--accent);">👤 ${escapeHtml(item.display_name || item.user_id)}</span>
+                            <span style="font-size:11px; color:var(--text-sub);">${item.created_at}</span>
+                        </div>
+                        <div style="font-size:13px; font-weight:600;"><bdi dir="auto">💬 ${escapeHtml(item.content)}</bdi></div>
+                        <div style="font-size:11px; color:var(--gold); margin-top:3px;">الموضوع: ${escapeHtml(item.session_title || 'عام')}</div>
+                    `;
+                    streamBox.appendChild(row);
+                });
+            }
+        }
+
+        function switchAdminSubTab(tab) {
+            const btnS = document.getElementById('btnAdminTabScholars');
+            const btnL = document.getElementById('btnAdminTabStream');
+            const boxS = document.getElementById('adminScholarsContainer');
+            const boxL = document.getElementById('adminStreamContainer');
+            if (tab === 'scholars') {
+                if (btnS) btnS.classList.add('active');
+                if (btnL) btnL.classList.remove('active');
+                if (boxS) boxS.style.display = 'block';
+                if (boxL) boxL.style.display = 'none';
+            } else {
+                if (btnS) btnS.classList.remove('active');
+                if (btnL) btnL.classList.add('active');
+                if (boxS) boxS.style.display = 'none';
+                if (boxL) boxL.style.display = 'block';
+            }
+        }
+
+        async function inspectScholarSessions(targetUid) {
+            if (!confirm("هل تريد استعراض واجهة المحادثات والتبويبات الخاصة بهذا الباحث؟")) return;
+            currentUserId = targetUid;
+            closeAdminConsole();
+            await loadSessions();
+            showTopicToast("👁️ يتم الآن استعراض أبحاث ومناقشات الباحث: " + targetUid);
+        }
+
+
         window.onload = () => {
             // Restore saved theme
             const savedTheme = localStorage.getItem('elantony_theme') || 'sepia';
@@ -2381,6 +2744,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                 if (label) label.textContent = FONT_LABELS[currentFontSizeIndex];
             }
 
+            initScholarProfileUI();
             loadSessions();
             chatInput.focus();
         };
@@ -2924,6 +3288,43 @@ async def api_chat(req: ChatRequest):
         "topic_title": resolved_title,
         "turn_number": turn_number
     }
+
+
+
+class ScholarProfileRequest(BaseModel):
+    user_id: str
+    display_name: Optional[str] = "باحث لاهوتي"
+
+
+@app.post("/api/scholar/profile")
+async def update_scholar_profile(req: ScholarProfileRequest):
+    """Registers or updates scholar display name and touch timestamp."""
+    repo.register_or_touch_scholar(req.user_id, req.display_name)
+    return {"status": "ok", "user_id": req.user_id, "display_name": req.display_name}
+
+
+@app.get("/api/admin/scholars_activity")
+async def get_scholars_activity(pin: Optional[str] = Query(None), x_admin_pin: Optional[str] = Header(None)):
+    """
+    Master Admin Super-View: Lists all distinct scholars, their questions,
+    discussions, and global activity. Protected by admin PIN (default: 2026).
+    """
+    admin_pin = os.getenv("ADMIN_PORTAL_PIN", "2026").strip()
+    provided = pin or x_admin_pin or ""
+    if provided != admin_pin:
+        raise HTTPException(status_code=403, detail="رمز الإشراف غير صحيح. مصرح للأدمن فقط.")
+    return repo.get_all_scholars_activity()
+
+
+@app.get("/api/admin/scholars/{target_user_id}/sessions")
+async def get_scholar_sessions_admin(target_user_id: str, pin: Optional[str] = Query(None), x_admin_pin: Optional[str] = Header(None)):
+    """Allows Admin to inspect any specific scholar's discussion threads."""
+    admin_pin = os.getenv("ADMIN_PORTAL_PIN", "2026").strip()
+    provided = pin or x_admin_pin or ""
+    if provided != admin_pin:
+        raise HTTPException(status_code=403, detail="رمز الإشراف غير صحيح. مصرح للأدمن فقط.")
+    sessions = repo.list_user_sessions(user_id=target_user_id, limit=50)
+    return {"user_id": target_user_id, "sessions": sessions}
 
 
 @app.get("/api/v1/admin/dashboard")
