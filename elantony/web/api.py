@@ -838,6 +838,230 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
         .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
         @keyframes blink { 0%, 100% { opacity: 0.2; } 50% { opacity: 1; } }
 
+        /* Enhanced Reference Viewer Modal */
+        .ref-modal-card {
+            max-width: 980px !important;
+            width: 95vw !important;
+            max-height: 94vh !important;
+            border-radius: 16px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            background: var(--modal-bg);
+            border: 1px solid var(--card-border);
+            box-shadow: 0 25px 60px rgba(0,0,0,0.4);
+        }
+        .ref-modal-header {
+            padding: 12px 18px;
+            border-bottom: 1px solid var(--card-border);
+            background: var(--bg-sidebar);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .ref-modal-title-wrap {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 0;
+            flex: 1;
+        }
+        .ref-icon { font-size: 19px; flex-shrink: 0; }
+        .ref-book-name {
+            font-weight: 800;
+            font-size: 14.5px;
+            color: var(--accent);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 460px;
+        }
+        .ref-badge-page {
+            background: var(--accent-light);
+            color: var(--accent);
+            border: 1px solid var(--card-border);
+            padding: 3px 9px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 800;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .ref-badge-size {
+            background: rgba(161, 98, 7, 0.12);
+            color: var(--gold);
+            border: 1px solid var(--gold);
+            padding: 2px 7px;
+            border-radius: 5px;
+            font-size: 11px;
+            font-weight: 700;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .btn-modal-close-ref {
+            background: rgba(239, 68, 68, 0.08);
+            border: 1px solid rgba(239, 68, 68, 0.25);
+            color: #EF4444;
+            font-size: 13px;
+            font-weight: 800;
+            cursor: pointer;
+            padding: 5px 12px;
+            border-radius: 7px;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            transition: 0.2s;
+            flex-shrink: 0;
+            font-family: 'Cairo', sans-serif;
+        }
+        .btn-modal-close-ref:hover {
+            background: #EF4444;
+            color: #FFF;
+            border-color: #EF4444;
+        }
+        .ref-modal-toolbar {
+            padding: 8px 16px;
+            border-bottom: 1px solid var(--card-border);
+            background: var(--bg-darker);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .ref-nav-group, .ref-mode-group, .ref-actions-group {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            flex-wrap: wrap;
+        }
+        .btn-ref-nav {
+            background: var(--bg-bubble-ai);
+            border: 1px solid var(--card-border);
+            color: var(--text-main);
+            padding: 5px 11px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            font-family: 'Cairo', sans-serif;
+            transition: 0.18s;
+        }
+        .btn-ref-nav:hover { background: var(--card-hover); border-color: var(--accent); }
+        .ref-page-input-wrap {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: var(--input-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 6px;
+            padding: 2px 7px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+        .ref-page-input-wrap input {
+            width: 48px;
+            background: transparent;
+            border: none;
+            color: var(--text-main);
+            font-size: 12px;
+            font-weight: 800;
+            text-align: center;
+            outline: none;
+            font-family: 'Cairo', sans-serif;
+        }
+        .btn-ref-go {
+            background: var(--accent);
+            color: #FFF;
+            border: none;
+            border-radius: 4px;
+            padding: 2px 7px;
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+            font-family: 'Cairo', sans-serif;
+        }
+        .btn-ref-go:hover { background: var(--accent-hover); }
+        .ref-mode-wrap {
+            background: var(--input-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 7px;
+            padding: 2px;
+            display: inline-flex;
+            align-items: center;
+            gap: 2px;
+        }
+        .btn-ref-mode {
+            background: transparent;
+            border: none;
+            color: var(--text-sub);
+            padding: 4px 9px;
+            border-radius: 5px;
+            font-size: 11.5px;
+            font-weight: 700;
+            cursor: pointer;
+            font-family: 'Cairo', sans-serif;
+            transition: 0.18s;
+        }
+        .btn-ref-mode.active {
+            background: var(--accent);
+            color: #FFF;
+        }
+        .btn-ref-action {
+            background: var(--bg-bubble-ai);
+            border: 1px solid var(--card-border);
+            color: var(--text-main);
+            padding: 5px 10px;
+            border-radius: 6px;
+            font-size: 11.5px;
+            font-weight: 700;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-family: 'Cairo', sans-serif;
+            transition: 0.18s;
+            cursor: pointer;
+        }
+        .btn-ref-action:hover {
+            border-color: var(--accent);
+            background: var(--card-hover);
+            color: var(--accent);
+        }
+        .btn-ref-download {
+            background: rgba(16, 185, 129, 0.13);
+            border-color: #10B981;
+            color: #059669;
+            font-weight: 800;
+        }
+        .btn-ref-download:hover {
+            background: #10B981;
+            color: #FFF;
+        }
+        .ref-modal-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            background: var(--bg-chat);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 480px;
+        }
+        .ref-page-image {
+            max-width: 100%;
+            height: auto;
+            max-height: 74vh;
+            border-radius: 8px;
+            box-shadow: var(--shadow-md);
+            border: 1px solid var(--card-border);
+            display: block;
+            margin: 0 auto;
+        }
+
         @media (max-width: 992px) {
             .sidebar { display: none; }
             .top-navbar { flex-direction: column; align-items: stretch; gap: 8px; padding: 10px; }
@@ -992,25 +1216,59 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
 
     <!-- Instant Reference Viewer Modal (فتح واستعراض المراجع في أجزاء من الثانية) -->
     <div class="modal-overlay" id="refModal">
-        <div class="modal-card" style="max-width: 860px; max-height: 92vh;">
-            <div class="modal-header">
-                <div class="modal-title">
-                    <span>📖</span> <span id="refBookName" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 420px;">المرجع</span> — صـ <span id="refPageNum" style="color: var(--gold); font-weight: 900;">1</span>
+        <div class="modal-card ref-modal-card">
+            <!-- Modal Header Row 1: Title and Close -->
+            <div class="ref-modal-header">
+                <div class="ref-modal-title-wrap">
+                    <span class="ref-icon">📖</span>
+                    <span id="refBookName" class="ref-book-name" title="اسم المرجع">اسم المرجع</span>
+                    <span class="ref-badge-page">صـ <span id="refPageNum">1</span><span id="refPageTotalSpan" style="display: none;"> / <span id="refPageTotal">--</span></span></span>
+                    <span id="refSizeBadge" class="ref-badge-size"></span>
                 </div>
-                <div class="modal-actions">
-                    <button class="btn-modal-act" onclick="stepRefPage(-1)" title="الصفحة السابقة">◀ السابقة</button>
-                    <button class="btn-modal-act" onclick="stepRefPage(1)" title="الصفحة التالية">التالية ▶</button>
-                    <a id="refDirectPdfBtn" href="#" target="_blank" class="btn-modal-act" style="text-decoration: none;" title="فتح صفحة المرجع المستقلة كـ PDF خفيف في ثانية واحدة">📄 PDF الصفحة (15KB)</a>
-                    <a id="refFullBookBtn" href="#" target="_blank" class="btn-modal-act btn-modal-docx" style="text-decoration: none;" title="تنزيل ملف الكتاب كاملاً">💾 الكتاب كاملاً</a>
-                    <button class="btn-modal-close" onclick="closeRefModal()">✕</button>
+                <button class="btn-modal-close-ref" onclick="closeRefModal()" title="إغلاق النافذة">✕ إغلاق</button>
+            </div>
+
+            <!-- Modal Header Row 2: Navigation & Action Toolbar -->
+            <div class="ref-modal-toolbar">
+                <!-- Page Navigation Controls -->
+                <div class="ref-nav-group">
+                    <button class="btn-ref-nav" onclick="stepRefPage(-1)" title="الصفحة السابقة">◀ السابقة</button>
+                    <div class="ref-page-input-wrap">
+                        <span>صـ</span>
+                        <input type="number" id="refPageInput" min="1" value="1" onkeydown="handleRefPageKey(event)">
+                        <button class="btn-ref-go" onclick="goToRefPage()" title="انتقال إلى الصفحة">ذهاب</button>
+                    </div>
+                    <button class="btn-ref-nav" onclick="stepRefPage(1)" title="الصفحة التالية">التالية ▶</button>
+                </div>
+
+                <!-- View Mode Toggle (Image vs PDF) -->
+                <div class="ref-mode-wrap">
+                    <button class="btn-ref-mode active" id="btnModeImg" onclick="setRefViewMode('image')" title="عرض صورة الصفحة في أجزاء من الثانية">🖼️ صورة سريعة</button>
+                    <button class="btn-ref-mode" id="btnModePdf" onclick="setRefViewMode('pdf')" title="عرض صفحة الـ PDF المدمجة التفاعلية">📑 PDF تفاعلي</button>
+                </div>
+
+                <!-- Book Direct Actions -->
+                <div class="ref-actions-group">
+                    <a id="refDirectPdfBtn" href="#" target="_blank" class="btn-ref-action" title="فتح صفحة المرجع كملف PDF مستقل (15-30 كيلوبايت)">📄 PDF الصفحة</a>
+                    <a id="refViewFullBtn" href="#" target="_blank" class="btn-ref-action" title="فتح الكتاب كاملاً في لسان جديد بالمتصفح">📖 فتح كامل بالمتصفح</a>
+                    <a id="refFullBookBtn" href="#" class="btn-ref-action btn-ref-download" title="تحميل ملف الكتاب كاملاً مباشرة على جهازك">💾 تحميل الكتاب</a>
                 </div>
             </div>
-            <div class="modal-body" style="text-align: center; padding: 14px; overflow-y: auto; background: var(--bg-chat);">
-                <div id="refLoading" style="padding: 40px 20px; color: var(--text-sub);">
+
+            <!-- Modal Body -->
+            <div class="ref-modal-body" id="refModalBody">
+                <div id="refLoading" style="padding: 40px 20px; color: var(--text-sub); text-align: center;">
                     <div class="typing-dots"><span></span><span></span><span></span></div>
-                    <div style="margin-top: 10px; font-weight: 700;">جاري استخراج وعرض صفحة المرجع الأصلية فوراً...</div>
+                    <div id="refLoadingText" style="margin-top: 10px; font-weight: 700;">جاري استخراج وعرض الصفحة فوراً...</div>
                 </div>
-                <img id="refPageImg" src="" alt="صفحة المرجع" style="max-width: 100%; height: auto; max-height: 72vh; border-radius: 8px; box-shadow: var(--shadow-md); border: 1px solid var(--card-border); margin: 0 auto; display: none;">
+                <!-- Image Viewer -->
+                <div id="refImgContainer" style="width: 100%; text-align: center;">
+                    <img id="refPageImg" src="" alt="صفحة المرجع" class="ref-page-image" style="display: none;">
+                </div>
+                <!-- Embedded PDF Viewer (Iframe) -->
+                <div id="refPdfContainer" style="display: none; height: 72vh; width: 100%;">
+                    <iframe id="refPdfFrame" src="" style="width: 100%; height: 100%; border: none; border-radius: 8px;"></iframe>
+                </div>
             </div>
         </div>
     </div>
@@ -1323,16 +1581,20 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                     let actionsHtml = '';
                     if (c.sha256) {
                         const safeTitle = encodeURIComponent(c.book_title || 'مرجع كنسي');
+                        const sizeBadge = c.file_size_formatted ? ` (${c.file_size_formatted})` : '';
                         actionsHtml = `
                             <div class="citation-actions">
-                                <button onclick="openInstantPageModal('${c.sha256}', ${c.page_number}, '${safeTitle}')" class="btn-cite-act btn-cite-fast" title="فتح ومعاينة الصفحة المصورة فورا داخل نافذة سريعة دون انتظار تحميل الكتاب">
-                                    ⚡ معاينة الصفحة فوراً (صـ ${c.page_number})
+                                <button onclick="openInstantPageModal('${c.sha256}', ${c.page_number}, '${safeTitle}')" class="btn-cite-act btn-cite-fast" title="معاينة الصفحة وتصفح الكتاب فوراً داخل نافذة سريعة">
+                                    ⚡ معاينة سريعة (صـ ${c.page_number})
                                 </button>
-                                <a href="/api/books/${c.sha256}/pages/${c.page_number}/view" target="_blank" class="btn-cite-act btn-cite-view" title="فتح صفحة المرجع كـ PDF خفيف في جزء من الثانية (15 كيلوبايت)">
-                                    📄 PDF الصفحة (سريع)
+                                <a href="/api/books/${c.sha256}/pages/${c.page_number}/view" target="_blank" class="btn-cite-act btn-cite-view" title="فتح صفحة المرجع كـ PDF مستقل فائق الخفة (15-30 كيلوبايت)">
+                                    📄 PDF الصفحة (15KB)
                                 </a>
-                                <a href="/api/books/${c.sha256}/download" target="_blank" class="btn-cite-act btn-cite-dl" title="تنزيل الكتاب كاملا">
-                                    💾 الكتاب كاملاً
+                                <a href="/api/books/${c.sha256}/view#page=${c.page_number}" target="_blank" class="btn-cite-act btn-cite-view" title="تصفح الكتاب كاملاً في نافذة المتصفح">
+                                    📖 تصفح كامل
+                                </a>
+                                <a href="/api/books/${c.sha256}/download" target="_blank" class="btn-cite-act btn-cite-dl" title="تنزيل ملف الكتاب كاملاً على جهازك">
+                                    💾 تنزيل الكتاب${sizeBadge}
                                 </a>
                             </div>
                         `;
@@ -1421,55 +1683,140 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
 
         let activeRefSha = null;
         let activeRefPage = 1;
+        let activeRefTotalPages = 1;
         let activeRefTitle = "";
+        let activeRefViewMode = "image"; // "image" or "pdf"
 
-        function openInstantPageModal(sha, pageNum, encodedTitle) {
+        async function openInstantPageModal(sha, pageNum, encodedTitle) {
             activeRefSha = sha;
             activeRefPage = parseInt(pageNum, 10) || 1;
             activeRefTitle = decodeURIComponent(encodedTitle || "مرجع كنسي");
+            activeRefTotalPages = 1;
+            activeRefViewMode = "image";
             
             document.getElementById('refBookName').textContent = activeRefTitle;
             document.getElementById('refPageNum').textContent = activeRefPage;
+            document.getElementById('refPageInput').value = activeRefPage;
             document.getElementById('refDirectPdfBtn').href = `/api/books/${sha}/pages/${activeRefPage}/view`;
+            document.getElementById('refViewFullBtn').href = `/api/books/${sha}/view#page=${activeRefPage}`;
             document.getElementById('refFullBookBtn').href = `/api/books/${sha}/download`;
+            document.getElementById('refPageTotalSpan').style.display = 'none';
+            document.getElementById('refSizeBadge').textContent = '';
+            
+            setRefViewMode('image');
             
             const modal = document.getElementById('refModal');
-            const img = document.getElementById('refPageImg');
-            const loading = document.getElementById('refLoading');
-            
             modal.classList.add('open');
-            loading.style.display = 'block';
-            loading.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div><div style="margin-top: 10px; font-weight: 700;">جاري استخراج وعرض صفحة المرجع الأصلية فوراً...</div>';
-            img.style.display = 'none';
             
-            img.onload = () => {
-                loading.style.display = 'none';
-                img.style.display = 'block';
-            };
-            img.onerror = () => {
-                loading.innerHTML = '<div style="color: var(--accent); padding: 20px;">ℹ️ هذه الصفحة متوفرة كـ PDF خفيف أو النص مفهرس.<br><a href="/api/books/' + sha + '/pages/' + activeRefPage + '/view" target="_blank" style="color:var(--gold); font-weight:bold; display:inline-block; margin-top:10px;">📄 انقر هنا لفتح صفحة الـ PDF مباشرة (15KB)</a></div>';
-            };
-            img.src = `/api/books/${sha}/pages/${activeRefPage}/image?t=` + Date.now();
+            renderActiveRefPage();
+            
+            try {
+                const res = await fetch(`/api/books/${sha}/info`);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.page_count) {
+                        activeRefTotalPages = data.page_count;
+                        document.getElementById('refPageTotal').textContent = activeRefTotalPages;
+                        document.getElementById('refPageTotalSpan').style.display = 'inline';
+                        document.getElementById('refPageInput').max = activeRefTotalPages;
+                    }
+                    if (data.file_size_formatted) {
+                        document.getElementById('refSizeBadge').textContent = '💾 ' + data.file_size_formatted;
+                        document.getElementById('refFullBookBtn').textContent = '💾 تحميل الكتاب (' + data.file_size_formatted + ')';
+                    }
+                }
+            } catch (e) {
+                console.warn("Could not fetch book info:", e);
+            }
         }
 
-        function closeRefModal() {
-            document.getElementById('refModal').classList.remove('open');
+        function setRefViewMode(mode) {
+            activeRefViewMode = mode;
+            const btnImg = document.getElementById('btnModeImg');
+            const btnPdf = document.getElementById('btnModePdf');
+            const imgContainer = document.getElementById('refImgContainer');
+            const pdfContainer = document.getElementById('refPdfContainer');
+            
+            if (mode === 'image') {
+                if (btnImg) btnImg.classList.add('active');
+                if (btnPdf) btnPdf.classList.remove('active');
+                if (imgContainer) imgContainer.style.display = 'block';
+                if (pdfContainer) pdfContainer.style.display = 'none';
+            } else {
+                if (btnImg) btnImg.classList.remove('active');
+                if (btnPdf) btnPdf.classList.add('active');
+                if (imgContainer) imgContainer.style.display = 'none';
+                if (pdfContainer) pdfContainer.style.display = 'block';
+            }
+            renderActiveRefPage();
+        }
+
+        function renderActiveRefPage() {
+            if (!activeRefSha) return;
+            
+            document.getElementById('refPageNum').textContent = activeRefPage;
+            document.getElementById('refPageInput').value = activeRefPage;
+            document.getElementById('refDirectPdfBtn').href = `/api/books/${activeRefSha}/pages/${activeRefPage}/view`;
+            document.getElementById('refViewFullBtn').href = `/api/books/${activeRefSha}/view#page=${activeRefPage}`;
+            
+            const loading = document.getElementById('refLoading');
             const img = document.getElementById('refPageImg');
-            if (img) img.src = '';
+            const iframe = document.getElementById('refPdfFrame');
+            
+            if (activeRefViewMode === 'image') {
+                loading.style.display = 'block';
+                loading.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div><div style="margin-top: 10px; font-weight: 700;">جاري استخراج وعرض صـ ' + activeRefPage + ' فوراً...</div>';
+                img.style.display = 'none';
+                
+                img.onload = () => {
+                    loading.style.display = 'none';
+                    img.style.display = 'block';
+                };
+                img.onerror = () => {
+                    loading.innerHTML = '<div style="color: var(--accent); padding: 20px;">ℹ️ هذه الصفحة متوفرة كـ PDF خفيف أو النص مفهرس.<br><a href="/api/books/' + activeRefSha + '/pages/' + activeRefPage + '/view" target="_blank" style="color:var(--gold); font-weight:bold; display:inline-block; margin-top:10px;">📄 انقر هنا لفتح صفحة الـ PDF مباشرة (15KB)</a></div>';
+                };
+                img.src = `/api/books/${activeRefSha}/pages/${activeRefPage}/image?t=` + Date.now();
+            } else {
+                loading.style.display = 'none';
+                iframe.src = `/api/books/${activeRefSha}/pages/${activeRefPage}/view`;
+            }
         }
 
         function stepRefPage(delta) {
             if (!activeRefSha) return;
-            activeRefPage = Math.max(1, activeRefPage + delta);
-            document.getElementById('refPageNum').textContent = activeRefPage;
-            document.getElementById('refDirectPdfBtn').href = `/api/books/${activeRefSha}/pages/${activeRefPage}/view`;
-            
+            let next = activeRefPage + delta;
+            if (next < 1) next = 1;
+            if (activeRefTotalPages > 1 && next > activeRefTotalPages) next = activeRefTotalPages;
+            activeRefPage = next;
+            renderActiveRefPage();
+        }
+
+        function goToRefPage() {
+            const val = parseInt(document.getElementById('refPageInput').value, 10);
+            if (!isNaN(val) && val >= 1) {
+                if (activeRefTotalPages > 1 && val > activeRefTotalPages) {
+                    activeRefPage = activeRefTotalPages;
+                } else {
+                    activeRefPage = val;
+                }
+                renderActiveRefPage();
+            }
+        }
+
+        function handleRefPageKey(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                goToRefPage();
+            }
+        }
+
+        function closeRefModal() {
+            const modal = document.getElementById('refModal');
+            if (modal) modal.classList.remove('open');
             const img = document.getElementById('refPageImg');
-            const loading = document.getElementById('refLoading');
-            loading.style.display = 'block';
-            loading.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div><div style="margin-top: 10px; font-weight: 700;">جاري استخراج صـ ' + activeRefPage + '...</div>';
-            img.style.display = 'none';
-            img.src = `/api/books/${activeRefSha}/pages/${activeRefPage}/image?t=` + Date.now();
+            if (img) img.src = '';
+            const iframe = document.getElementById('refPdfFrame');
+            if (iframe) iframe.src = '';
         }
 
         function copyCompilationText() {
@@ -1725,10 +2072,44 @@ async def get_book_page_image(sha256: str, page_number: int):
         raise HTTPException(status_code=500, detail="تعذر استخراج صورة الصفحة")
 
 
+@app.get("/api/books/{sha256}/info")
+async def get_book_info(sha256: str):
+    """Returns book metadata including title, author, total pages, and file size."""
+    book = repo.get_book_by_sha(sha256)
+    if not book:
+        raise HTTPException(status_code=404, detail="الكتاب غير موجود في سجلات المكتبة")
+    
+    file_path = book.get("original_path") or book.get("file_path")
+    file_size = book.get("file_size") or 0
+    if not file_size and file_path and os.path.exists(file_path):
+        file_size = os.path.getsize(file_path)
+        
+    size_mb = round(file_size / (1024 * 1024), 1) if file_size else 0
+    size_str = f"{size_mb} MB" if size_mb >= 1 else (f"{round(file_size / 1024)} KB" if file_size else "")
+
+    page_count = book.get("page_count") or 0
+    if not page_count and file_path and os.path.exists(file_path):
+        try:
+            import fitz
+            with fitz.open(file_path) as d:
+                page_count = len(d)
+        except Exception:
+            page_count = 1
+
+    return {
+        "sha256": sha256,
+        "title": book.get("file_name") or os.path.basename(file_path or "مرجع كنسي"),
+        "author": book.get("author") or "آباء الكنيسة",
+        "page_count": max(1, page_count),
+        "file_size": file_size,
+        "file_size_formatted": size_str,
+        "authenticity_tier": book.get("authenticity_tier", 3)
+    }
+
+
 @app.get("/api/books/{sha256}/view")
-@app.get("/api/books/{sha256}/download")
-async def get_book_file(sha256: str, download: bool = False):
-    """Streams book PDF for browser viewing or direct download."""
+async def view_book_file(sha256: str):
+    """Streams full book PDF for in-browser viewing (inline)."""
     book = repo.get_book_by_sha(sha256)
     if not book:
         raise HTTPException(status_code=404, detail="الكتاب غير موجود في سجلات المكتبة")
@@ -1738,11 +2119,42 @@ async def get_book_file(sha256: str, download: bool = False):
         raise HTTPException(status_code=404, detail="ملف الكتاب غير متوفر على القرص المحلي")
 
     filename = os.path.basename(file_path)
+    encoded_name = urllib.parse.quote(filename)
     return FileResponse(
         path=file_path,
         media_type="application/pdf",
         filename=filename,
-        content_disposition_type="attachment" if download else "inline"
+        content_disposition_type="inline",
+        headers={
+            "Content-Disposition": f"inline; filename*=UTF-8''{encoded_name}"
+        }
+    )
+
+
+@app.get("/api/books/{sha256}/download")
+async def download_book_file(sha256: str):
+    """Directly triggers native file download on the client device (attachment)."""
+    book = repo.get_book_by_sha(sha256)
+    if not book:
+        raise HTTPException(status_code=404, detail="الكتاب غير موجود في سجلات المكتبة")
+
+    file_path = book.get("original_path") or book.get("file_path")
+    if not file_path or not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="ملف الكتاب غير متوفر على القرص المحلي")
+
+    filename = os.path.basename(file_path)
+    encoded_name = urllib.parse.quote(filename)
+    ascii_fallback = f"book_{sha256[:10]}.pdf"
+    return FileResponse(
+        path=file_path,
+        media_type="application/pdf",
+        filename=filename,
+        content_disposition_type="attachment",
+        headers={
+            "Content-Disposition": f'attachment; filename="{ascii_fallback}"; filename*=UTF-8\'\'{encoded_name}',
+            "Content-Length": str(os.path.getsize(file_path)),
+            "Cache-Control": "public, max-age=3600"
+        }
     )
 
 
@@ -1795,13 +2207,21 @@ async def api_chat(req: ChatRequest):
     else:
         answer = ai_provider.generate_answer(latest_msg, chunks, depth_mode=depth_mode)
 
-    # 3. Format citations with sha256 for live book viewer
+    # 3. Format citations with sha256 and metadata for live book viewer
     citations = []
     for c in chunks:
+        book_info = repo.get_book_by_sha(c.sha256) if c.sha256 else None
+        p_count = book_info.get("page_count") if book_info else 0
+        f_size = book_info.get("file_size") if book_info else 0
+        size_mb = round(f_size / (1024 * 1024), 1) if f_size else 0
+        size_str = f"{size_mb} MB" if size_mb >= 1 else (f"{round(f_size / 1024)} KB" if f_size else "")
+
         citations.append({
             "book_title": c.book_title,
             "page_number": c.page_number,
             "printed_page": c.printed_page,
+            "page_count": p_count or 1,
+            "file_size_formatted": size_str,
             "source_reference": c.source_reference,
             "author": c.author,
             "source_types": c.source_types,

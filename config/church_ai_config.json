@@ -8,8 +8,7 @@
     "processed_text": "processed_text",
     "database": "file_archive.db",
     "reports": "reports",
-    "logs": "logs",
-    "library_root": "I:\\2021\\2020\\✠ Cross Coptic Library ✠"
+    "logs": "logs"
   },
   "ocr": {
     "tesseract_cmd": "",

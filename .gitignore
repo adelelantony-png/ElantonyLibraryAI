@@ -42,8 +42,6 @@ archive_master.db
 /backups/
 /reports/*.csv
 /reports/*.png
-tools/
-رابط_المساعد_عن_بعد.txt
 
 # Logs
 logs/
@@ -74,5 +72,3 @@ htmlcov/
 # Portable Binaries & Setup Installers
 tesseract/
 installers/
-
-/tessdata/
