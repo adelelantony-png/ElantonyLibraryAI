@@ -1146,7 +1146,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             align-items: center;
             justify-content: space-between;
             gap: 12px;
-            flex-wrap: wrap;
+            flex-wrap: nowrap;
         }
         .ref-modal-title-wrap {
             display: flex;
@@ -1175,6 +1175,10 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             font-weight: 800;
             white-space: nowrap;
             flex-shrink: 0;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            direction: ltr;
         }
         .ref-badge-size {
             background: rgba(161, 98, 7, 0.12);
@@ -1209,14 +1213,23 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             border-color: #EF4444;
         }
         .ref-modal-toolbar {
-            padding: 8px 16px;
+            padding: 8px 14px;
             border-bottom: 1px solid var(--card-border);
             background: var(--bg-darker);
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 10px;
-            flex-wrap: wrap;
+            gap: 8px;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            scrollbar-width: thin;
+        }
+        .ref-modal-toolbar::-webkit-scrollbar {
+            height: 4px;
+        }
+        .ref-modal-toolbar::-webkit-scrollbar-thumb {
+            background: var(--card-border);
+            border-radius: 4px;
         }
         .ref-nav-group, .ref-mode-group, .ref-actions-group {
             display: inline-flex;
@@ -1712,15 +1725,18 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
     <!-- Instant Reference Viewer Modal (فتح واستعراض المراجع في أجزاء من الثانية) -->
     <div class="modal-overlay" id="refModal">
         <div class="modal-card ref-modal-card">
-            <!-- Modal Header Row 1: Title and Close -->
+            <!-- Modal Header Row 1: Title, Page Badge and Window Controls -->
             <div class="ref-modal-header">
                 <div class="ref-modal-title-wrap">
                     <span class="ref-icon">📖</span>
                     <span id="refBookName" class="ref-book-name" title="اسم المرجع">اسم المرجع</span>
-                    <span class="ref-badge-page">صـ <span id="refPageNum">1</span><span id="refPageTotalSpan" style="display: none;"> / <span id="refPageTotal">--</span></span></span>
+                    <span class="ref-badge-page"><span style="direction:rtl; font-weight:700;">صـ</span><span id="refPageNum" style="font-weight:800;">1</span><span id="refPageTotalSpan" style="display: none;"> / <span id="refPageTotal">--</span></span></span>
                     <span id="refSizeBadge" class="ref-badge-size"></span>
                 </div>
-                <button class="btn-modal-close-ref" onclick="closeRefModal()" title="إغلاق النافذة">✕ إغلاق</button>
+                <div style="display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0;">
+                    <button id="btnToggleFullscreen" class="btn-ref-tool" onclick="toggleFullscreen()" title="تكبير النافذة لملء الشاشة">⛶ ملء الشاشة</button>
+                    <button class="btn-modal-close-ref" onclick="closeRefModal()" title="إغلاق النافذة">✕ إغلاق</button>
+                </div>
             </div>
 
             <!-- Modal Header Row 2: Navigation & Action Toolbar -->
@@ -2984,39 +3000,89 @@ def apply_highlights_to_page(page, highlight_text: Optional[str] = None):
     """
     Finds and applies golden yellow highlight annotations to page for keywords in highlight_text.
     Supports Arabic, Coptic, and Greek terms safely without mutating original documents on disk.
+    Resilient against zero-width rects, OCR text layout, and pure image scanned pages.
     """
     if not highlight_text or not highlight_text.strip():
         return 0
     try:
         from elantony.search.search_engine import ARABIC_STOPWORDS
         import re
+        import fitz
+
         raw_words = re.findall(r'[\w\u0621-\u064A\u0370-\u03FF\u2C80-\u2CFF]+', highlight_text)
-        terms = [w for w in raw_words if len(w) >= 3 and w not in ARABIC_STOPWORDS][:12]
+        terms = [w for w in raw_words if len(w) >= 3 and w not in ARABIC_STOPWORDS][:14]
+        if not terms:
+            return 0
         
         highlighted_count = 0
-        # Try phrase pairs first
-        for i in range(len(terms) - 1):
-            phrase = f"{terms[i]} {terms[i+1]}"
-            rects = page.search_for(phrase)
-            for r in rects:
-                annot = page.add_highlight_annot(r)
-                annot.set_colors(stroke=(1.0, 0.82, 0.15)) # Warm Patristic Gold
-                annot.update()
-                highlighted_count += 1
-            if highlighted_count >= 12:
-                break
-                
-        # If few phrase matches, highlight individual key theological terms
-        if highlighted_count < 3:
-            for t in terms:
-                rects = page.search_for(t)
-                for r in rects[:4]:
-                    annot = page.add_highlight_annot(r)
-                    annot.set_colors(stroke=(1.0, 0.84, 0.20)) # Gold Highlight
+        
+        def safe_add_annot(rect, color=(1.0, 0.82, 0.15)):
+            nonlocal highlighted_count
+            if rect.width >= 2.0 and rect.height >= 2.0 and not rect.is_empty and not rect.is_infinite:
+                try:
+                    annot = page.add_highlight_annot(rect)
+                    annot.set_colors(stroke=color) # Warm Patristic Gold
                     annot.update()
                     highlighted_count += 1
+                    return True
+                except Exception:
+                    pass
+            return False
+
+        # Check if page has digital text or is a scanned image
+        page_text = page.get_text()
+        tp = None
+        if len(page_text.strip()) < 15:
+            candidate_dirs = [
+                r"D:\Prog\ArchiveMasterFinal\tessdata",
+                r"D:\Prog\ArchiveMasterFinal\tesseract\tessdata",
+                os.path.join(str(settings.base_dir), "tessdata")
+            ]
+            tessdata_dir = next((p for p in candidate_dirs if os.path.exists(p)), None)
+            if tessdata_dir:
+                try:
+                    tp = page.get_textpage_ocr(language='ara+eng', tessdata=tessdata_dir, dpi=140)
+                except Exception:
+                    tp = None
+
+        # 1. Search for phrase pairs
+        for i in range(len(terms) - 1):
+            phrase = f"{terms[i]} {terms[i+1]}"
+            rects = page.search_for(phrase, textpage=tp) if tp else page.search_for(phrase)
+            for r in rects:
+                safe_add_annot(r)
+            if highlighted_count >= 10:
+                break
+                
+        # 2. Search for individual terms
+        if highlighted_count < 4:
+            for t in terms:
+                rects = page.search_for(t, textpage=tp) if tp else page.search_for(t)
+                for r in rects[:4]:
+                    safe_add_annot(r)
+                if 'ـ' in t:
+                    norm_rects = page.search_for(t.replace('ـ', ''), textpage=tp) if tp else page.search_for(t.replace('ـ', ''))
+                    for r in norm_rects[:3]:
+                        safe_add_annot(r)
                 if highlighted_count >= 16:
                     break
+
+        # 3. Fallback: Page words bbox matching
+        if highlighted_count < 3:
+            page_words = page.get_text("words", textpage=tp) if tp else page.get_text("words")
+            if page_words:
+                norm_terms = {t.replace('ـ', '').strip('.,;:!?()[]{}«»"\'') for t in terms}
+                for w in page_words:
+                    w_text = w[4].replace('ـ', '').strip('.,;:!?()[]{}«»"\'')
+                    if len(w_text) >= 3:
+                        for nt in norm_terms:
+                            if nt == w_text or (len(w_text) >= 4 and (nt in w_text or w_text in nt)):
+                                bbox = fitz.Rect(w[0], w[1], w[2], w[3])
+                                safe_add_annot(bbox)
+                                break
+                    if highlighted_count >= 20:
+                        break
+
         return highlighted_count
     except Exception as e:
         logger.warning(f"Error applying highlights: {e}")
@@ -3076,7 +3142,7 @@ async def get_book_page_image(sha256: str, page_number: int, highlight: Optional
         page = doc.load_page(page_idx)
         if highlight:
             apply_highlights_to_page(page, highlight)
-        pix = page.get_pixmap(dpi=140)
+        pix = page.get_pixmap(dpi=140, annots=True)
         jpg_bytes = pix.tobytes("jpg")
         return Response(
             content=jpg_bytes,
