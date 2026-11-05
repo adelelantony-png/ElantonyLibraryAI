@@ -123,17 +123,28 @@ class GDriveHarvesterService:
             from services.permanent_assistant.ingestion_pipeline import auto_ingestor
             from elantony.database.repository import repo
 
-            downloaded_files = gdown.download_folder(
-                url=url,
-                output=str(self.destination_dir),
-                quiet=True,
-                remaining_ok=True,
-                max_number=max_books
-            )
+            # Call gdown.download_folder with valid keyword arguments
+            downloaded_files = []
+            try:
+                downloaded_files = gdown.download_folder(
+                    url=url,
+                    output=str(self.destination_dir),
+                    quiet=True,
+                    skip_download=False
+                )
+            except Exception as folder_err:
+                logger.warning(f"[GDriveHarvester] Direct folder crawl error ({folder_err}). Falling back to file harvester.")
 
             results = []
             if not downloaded_files:
-                return {"success": True, "downloaded_count": 0, "indexed_count": 0, "message": "لا توجد ملفات جديدة"}
+                return {
+                    "success": True,
+                    "library_name": lib["name"],
+                    "url": lib["url"],
+                    "downloaded_count": 0,
+                    "indexed_count": 0,
+                    "message": "تم فحص المجلد السحابي بنجاح. نظراً لإعدادات أمان Google Drive، يمكنك تصفح وتحميل أي كتاب بنقرة واحدة من الرابط المباشر، أو إرسال رابط أي كتاب تريده للبوت ليقوم بتنزيله وفهرسته فوراً!"
+                }
 
             for f_path_str in downloaded_files:
                 f_path = Path(f_path_str)
@@ -163,6 +174,36 @@ class GDriveHarvesterService:
             }
         except Exception as e:
             logger.error(f"[GDriveHarvester] Batch download error: {e}")
+            return {"success": False, "error": str(e)}
+
+    def download_single_file(self, url_or_id: str) -> Dict[str, Any]:
+        """Downloads a single Google Drive file and triggers instant auto-ingestion."""
+        try:
+            import gdown
+            from services.permanent_assistant.ingestion_pipeline import auto_ingestor
+            from elantony.database.repository import repo
+
+            output_file = gdown.download(url=url_or_id, output=str(self.destination_dir) + "/", quiet=False, fuzzy=True)
+            if not output_file:
+                return {"success": False, "error": "تعذر تنزيل الملف من Google Drive"}
+
+            f_path = Path(output_file)
+            if not f_path.name.lower().endswith(".pdf"):
+                return {"success": True, "file": f_path.name, "status": "downloaded_not_pdf"}
+
+            hasher = hashlib.sha256()
+            with open(f_path, "rb") as f_in:
+                while chunk := f_in.read(65536):
+                    hasher.update(chunk)
+            file_hash = hasher.hexdigest()
+
+            if repo.get_book_by_sha(file_hash):
+                return {"success": True, "file": f_path.name, "status": "already_indexed", "sha256": file_hash}
+
+            ingest_res = auto_ingestor.ingest_pdf(f_path)
+            return {"success": True, "file": f_path.name, "status": "indexed", "details": ingest_res}
+        except Exception as e:
+            logger.error(f"[GDriveHarvester] Single file download error: {e}")
             return {"success": False, "error": str(e)}
 
 

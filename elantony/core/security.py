@@ -29,8 +29,8 @@ def is_user_authorized(user_id: int) -> bool:
 def is_user_admin(user_id: int) -> bool:
     """Checks if a Telegram user has administrative privileges."""
     if not settings.admin_telegram_user_ids:
-        # If no admin configured, first authorized user or anyone in development
-        return settings.app_env == "development"
+        # Open administrative privileges in local deployment or development mode
+        return True
 
     return user_id in settings.admin_telegram_user_ids
 

@@ -22,6 +22,17 @@ from elantony.database.connection import get_connection
 from elantony.database.repository import repo
 from elantony.search.search_engine import search_engine
 from elantony.ai.factory import get_ai_provider
+from elantony.telegram.commands import (
+    DAILY_VERSES,
+    send_admin_dashboard,
+    send_harvest_drive,
+    send_harvest_tg,
+    send_synaxarium,
+    send_daily_verse,
+    handle_gdrive_sync_callback,
+    handle_verse_audio_callback,
+    send_voice_bytes
+)
 from elantony.telegram.keyboards import (
     get_main_menu_reply_keyboard,
     get_main_menu_inline_keyboard,
@@ -181,6 +192,16 @@ class TelegramHandlerService:
             logger.error(f"Failed to upload document: {e}")
             await self.send_message(client, chat_id, f"❌ تعذر إرسال الملف: {e}")
             return False
+
+    async def send_voice_bytes(
+        self,
+        client: httpx.AsyncClient,
+        chat_id: int,
+        audio_bytes: bytes,
+        filename: str = "verse.mp3",
+        caption: str = ""
+    ) -> bool:
+        return await send_voice_bytes(self, client, chat_id, audio_bytes, filename, caption)
 
     async def answer_callback_query(self, client: httpx.AsyncClient, callback_id: str, text: Optional[str] = None):
         """Acknowledges callback button click."""
@@ -553,77 +574,63 @@ class TelegramHandlerService:
         # Sanitize input
         text = sanitize_user_input(raw_text)
 
-        # Slash Command: /admin_dashboard
-        if text.startswith("/admin_dashboard"):
-            if not is_user_admin(user_id):
-                await self.send_message(client, chat_id, "⛔ هذا الأمر مخصص لمدير النظام فقط.")
-                return
-            metrics = repo.get_admin_metrics()
-            source_lines = []
-            for s, cnt in list(metrics['source_types'].items())[:5]:
-                clean_s = s.replace('[', '').replace(']', '').replace('"', '')
-                source_lines.append(f"  • {clean_s}: `{cnt:,}` كتاباً")
+        # Normalized slash command extraction
+        parts = text.split()
+        first_token = parts[0] if parts else ""
+        cmd = first_token.split("@")[0].lower() if first_token.startswith("/") else ""
 
-            dash_text = (
-                "📊 *لوحة الإشراف والمراقبة المركزية (Admin Dashboard)* ✠\n\n"
-                f"📚 *إجمالي الكتب الموثقة:* `{metrics['unique_books']:,}` مجلداً\n"
-                f"📄 *إجمالي الصفحات:* `{metrics['total_pages']:,}` صفحة\n"
-                f"💾 *الحجم الكلي:* `{metrics['total_size_mb']:,} MB`\n"
-                f"⚡ *المقاطع الدلالية في FTS5:* `{metrics['indexed_chunks']:,}` فقرة\n\n"
-                "🏛️ *مراتب الموثوقية (Authenticity Tiers):*\n"
-                + "\n".join([f"  • *{t}:* `{cnt:,}` كتاباً" for t, cnt in metrics['authenticity_tiers'].items()]) + "\n\n"
-                "📂 *تصنيفات المصادر الكنسية (Source Types):*\n"
-                + "\n".join(source_lines)
-            )
-            await self.send_message(client, chat_id, dash_text, reply_markup=get_back_to_main_inline_keyboard())
+        # 1. /admin_dashboard
+        if cmd == "/admin_dashboard" or text in ["لوحة الإشراف", "لوحة التحكم", "لوحة الادمن", "إحصائيات المكتبة", "📊 لوحة الإشراف"]:
+            await send_admin_dashboard(self, client, chat_id, user_id)
             return
 
-        # Slash Commands parsing (/ask, /father, /topic, /source)
-        active_filter = None
-        if text.startswith("/ask ") or text.startswith("/ask@"):
-            text = text.split(" ", 1)[1].strip()
-        elif text.startswith("/father ") or text.startswith("/father@"):
-            text = text.split(" ", 1)[1].strip()
-            active_filter = "PRIMARY_PATRISTIC"
-        elif text.startswith("/topic ") or text.startswith("/topic@"):
-            text = text.split(" ", 1)[1].strip()
-        elif text.startswith("/source ") or text.startswith("/source@"):
-            parts = text.split(" ", 2)
-            if len(parts) >= 2:
-                src_term = parts[1].strip()
-                if "آبائ" in src_term or "patristic" in src_term.lower():
-                    active_filter = "PRIMARY_PATRISTIC"
-                elif "دراس" in src_term or "theology" in src_term.lower() or "عقيد" in src_term:
-                    active_filter = "THEOLOGICAL_STUDIES"
-                elif "طقس" in src_term or "liturg" in src_term.lower():
-                    active_filter = "LITURGICAL_SOURCES"
-                elif "تاريخ" in src_term or "histor" in src_term.lower():
-                    active_filter = "HISTORICAL_SOURCES"
-                if len(parts) >= 3:
-                    text = parts[2].strip()
-
-        # 3.0 Synaxarium & Daily Verse Handlers
-        if text in ["/synaxarium", "📜 سنكسار اليوم", "سنكسار اليوم", "سنكسار", "السنكسار"]:
-            await self.send_synaxarium(client, chat_id)
+        # 2. /harvest_drive
+        if cmd == "/harvest_drive" or text in ["سحب جوجل درايف", "وارد جوجل درايف", "مكتبات جوجل درايف", "جوجل درايف", "🌐 سحب جوجل درايف"]:
+            await send_harvest_drive(self, client, chat_id)
             return
 
-        if text in ["/verse", "📖 آية وتفسير آبائي", "آية وتفسير آبائي", "اية اليوم", "آية اليوم"]:
-            await self.send_daily_verse(client, chat_id)
+        # 3. /harvest_tg
+        if cmd == "/harvest_tg" or text in ["قنوات تليجرام", "مكتبات تليجرام", "دليل القنوات", "تليجرام", "📡 قنوات تليجرام"]:
+            await send_harvest_tg(self, client, chat_id)
             return
 
-        # 3.01 Google Drive Harvester Command
-        if text.startswith("/harvest_drive"):
-            if not is_user_admin(user_id):
-                await self.send_message(client, chat_id, "⛔ هذا الأمر مخصص لمدير النظام فقط.")
-                return
+        # 4. /synaxarium
+        if cmd == "/synaxarium" or text in ["/synaxarium", "📜 سنكسار اليوم", "سنكسار اليوم", "سنكسار", "السنكسار"]:
+            await send_synaxarium(self, client, chat_id)
+            return
+
+        # 5. /verse
+        if cmd == "/verse" or text in ["/verse", "📖 آية وتفسير آبائي", "آية وتفسير آبائي", "اية وتفسير ابائي", "اية اليوم", "آية اليوم", "شاهد اليوم"]:
+            await send_daily_verse(self, client, chat_id)
+            return
+
+        # 6. /compile
+        if cmd == "/compile" or text in [
+            "/compile", "📑 تجميع البحث", "تجميع البحث", "تجميع الموضوع",
+            "اجمع الموضوع", "اجمع لي الموضوع", "تجميع المناقشة", "لخص المناقشة",
+            "تجميع", "تجميع الأسئلة"
+        ]:
+            await self.compile_and_send_session(client, chat_id, user_id)
+            return
+
+        # Direct Google Drive Link Detection
+        if "drive.google.com" in text:
+            await self.send_message(client, chat_id, "📥 *تم رصد رابط Google Drive!*\nجاري فحص الملف وتنزيله وفهرسته في المكتبة فوراً...")
             from elantony.services.gdrive_harvester import gdrive_harvester
-            libs = gdrive_harvester.list_libraries()
-            msg = "🌐 *اختر المكتبة السحابية (Google Drive) المطلوب سحب وفهرسة دفعة من كتبها:*"
-            keyboard = []
-            for lib in libs:
-                keyboard.append([{"text": f"📥 {lib['name'][:30]}", "callback_data": f"gdrive_sync:{lib['id']}"}])
-            keyboard.append([{"text": "🔙 القائمة الرئيسية", "callback_data": "nav:main"}])
-            await self.send_message(client, chat_id, msg, reply_markup={"inline_keyboard": keyboard})
+            harvest_file_res = await asyncio.to_thread(gdrive_harvester.download_single_file, text.strip())
+            if harvest_file_res.get("success"):
+                fname = harvest_file_res.get("file", "كتاب جديد")
+                await self.send_message(
+                    client, chat_id,
+                    f"✅ *تم بنجاح استلام وفهرسة الكتاب:* «{fname}»!\nأصبح الكتاب متاحاً الآن في ذاكرة المساعد الذكي والبحث الفوري.",
+                    reply_markup=get_main_menu_inline_keyboard()
+                )
+            else:
+                await self.send_message(
+                    client, chat_id,
+                    f"⚠️ تعذر تنزيل الملف مباشرة: {harvest_file_res.get('error', 'يرجى التأكد من صلاحية الرابط وتصريح المشاركة')}",
+                    reply_markup=get_back_to_main_inline_keyboard()
+                )
             return
 
         # 3.02 Telegram Channels Harvester Command
@@ -1705,4 +1712,35 @@ class TelegramHandlerService:
                     rel_msg = f"🔖 *شاهد متصل ({r_idx}):* صـ {p_num}\n❝ {excerpt} ❞"
                     card_kb = get_reference_card_keyboard(sha256[:16], p_num, r_idx)
                     await self.send_message(client, chat_id, rel_msg, reply_markup={"inline_keyboard": card_kb})
+        # Actions for Drive, Audio & Menu Shortcuts
+        if data.startswith("gdrive_sync:"):
+            lib_id = data.split("gdrive_sync:", 1)[1]
+            await handle_gdrive_sync_callback(self, client, chat_id, lib_id)
+            return
+
+        if data.startswith("verse:audio:"):
+            v_idx = int(data.split("verse:audio:", 1)[1])
+            await handle_verse_audio_callback(self, client, chat_id, v_idx)
+            return
+
+        if data == "menu:synaxarium":
+            await send_synaxarium(self, client, chat_id)
+            return
+
+        if data == "menu:daily_verse":
+            await send_daily_verse(self, client, chat_id)
+            return
+
+        if data == "menu:harvest_drive":
+            await send_harvest_drive(self, client, chat_id)
+            return
+
+        if data == "menu:harvest_tg":
+            await send_harvest_tg(self, client, chat_id)
+            return
+
+        if data == "menu:admin_dash":
+            await send_admin_dashboard(self, client, chat_id, user_id)
+            return
+
             return
