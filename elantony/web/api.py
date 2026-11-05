@@ -875,6 +875,88 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
         .modal-body strong { color: var(--gold); }
         .modal-body blockquote { border-right: 4px solid var(--quote-border); padding: 8px 14px; margin: 12px 0; background: var(--quote-bg); border-radius: 6px; }
 
+        /* Nested Sub-questions Tree & Badges */
+        .sess-count-badge {
+            font-size: 10px;
+            background: var(--accent-light);
+            color: var(--accent);
+            padding: 1px 7px;
+            border-radius: 10px;
+            font-weight: 700;
+            white-space: nowrap;
+            margin-right: 4px;
+            flex-shrink: 0;
+        }
+        .sess-subq-tree {
+            margin: 4px 6px 6px 14px;
+            padding-right: 10px;
+            border-right: 2px solid rgba(217, 119, 6, 0.3);
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .subq-tree-item {
+            font-size: 11px;
+            color: var(--text-sub);
+            padding: 3px 6px;
+            border-radius: 5px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            transition: 0.15s ease;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .subq-tree-item:hover {
+            background: var(--card-hover);
+            color: var(--accent);
+        }
+        .subq-num {
+            font-weight: 800;
+            color: var(--accent);
+            flex-shrink: 0;
+        }
+        .subq-text {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        /* Topic Sub-questions Pills Bar (Top of Chat) */
+        .topic-subq-bar {
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--card-border);
+            padding: 6px 18px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            overflow-x: auto;
+            font-size: 11.5px;
+            scrollbar-width: none;
+            z-index: 4;
+        }
+        .topic-subq-bar::-webkit-scrollbar { display: none; }
+        .subq-pill {
+            background: var(--bg-darker);
+            border: 1px solid var(--card-border);
+            color: var(--text-main);
+            padding: 3px 10px;
+            border-radius: 12px;
+            cursor: pointer;
+            white-space: nowrap;
+            font-weight: 600;
+            transition: 0.15s;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .subq-pill:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
         /* Dynamic Topic Tabs Bar */
         .chat-tabs-bar {
             background: var(--bg-sidebar);
@@ -1610,6 +1692,11 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             </button>
         </div>
 
+        <!-- Topic Sub-questions Breadcrumb Navigator (فهرس الأسئلة المتسلسلة داخل نفس الموضوع) -->
+        <div class="topic-subq-bar" id="topicSubqBar" style="display: none;">
+            <!-- Dynamically populated from active discussion questions -->
+        </div>
+
         <!-- Messages Area -->
         <div class="messages-area" id="messagesArea">
             <div class="messages-container" id="messagesContainer">
@@ -1925,10 +2012,19 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                     item.className = 'chat-history-item' + (s.id === currentSessionId ? ' active' : '');
                     item.id = 'sess_' + s.id;
                     
+                    // Main Session Header Row
+                    const headerRow = document.createElement('div');
+                    headerRow.style.display = 'flex';
+                    headerRow.style.alignItems = 'center';
+                    headerRow.style.justifyContent = 'space-between';
+                    headerRow.style.width = '100%';
+
                     const textSpan = document.createElement('span');
                     textSpan.className = 'chat-item-text';
                     const safeSessTitle = escapeHtml(s.title || 'بحث لاهوتي');
-                    textSpan.innerHTML = '<span style="flex-shrink:0;">💬</span> <bdi dir="auto">' + safeSessTitle + '</bdi>';
+                    const qCount = s.questions_count || 1;
+                    const countBadge = `<span class="sess-count-badge">${qCount} ${qCount > 1 ? 'أسئلة' : 'سؤال'}</span>`;
+                    textSpan.innerHTML = `<span style="flex-shrink:0;">💬</span> <bdi dir="auto">${safeSessTitle}</bdi> ${countBadge}`;
                     textSpan.title = s.title || 'بحث لاهوتي';
                     textSpan.onclick = () => selectSession(s.id);
 
@@ -1950,8 +2046,28 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                     actionsDiv.appendChild(docxBtn);
                     actionsDiv.appendChild(delBtn);
 
-                    item.appendChild(textSpan);
-                    item.appendChild(actionsDiv);
+                    headerRow.appendChild(textSpan);
+                    headerRow.appendChild(actionsDiv);
+                    item.appendChild(headerRow);
+
+                    // Nested Sub-questions Tree (الأسئلة المتسلسلة جوة بعض في نفس الموضوع)
+                    if (s.user_queries && s.user_queries.length > 0) {
+                        const treeDiv = document.createElement('div');
+                        treeDiv.className = 'sess-subq-tree';
+                        s.user_queries.forEach((uq, uIdx) => {
+                            const qRow = document.createElement('div');
+                            qRow.className = 'subq-tree-item';
+                            qRow.title = uq.content;
+                            qRow.innerHTML = `<span class="subq-num">س${uIdx+1}:</span> <span class="subq-text">${escapeHtml(uq.content)}</span>`;
+                            qRow.onclick = (e) => {
+                                e.stopPropagation();
+                                selectSessionAndJump(s.id, uIdx + 1);
+                            };
+                            treeDiv.appendChild(qRow);
+                        });
+                        item.appendChild(treeDiv);
+                    }
+
                     list.appendChild(item);
                 });
 
@@ -2016,21 +2132,46 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                 chatMessages = [];
                 messagesContainer.innerHTML = '';
 
+                userMsgCounter = 0;
                 if (messages.length === 0) {
                     messagesContainer.appendChild(heroScreen);
                     heroScreen.style.display = 'block';
+                    const subqBar = document.getElementById('topicSubqBar');
+                    if (subqBar) subqBar.style.display = 'none';
                 } else {
                     if (heroScreen) heroScreen.style.display = 'none';
                     let assistantTurn = 0;
+                    const userQueries = [];
                     messages.forEach(m => {
                         chatMessages.push({ role: m.role, content: m.content });
                         let turnNum = null;
                         if (m.role === 'assistant') {
                             assistantTurn++;
                             turnNum = assistantTurn;
+                        } else if (m.role === 'user') {
+                            userQueries.push(m.content);
                         }
                         appendMessageBubble(m.role, m.content, m.citations || [], turnNum);
                     });
+
+                    // Render Sub-questions Navigation Bar at top of chat
+                    const subqBar = document.getElementById('topicSubqBar');
+                    if (subqBar) {
+                        if (userQueries.length > 1) {
+                            subqBar.style.display = 'flex';
+                            subqBar.innerHTML = `<span style="font-weight:700; color:var(--accent); flex-shrink:0;">📍 أسئلة هذا المبحث (${userQueries.length}):</span>`;
+                            userQueries.forEach((qText, qIdx) => {
+                                const pill = document.createElement('div');
+                                pill.className = 'subq-pill';
+                                pill.title = qText;
+                                pill.innerHTML = `<span>س${qIdx+1}:</span> <span>${escapeHtml(qText.substring(0, 32))}${qText.length > 32 ? '...' : ''}</span>`;
+                                pill.onclick = () => jumpToQuestion(qIdx + 1);
+                                subqBar.appendChild(pill);
+                            });
+                        } else {
+                            subqBar.style.display = 'none';
+                        }
+                    }
                 }
                 scrollToBottom();
             } catch (err) {
@@ -2052,6 +2193,49 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             setTimeout(() => {
                 toast.style.display = 'none';
             }, 4000);
+        }
+
+        
+        function updateTopicSubqBar() {
+            const subqBar = document.getElementById('topicSubqBar');
+            if (!subqBar) return;
+            const userQueries = [];
+            chatMessages.forEach(m => {
+                if (m.role === 'user') userQueries.push(m.content);
+            });
+            if (userQueries.length > 1) {
+                subqBar.style.display = 'flex';
+                subqBar.innerHTML = `<span style="font-weight:700; color:var(--accent); flex-shrink:0;">📍 أسئلة هذا المبحث (${userQueries.length}):</span>`;
+                userQueries.forEach((qText, qIdx) => {
+                    const pill = document.createElement('div');
+                    pill.className = 'subq-pill';
+                    pill.title = qText;
+                    pill.innerHTML = `<span>س${qIdx+1}:</span> <span>${escapeHtml(qText.substring(0, 32))}${qText.length > 32 ? '...' : ''}</span>`;
+                    pill.onclick = () => jumpToQuestion(qIdx + 1);
+                    subqBar.appendChild(pill);
+                });
+            } else {
+                subqBar.style.display = 'none';
+            }
+        }
+
+        function jumpToQuestion(qIndex) {
+            const el = document.getElementById('user_msg_' + qIndex);
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                el.style.transition = 'box-shadow 0.3s ease';
+                el.style.boxShadow = '0 0 0 3px var(--accent)';
+                setTimeout(() => { el.style.boxShadow = 'none'; }, 2000);
+            }
+        }
+
+        async function selectSessionAndJump(sessionId, qIndex) {
+            if (currentSessionId !== sessionId) {
+                await selectSession(sessionId);
+            }
+            setTimeout(() => {
+                jumpToQuestion(qIndex);
+            }, 150);
         }
 
         async function startNewChat() {
@@ -2167,9 +2351,14 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             }
         }
 
+        let userMsgCounter = 0;
         function appendMessageBubble(role, content, citations = [], turnNumber = null) {
             const row = document.createElement('div');
             row.className = `msg-row ${role === 'user' ? 'user' : 'ai'}`;
+            if (role === 'user') {
+                userMsgCounter++;
+                row.id = 'user_msg_' + userMsgCounter;
+            }
 
             const avatar = document.createElement('div');
             avatar.className = `msg-avatar ${role === 'user' ? 'user' : 'ai'}`;

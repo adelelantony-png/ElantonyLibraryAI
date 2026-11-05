@@ -205,8 +205,18 @@ class DatabaseRepository:
             LIMIT ?
         """, (pattern, pattern, pattern, limit))
         rows = cur.fetchall()
+        sessions = [dict(r) for r in rows]
+        for s in sessions:
+            cur.execute("""
+                SELECT id, content FROM chat_messages
+                WHERE session_id = ? AND role = 'user'
+                ORDER BY id ASC
+            """, (s["id"],))
+            q_rows = cur.fetchall()
+            s["user_queries"] = [{"id": qr[0], "content": qr[1][:80]} for qr in q_rows]
+            s["questions_count"] = len(s["user_queries"])
         conn.close()
-        return [dict(r) for r in rows]
+        return sessions
 
     def get_categories_summary(self) -> List[Dict[str, Any]]:
         """Returns categories and book counts."""
@@ -698,8 +708,18 @@ class DatabaseRepository:
             LIMIT ?
         """, (str(user_id), limit))
         rows = cur.fetchall()
+        sessions = [dict(r) for r in rows]
+        for s in sessions:
+            cur.execute("""
+                SELECT id, content FROM chat_messages
+                WHERE session_id = ? AND role = 'user'
+                ORDER BY id ASC
+            """, (s["id"],))
+            q_rows = cur.fetchall()
+            s["user_queries"] = [{"id": qr[0], "content": qr[1][:80]} for qr in q_rows]
+            s["questions_count"] = len(s["user_queries"])
         conn.close()
-        return [dict(r) for r in rows]
+        return sessions
 
     def update_session_title(self, session_id: str, title: str) -> None:
         """Updates discussion session title and touches updated_at."""
