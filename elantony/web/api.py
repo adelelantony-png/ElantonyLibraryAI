@@ -139,7 +139,44 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400;1,700&family=Cairo:wght@400;600;700;800;900&family=Noto+Sans+Coptic&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js">
+        // Mouse Drag to Pan Zoomed Image
+        window.addEventListener('DOMContentLoaded', () => {
+            const container = document.getElementById('refImgScrollWrap');
+            if (!container) return;
+            let isDown = false;
+            let startX, startY, scrollLeft, scrollTop;
+
+            container.addEventListener('mousedown', (e) => {
+                if (ZOOM_LEVELS[currentZoomIndex] <= 100) return;
+                isDown = true;
+                container.classList.add('grabbing');
+                startX = e.pageX - container.offsetLeft;
+                startY = e.pageY - container.offsetTop;
+                scrollLeft = container.scrollLeft;
+                scrollTop = container.scrollTop;
+            });
+            container.addEventListener('mouseleave', () => {
+                isDown = false;
+                container.classList.remove('grabbing');
+            });
+            container.addEventListener('mouseup', () => {
+                isDown = false;
+                container.classList.remove('grabbing');
+            });
+            container.addEventListener('mousemove', (e) => {
+                if (!isDown) return;
+                e.preventDefault();
+                const x = e.pageX - container.offsetLeft;
+                const y = e.pageY - container.offsetTop;
+                const walkX = (x - startX) * 1.6;
+                const walkY = (y - startY) * 1.6;
+                container.scrollLeft = scrollLeft - walkX;
+                container.scrollTop = scrollTop - walkY;
+            });
+        });
+
+    </script>
     <style>
         /* ========================================================
            ELANTONY EYE-COMFORT DESIGN SYSTEM (منظومة راحة العين)
@@ -1052,14 +1089,155 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             min-height: 480px;
         }
         .ref-page-image {
+            transform-origin: center top;
+            transition: transform 0.15s ease-out;
             max-width: 100%;
             height: auto;
-            max-height: 74vh;
             border-radius: 8px;
             box-shadow: var(--shadow-md);
             border: 1px solid var(--card-border);
             display: block;
             margin: 0 auto;
+        }
+        .ref-zoom-group {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: var(--input-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 7px;
+            padding: 2px 4px;
+        }
+        .ref-zoom-btn {
+            background: none;
+            border: none;
+            color: var(--text-main);
+            font-size: 13px;
+            font-weight: 800;
+            padding: 3px 8px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: 0.18s;
+        }
+        .ref-zoom-btn:hover { background: var(--card-hover); color: var(--accent); }
+        .ref-zoom-badge {
+            font-size: 11px;
+            font-weight: 800;
+            color: var(--gold);
+            min-width: 38px;
+            text-align: center;
+        }
+        .btn-ref-tool {
+            background: var(--bg-bubble-ai);
+            border: 1px solid var(--card-border);
+            color: var(--text-main);
+            padding: 4px 9px;
+            border-radius: 6px;
+            font-size: 11.5px;
+            font-weight: 700;
+            cursor: pointer;
+            font-family: 'Cairo', sans-serif;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            transition: 0.18s;
+        }
+        .btn-ref-tool:hover { border-color: var(--gold); color: var(--gold); }
+        .btn-ref-tool.active {
+            background: rgba(161, 98, 7, 0.15);
+            border-color: var(--gold);
+            color: var(--gold);
+        }
+        .ref-img-scroll-container {
+            overflow: auto;
+            max-height: 70vh;
+            width: 100%;
+            text-align: center;
+            cursor: grab;
+            user-select: none;
+            padding: 6px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .ref-img-scroll-container.grabbing {
+            cursor: grabbing;
+        }
+        .ref-modal-card.fullscreen {
+            max-width: 98vw !important;
+            width: 98vw !important;
+            max-height: 98vh !important;
+            height: 98vh !important;
+            border-radius: 10px;
+        }
+        .ref-modal-card.fullscreen .ref-img-scroll-container {
+            max-height: 84vh !important;
+        }
+        .ref-excerpt-drawer {
+            margin-top: 10px;
+            background: var(--quote-bg);
+            border-right: 4px solid var(--gold);
+            border-radius: 8px;
+            padding: 10px 16px;
+            text-align: right;
+            width: 100%;
+            max-width: 880px;
+            font-size: 13px;
+            line-height: 1.8;
+            color: var(--text-main);
+            box-shadow: var(--shadow-sm);
+        }
+        .ref-excerpt-title {
+            font-size: 11.5px;
+            font-weight: 800;
+            color: var(--gold);
+            margin-bottom: 4px;
+        }
+
+        /* External Authoritative Patristic Sources */
+        .external-sources-pill-box {
+            margin-top: 14px;
+            padding: 10px 14px;
+            background: var(--bg-darker);
+            border: 1px solid var(--card-border);
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .ext-label {
+            font-size: 11.5px;
+            font-weight: 800;
+            color: var(--gold);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .ext-chips-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .ext-source-chip {
+            background: var(--bg-bubble-ai);
+            border: 1px solid var(--card-border);
+            color: var(--text-main);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            transition: 0.18s;
+            font-family: 'Cairo', sans-serif;
+        }
+        .ext-source-chip:hover {
+            background: var(--card-hover);
+            border-color: var(--gold);
+            color: var(--gold);
+            transform: translateY(-1px);
         }
 
         @media (max-width: 992px) {
@@ -1241,6 +1419,21 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                     <button class="btn-ref-nav" onclick="stepRefPage(1)" title="الصفحة التالية">التالية ▶</button>
                 </div>
 
+                <!-- Zoom Controls (التحكم في تكبير وتصغير الصفحة) -->
+                <div class="ref-zoom-group" title="التحكم في تكبير وتصغير صفحة المرجع">
+                    <button class="ref-zoom-btn" onclick="adjustZoom(-1)" title="تصغير">🔍-</button>
+                    <span id="refZoomLevel" class="ref-zoom-badge">100%</span>
+                    <button class="ref-zoom-btn" onclick="adjustZoom(1)" title="تكبير">🔍+</button>
+                    <button class="ref-zoom-btn" onclick="resetZoom()" title="إعادة ضبط الحجم الأصلي">↺</button>
+                </div>
+
+                <!-- Highlight & Excerpt Tools -->
+                <div class="ref-mode-wrap">
+                    <button id="btnToggleHighlight" class="btn-ref-tool active" onclick="toggleHighlight()" title="تفعيل/تعطيل التمييز اللوني الذهبي للنص المستخرج على الصفحة">🖍️ هاي لايت</button>
+                    <button id="btnToggleExcerpt" class="btn-ref-tool" onclick="toggleExcerptDrawer()" title="عرض النص المقتبس الموثق من الصفحة">📜 النص الموثق</button>
+                    <button id="btnToggleFullscreen" class="btn-ref-tool" onclick="toggleFullscreen()" title="تكبير النافذة لملء الشاشة">⛶ ملء الشاشة</button>
+                </div>
+
                 <!-- View Mode Toggle (Image vs PDF) -->
                 <div class="ref-mode-wrap">
                     <button class="btn-ref-mode active" id="btnModeImg" onclick="setRefViewMode('image')" title="عرض صورة الصفحة في أجزاء من الثانية">🖼️ صورة سريعة</button>
@@ -1261,9 +1454,16 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                     <div class="typing-dots"><span></span><span></span><span></span></div>
                     <div id="refLoadingText" style="margin-top: 10px; font-weight: 700;">جاري استخراج وعرض الصفحة فوراً...</div>
                 </div>
-                <!-- Image Viewer -->
+                <!-- Image Viewer with Scroll & Drag Pan -->
                 <div id="refImgContainer" style="width: 100%; text-align: center;">
-                    <img id="refPageImg" src="" alt="صفحة المرجع" class="ref-page-image" style="display: none;">
+                    <div id="refImgScrollWrap" class="ref-img-scroll-container">
+                        <img id="refPageImg" src="" alt="صفحة المرجع" class="ref-page-image" style="display: none;">
+                    </div>
+                    <!-- Collapsible Excerpt Drawer -->
+                    <div id="refExcerptBox" class="ref-excerpt-drawer" style="display: none;">
+                        <div class="ref-excerpt-title">❝ النص الموثق المستخرج من هذه الصفحة بدقة:</div>
+                        <div id="refExcerptContent" class="ref-excerpt-text"></div>
+                    </div>
                 </div>
                 <!-- Embedded PDF Viewer (Iframe) -->
                 <div id="refPdfContainer" style="display: none; height: 72vh; width: 100%;">
@@ -1581,13 +1781,14 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                     let actionsHtml = '';
                     if (c.sha256) {
                         const safeTitle = encodeURIComponent(c.book_title || 'مرجع كنسي');
+                        const safeExcerpt = encodeURIComponent(c.excerpt ? c.excerpt.slice(0, 200) : '');
                         const sizeBadge = c.file_size_formatted ? ` (${c.file_size_formatted})` : '';
                         actionsHtml = `
                             <div class="citation-actions">
-                                <button onclick="openInstantPageModal('${c.sha256}', ${c.page_number}, '${safeTitle}')" class="btn-cite-act btn-cite-fast" title="معاينة الصفحة وتصفح الكتاب فوراً داخل نافذة سريعة">
-                                    ⚡ معاينة سريعة (صـ ${c.page_number})
+                                <button onclick="openInstantPageModal('${c.sha256}', ${c.page_number}, '${safeTitle}', '${safeExcerpt}')" class="btn-cite-act btn-cite-fast" title="معاينة الصفحة وتصفح الكتاب مع هاي لايت وزوم فوراً">
+                                    ⚡ معاينة وتظليل (صـ ${c.page_number})
                                 </button>
-                                <a href="/api/books/${c.sha256}/pages/${c.page_number}/view" target="_blank" class="btn-cite-act btn-cite-view" title="فتح صفحة المرجع كـ PDF مستقل فائق الخفة (15-30 كيلوبايت)">
+                                <a href="/api/books/${c.sha256}/pages/${c.page_number}/view?highlight=${safeExcerpt}" target="_blank" class="btn-cite-act btn-cite-view" title="فتح صفحة المرجع كـ PDF مستقل مظلل (15-30 كيلوبايت)">
                                     📄 PDF الصفحة (15KB)
                                 </a>
                                 <a href="/api/books/${c.sha256}/view#page=${c.page_number}" target="_blank" class="btn-cite-act btn-cite-view" title="تصفح الكتاب كاملاً في نافذة المتصفح">
@@ -1614,8 +1815,21 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                     citeList.appendChild(item);
                 });
 
+                const extBox = document.createElement('div');
+                extBox.className = 'external-sources-pill-box';
+                extBox.innerHTML = `
+                    <div class="ext-label">🌐 أمهات المراجع والآبائيات الكنسية الدولية المعتمدة:</div>
+                    <div class="ext-chips-row">
+                        <a href="https://www.ccel.org/fathers" target="_blank" class="ext-source-chip" title="موسوعة آباء الكنيسة قبل نيقية وما بعد نيقية (38 مجلداً - فيليب شاف)">📚 Nicene & Post-Nicene Fathers (CCEL)</a>
+                        <a href="https://www.newadvent.org/fathers/" target="_blank" class="ext-source-chip" title="موسوعة New Advent الآبائية الشاملة باليونانية والإنجليزية">🏛️ New Advent Fathers</a>
+                        <a href="https://patristica.net/migne/" target="_blank" class="ext-source-chip" title="باترولوجيا ميني اليونانية (161 مجلداً للآباء الشرقيين)">📜 Patrologia Graeca (Migne PG)</a>
+                        <a href="https://katameros.bible/" target="_blank" class="ext-source-chip" title="القطمارس والسنكسار الكنسي الليتورجي المعتمد">⛪ قطمارس وسنكسار الكنيسة</a>
+                        <a href="https://st-takla.org/books" target="_blank" class="ext-source-chip" title="مكتبة وتراث الكنيسة القبطية الأرثوذكسية">📖 تراث الكنيسة القبطية</a>
+                    </div>
+                `;
                 citeSection.appendChild(citeHeader);
                 citeSection.appendChild(citeList);
+                citeSection.appendChild(extBox);
                 contentDiv.appendChild(citeSection);
             }
 
@@ -1685,23 +1899,35 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
         let activeRefPage = 1;
         let activeRefTotalPages = 1;
         let activeRefTitle = "";
+        let activeRefExcerpt = "";
         let activeRefViewMode = "image"; // "image" or "pdf"
+        let currentZoomIndex = 2; // [70, 85, 100, 120, 140, 175, 210, 260]
+        const ZOOM_LEVELS = [70, 85, 100, 120, 140, 175, 210, 260];
+        let highlightEnabled = true;
 
-        async function openInstantPageModal(sha, pageNum, encodedTitle) {
+        async function openInstantPageModal(sha, pageNum, encodedTitle, encodedExcerpt) {
             activeRefSha = sha;
             activeRefPage = parseInt(pageNum, 10) || 1;
             activeRefTitle = decodeURIComponent(encodedTitle || "مرجع كنسي");
+            activeRefExcerpt = decodeURIComponent(encodedExcerpt || "");
             activeRefTotalPages = 1;
             activeRefViewMode = "image";
+            resetZoom();
             
             document.getElementById('refBookName').textContent = activeRefTitle;
             document.getElementById('refPageNum').textContent = activeRefPage;
             document.getElementById('refPageInput').value = activeRefPage;
-            document.getElementById('refDirectPdfBtn').href = `/api/books/${sha}/pages/${activeRefPage}/view`;
-            document.getElementById('refViewFullBtn').href = `/api/books/${sha}/view#page=${activeRefPage}`;
-            document.getElementById('refFullBookBtn').href = `/api/books/${sha}/download`;
             document.getElementById('refPageTotalSpan').style.display = 'none';
             document.getElementById('refSizeBadge').textContent = '';
+            
+            const excerptContent = document.getElementById('refExcerptContent');
+            const excerptBtn = document.getElementById('btnToggleExcerpt');
+            if (excerptContent && activeRefExcerpt) {
+                excerptContent.textContent = activeRefExcerpt;
+                if (excerptBtn) excerptBtn.style.display = 'inline-flex';
+            } else if (excerptBtn) {
+                excerptBtn.style.display = 'none';
+            }
             
             setRefViewMode('image');
             
@@ -1727,6 +1953,54 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                 }
             } catch (e) {
                 console.warn("Could not fetch book info:", e);
+            }
+        }
+
+        function adjustZoom(delta) {
+            currentZoomIndex = Math.max(0, Math.min(ZOOM_LEVELS.length - 1, currentZoomIndex + delta));
+            const zoomVal = ZOOM_LEVELS[currentZoomIndex];
+            const badge = document.getElementById('refZoomLevel');
+            if (badge) badge.textContent = zoomVal + '%';
+            const img = document.getElementById('refPageImg');
+            if (img) {
+                img.style.transform = `scale(${zoomVal / 100})`;
+            }
+        }
+
+        function resetZoom() {
+            currentZoomIndex = 2; // 100%
+            const badge = document.getElementById('refZoomLevel');
+            if (badge) badge.textContent = '100%';
+            const img = document.getElementById('refPageImg');
+            if (img) {
+                img.style.transform = 'scale(1)';
+            }
+        }
+
+        function toggleHighlight() {
+            highlightEnabled = !highlightEnabled;
+            const btn = document.getElementById('btnToggleHighlight');
+            if (btn) {
+                btn.classList.toggle('active', highlightEnabled);
+                btn.textContent = highlightEnabled ? '🖍️ هاي لايت' : '🖍️ بدون تظليل';
+            }
+            renderActiveRefPage();
+        }
+
+        function toggleExcerptDrawer() {
+            const box = document.getElementById('refExcerptBox');
+            if (box) {
+                box.style.display = (box.style.display === 'none' || !box.style.display) ? 'block' : 'none';
+            }
+        }
+
+        function toggleFullscreen() {
+            const card = document.querySelector('.ref-modal-card');
+            if (card) {
+                card.classList.toggle('fullscreen');
+                const isFull = card.classList.contains('fullscreen');
+                const btn = document.getElementById('btnToggleFullscreen');
+                if (btn) btn.textContent = isFull ? '⛶ تصغير' : '⛶ ملء الشاشة';
             }
         }
 
@@ -1756,8 +2030,13 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             
             document.getElementById('refPageNum').textContent = activeRefPage;
             document.getElementById('refPageInput').value = activeRefPage;
-            document.getElementById('refDirectPdfBtn').href = `/api/books/${activeRefSha}/pages/${activeRefPage}/view`;
+            
+            const hlParam = (highlightEnabled && activeRefExcerpt) ? `&highlight=${encodeURIComponent(activeRefExcerpt)}` : '';
+            const hlParamPdf = (highlightEnabled && activeRefExcerpt) ? `?highlight=${encodeURIComponent(activeRefExcerpt)}` : '';
+
+            document.getElementById('refDirectPdfBtn').href = `/api/books/${activeRefSha}/pages/${activeRefPage}/view${hlParamPdf}`;
             document.getElementById('refViewFullBtn').href = `/api/books/${activeRefSha}/view#page=${activeRefPage}`;
+            document.getElementById('refFullBookBtn').href = `/api/books/${activeRefSha}/download`;
             
             const loading = document.getElementById('refLoading');
             const img = document.getElementById('refPageImg');
@@ -1765,7 +2044,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             
             if (activeRefViewMode === 'image') {
                 loading.style.display = 'block';
-                loading.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div><div style="margin-top: 10px; font-weight: 700;">جاري استخراج وعرض صـ ' + activeRefPage + ' فوراً...</div>';
+                loading.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div><div style="margin-top: 10px; font-weight: 700;">جاري استخراج وعرض صـ ' + activeRefPage + ' مع التظليل الذهبي...</div>';
                 img.style.display = 'none';
                 
                 img.onload = () => {
@@ -1773,12 +2052,12 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                     img.style.display = 'block';
                 };
                 img.onerror = () => {
-                    loading.innerHTML = '<div style="color: var(--accent); padding: 20px;">ℹ️ هذه الصفحة متوفرة كـ PDF خفيف أو النص مفهرس.<br><a href="/api/books/' + activeRefSha + '/pages/' + activeRefPage + '/view" target="_blank" style="color:var(--gold); font-weight:bold; display:inline-block; margin-top:10px;">📄 انقر هنا لفتح صفحة الـ PDF مباشرة (15KB)</a></div>';
+                    loading.innerHTML = '<div style="color: var(--accent); padding: 20px;">ℹ️ هذه الصفحة متوفرة كـ PDF خفيف أو النص مفهرس.<br><a href="/api/books/' + activeRefSha + '/pages/' + activeRefPage + '/view' + hlParamPdf + '" target="_blank" style="color:var(--gold); font-weight:bold; display:inline-block; margin-top:10px;">📄 انقر هنا لفتح صفحة الـ PDF مباشرة (15KB)</a></div>';
                 };
-                img.src = `/api/books/${activeRefSha}/pages/${activeRefPage}/image?t=` + Date.now();
+                img.src = `/api/books/${activeRefSha}/pages/${activeRefPage}/image?t=` + Date.now() + hlParam;
             } else {
                 loading.style.display = 'none';
-                iframe.src = `/api/books/${activeRefSha}/pages/${activeRefPage}/view`;
+                iframe.src = `/api/books/${activeRefSha}/pages/${activeRefPage}/view${hlParamPdf}`;
             }
         }
 
@@ -2011,11 +2290,54 @@ async def export_discussion_session(session_id: str, format: str = "markdown"):
     )
 
 
+def apply_highlights_to_page(page, highlight_text: Optional[str] = None):
+    """
+    Finds and applies golden yellow highlight annotations to page for keywords in highlight_text.
+    Supports Arabic, Coptic, and Greek terms safely without mutating original documents on disk.
+    """
+    if not highlight_text or not highlight_text.strip():
+        return 0
+    try:
+        from elantony.search.search_engine import ARABIC_STOPWORDS
+        import re
+        raw_words = re.findall(r'[\w\u0621-\u064A\u0370-\u03FF\u2C80-\u2CFF]+', highlight_text)
+        terms = [w for w in raw_words if len(w) >= 3 and w not in ARABIC_STOPWORDS][:12]
+        
+        highlighted_count = 0
+        # Try phrase pairs first
+        for i in range(len(terms) - 1):
+            phrase = f"{terms[i]} {terms[i+1]}"
+            rects = page.search_for(phrase)
+            for r in rects:
+                annot = page.add_highlight_annot(r)
+                annot.set_colors(stroke=(1.0, 0.82, 0.15)) # Warm Patristic Gold
+                annot.update()
+                highlighted_count += 1
+            if highlighted_count >= 12:
+                break
+                
+        # If few phrase matches, highlight individual key theological terms
+        if highlighted_count < 3:
+            for t in terms:
+                rects = page.search_for(t)
+                for r in rects[:4]:
+                    annot = page.add_highlight_annot(r)
+                    annot.set_colors(stroke=(1.0, 0.84, 0.20)) # Gold Highlight
+                    annot.update()
+                    highlighted_count += 1
+                if highlighted_count >= 16:
+                    break
+        return highlighted_count
+    except Exception as e:
+        logger.warning(f"Error applying highlights: {e}")
+        return 0
+
+
 @app.get("/api/books/{sha256}/pages/{page_number}/view")
-async def get_book_single_page_pdf(sha256: str, page_number: int):
+async def get_book_single_page_pdf(sha256: str, page_number: int, highlight: Optional[str] = None):
     """
     Ultra-fast single-page PDF streaming (15-30 KB instead of 100 MB).
-    Loads in ~0.1s directly on targeted page without downloading entire book.
+    Loads in ~0.1s directly on targeted page with optional golden text highlighting.
     """
     book = repo.get_book_by_sha(sha256)
     if not book:
@@ -2030,6 +2352,8 @@ async def get_book_single_page_pdf(sha256: str, page_number: int):
         page_idx = max(0, min(page_number - 1, len(doc) - 1))
         single_doc = fitz.open()
         single_doc.insert_pdf(doc, from_page=page_idx, to_page=page_idx)
+        if highlight:
+            apply_highlights_to_page(single_doc[0], highlight)
         pdf_bytes = single_doc.tobytes()
         clean_name = os.path.splitext(os.path.basename(file_path))[0]
         return Response(
@@ -2043,10 +2367,10 @@ async def get_book_single_page_pdf(sha256: str, page_number: int):
 
 
 @app.get("/api/books/{sha256}/pages/{page_number}/image")
-async def get_book_page_image(sha256: str, page_number: int):
+async def get_book_page_image(sha256: str, page_number: int, highlight: Optional[str] = None):
     """
     Renders the exact book page as an ultra-fast, high-res JPG image (~18 KB).
-    Renders in ~0.15s for instant in-browser modal viewing without downloading PDF plugins.
+    Renders in ~0.15s with golden yellow highlight annotations for extracted citations.
     """
     book = repo.get_book_by_sha(sha256)
     if not book:
@@ -2060,7 +2384,9 @@ async def get_book_page_image(sha256: str, page_number: int):
         doc = fitz.open(file_path)
         page_idx = max(0, min(page_number - 1, len(doc) - 1))
         page = doc.load_page(page_idx)
-        pix = page.get_pixmap(dpi=135)
+        if highlight:
+            apply_highlights_to_page(page, highlight)
+        pix = page.get_pixmap(dpi=140)
         jpg_bytes = pix.tobytes("jpg")
         return Response(
             content=jpg_bytes,
