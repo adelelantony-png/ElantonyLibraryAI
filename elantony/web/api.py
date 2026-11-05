@@ -134,31 +134,117 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>✠ ELANTONY LIBRARY AI - المساعد والباحث اللاهوتي الذكي</title>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <!-- Google Fonts: Amiri (نسخ آبائي مريح للقراءة المطولة) + Cairo (واجهات) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400;1,700&family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
+        /* ========================================================
+           ELANTONY EYE-COMFORT DESIGN SYSTEM (منظومة راحة العين)
+           1. Sepia (افتراضي): ورق البرديات والمخطوطات الدافئة المريحة
+           2. Dark: هدوء ليلي مخملي بدون سواد فاقع أو توهج أزرق
+           3. Light: ورق كنسي صباحي هادئ بدون وهج
+           ======================================================== */
         :root {
-            --bg-darker: #090D16;
-            --bg-sidebar: #0F172A;
-            --bg-chat: #131D31;
-            --bg-bubble-ai: #1E293B;
-            --bg-bubble-user: #2563EB;
-            --card-border: #334155;
-            --accent: #3B82F6;
-            --accent-hover: #1D4ED8;
-            --gold: #F59E0B;
-            --gold-light: #FDE68A;
-            --text-main: #F8FAFC;
-            --text-sub: #94A3B8;
-            --radius-bubble: 16px;
+            /* النمط الافتراضي: برديات دافئة (Sepia / Parchment) */
+            --bg-darker: #F5EFE6;
+            --bg-sidebar: #ECE3D4;
+            --bg-chat: #FAF7F2;
+            --bg-bubble-ai: #FFFDF9;
+            --bg-bubble-user: #E5D7C3;
+            --card-border: #DBCBB5;
+            --card-hover: #E8DAC6;
+            --accent: #874F19;
+            --accent-hover: #6B3C0F;
+            --accent-light: rgba(135, 79, 25, 0.12);
+            --gold: #A16207;
+            --gold-light: #FEF3C7;
+            --text-main: #2A2118;
+            --text-sub: #705F4E;
+            --text-user: #231B14;
+            --quote-bg: rgba(161, 98, 7, 0.08);
+            --quote-border: #A16207;
+            --citation-bg: #F2E8DC;
+            --input-bg: #FFFDF9;
+            --nav-bg: rgba(245, 239, 230, 0.94);
+            --modal-bg: #FFFDF9;
+            --shadow-sm: 0 1px 3px rgba(42, 33, 24, 0.06);
+            --shadow-md: 0 4px 16px rgba(42, 33, 24, 0.09);
+            --font-reader: 'Amiri', serif;
+            --font-size: 16.5px;
+            --line-height: 1.95;
+            --radius-bubble: 14px;
         }
 
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Cairo', sans-serif; }
-        body { background: var(--bg-darker); color: var(--text-main); height: 100vh; display: flex; overflow: hidden; }
+        /* 🌙 هدوء ليلي مخملي (Soft Slate Dark) */
+        body[data-theme="dark"] {
+            --bg-darker: #13161F;
+            --bg-sidebar: #181C27;
+            --bg-chat: #151822;
+            --bg-bubble-ai: #1B202D;
+            --bg-bubble-user: #27364D;
+            --card-border: #283042;
+            --card-hover: #222938;
+            --accent: #5294E2;
+            --accent-hover: #3B82F6;
+            --accent-light: rgba(82, 148, 226, 0.15);
+            --gold: #E5A93C;
+            --gold-light: #FDE68A;
+            --text-main: #D5DDE8;
+            --text-sub: #8492A6;
+            --text-user: #F1F5F9;
+            --quote-bg: rgba(229, 169, 60, 0.08);
+            --quote-border: #E5A93C;
+            --citation-bg: #161B26;
+            --input-bg: #181D29;
+            --nav-bg: rgba(19, 22, 31, 0.92);
+            --modal-bg: #181D29;
+            --shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.25);
+            --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.4);
+        }
+
+        /* ☀️ ورق كنسي صباحي ناصع (Clean Daylight Paper) */
+        body[data-theme="light"] {
+            --bg-darker: #EEF2F6;
+            --bg-sidebar: #F4F7FA;
+            --bg-chat: #FFFFFF;
+            --bg-bubble-ai: #F8FAFC;
+            --bg-bubble-user: #E2E8F0;
+            --card-border: #CBD5E1;
+            --card-hover: #E2E8F0;
+            --accent: #1E40AF;
+            --accent-hover: #1D4ED8;
+            --accent-light: rgba(30, 64, 175, 0.1);
+            --gold: #B45309;
+            --gold-light: #FEF3C7;
+            --text-main: #1E293B;
+            --text-sub: #64748B;
+            --text-user: #0F172A;
+            --quote-bg: rgba(180, 83, 9, 0.06);
+            --quote-border: #B45309;
+            --citation-bg: #F1F5F9;
+            --input-bg: #FFFFFF;
+            --nav-bg: rgba(255, 255, 255, 0.94);
+            --modal-bg: #FFFFFF;
+            --shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: var(--bg-darker);
+            color: var(--text-main);
+            font-family: 'Cairo', sans-serif;
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+            transition: background 0.25s ease, color 0.25s ease;
+        }
 
         /* Sidebar */
         .sidebar {
-            width: 300px;
+            width: 290px;
             background: var(--bg-sidebar);
             border-left: 1px solid var(--card-border);
             display: flex;
@@ -178,20 +264,20 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             align-items: center;
             gap: 10px;
             font-weight: 900;
-            font-size: 16px;
-            color: #FFF;
+            font-size: 15px;
+            color: var(--text-main);
             letter-spacing: 0.5px;
         }
-        .app-brand span { color: var(--gold); }
+        .app-brand span { color: var(--gold); font-size: 18px; }
         .btn-new-chat {
-            margin: 14px 18px;
-            background: rgba(59, 130, 246, 0.15);
+            margin: 14px 16px;
+            background: var(--accent-light);
             border: 1px dashed var(--accent);
-            color: #60A5FA;
-            padding: 11px;
-            border-radius: 10px;
+            color: var(--accent);
+            padding: 10px;
+            border-radius: 9px;
             font-weight: 700;
-            font-size: 14px;
+            font-size: 13.5px;
             cursor: pointer;
             display: flex;
             align-items: center;
@@ -212,13 +298,13 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
         .chat-history {
             flex: 1;
             overflow-y: auto;
-            padding: 0 14px;
+            padding: 0 12px;
         }
         .chat-history-item {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 9px 12px;
+            padding: 8px 12px;
             border-radius: 8px;
             font-size: 13px;
             color: var(--text-sub);
@@ -227,15 +313,14 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             transition: 0.2s;
             border: 1px solid transparent;
         }
-        .chat-history-item:hover, .chat-history-item.active {
-            background: rgba(255,255,255,0.08);
-            color: #FFF;
-            border-color: rgba(255,255,255,0.1);
+        .chat-history-item:hover {
+            background: var(--card-hover);
+            color: var(--text-main);
         }
         .chat-history-item.active {
-            background: rgba(59, 130, 246, 0.15);
+            background: var(--accent-light);
             border-color: var(--accent);
-            color: #93C5FD;
+            color: var(--accent);
             font-weight: 700;
         }
         .chat-item-text {
@@ -261,22 +346,22 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             transition: 0.2s;
             color: var(--text-sub);
         }
-        .chat-history-item:hover .btn-sess-act { opacity: 0.8; }
-        .btn-sess-act:hover { opacity: 1; background: rgba(255,255,255,0.12); color: #FFF; }
-        .btn-sess-del:hover { background: rgba(239,68,68,0.25); color: #EF4444; }
+        .chat-history-item:hover .btn-sess-act { opacity: 0.85; }
+        .btn-sess-act:hover { opacity: 1; background: var(--card-hover); color: var(--text-main); }
+        .btn-sess-del:hover { background: rgba(239,68,68,0.18); color: #DC2626; }
 
         .sidebar-footer {
-            padding: 14px 18px;
+            padding: 12px 16px;
             border-top: 1px solid var(--card-border);
             font-size: 12px;
             color: var(--text-sub);
-            background: rgba(0,0,0,0.25);
+            background: var(--card-hover);
             display: flex;
             flex-direction: column;
-            gap: 6px;
+            gap: 5px;
         }
         .sidebar-footer strong { color: var(--gold); }
-        .sidebar-footer a { color: #60A5FA; text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
+        .sidebar-footer a { color: var(--accent); text-decoration: none; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; }
 
         /* Main Container */
         .main-container {
@@ -287,160 +372,92 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             position: relative;
         }
         .top-navbar {
-            min-height: 62px;
+            min-height: 60px;
             border-bottom: 1px solid var(--card-border);
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 8px 20px;
-            background: rgba(15, 23, 42, 0.75);
+            padding: 8px 18px;
+            background: var(--nav-bg);
             backdrop-filter: blur(10px);
-            gap: 12px;
+            gap: 10px;
             flex-wrap: wrap;
+            z-index: 10;
         }
-        .nav-title { font-weight: 800; font-size: 15px; display: flex; align-items: center; gap: 8px; color: #FFF; }
-        .nav-title span { color: var(--gold); }
+        .nav-title { font-weight: 900; font-size: 14.5px; display: flex; align-items: center; gap: 8px; color: var(--text-main); }
+        .nav-title span { color: var(--gold); font-size: 18px; }
 
-        /* Depth Selector */
-        .depth-selector-group {
+        /* Control Groups */
+        .controls-wrapper {
             display: flex;
             align-items: center;
-            background: #090D16;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .theme-switch-group, .font-ctrl-group, .depth-selector-group {
+            display: inline-flex;
+            align-items: center;
+            background: var(--bg-darker);
             border: 1px solid var(--card-border);
-            border-radius: 10px;
+            border-radius: 9px;
             padding: 3px;
             gap: 2px;
         }
-        .depth-label {
+        .ctrl-label {
             font-size: 11px;
             font-weight: 800;
             color: var(--gold);
-            padding: 0 8px;
+            padding: 0 6px;
         }
-        .btn-depth {
+        .btn-ctrl {
             background: none;
             border: none;
             color: var(--text-sub);
-            padding: 5px 10px;
-            border-radius: 7px;
+            padding: 4px 8px;
+            border-radius: 6px;
             font-size: 12px;
             font-weight: 700;
             cursor: pointer;
-            transition: 0.2s;
+            transition: 0.18s;
+            font-family: 'Cairo', sans-serif;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            white-space: nowrap;
         }
-        .btn-depth:hover { color: #FFF; background: rgba(255,255,255,0.05); }
-        .btn-depth.active {
+        .btn-ctrl:hover { color: var(--text-main); background: var(--card-hover); }
+        .btn-ctrl.active {
             background: var(--accent);
             color: #FFF;
-            box-shadow: 0 2px 6px rgba(37,99,235,0.4);
+            box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+        }
+        .font-size-label {
+            font-size: 11px;
+            font-weight: 800;
+            color: var(--gold);
+            min-width: 38px;
+            text-align: center;
         }
 
-        .nav-actions { display: flex; align-items: center; gap: 8px; }
+        .nav-actions { display: flex; align-items: center; gap: 6px; }
         .btn-nav {
-            padding: 6px 13px;
-            border-radius: 8px;
+            padding: 5px 11px;
+            border-radius: 7px;
             font-weight: 700;
             font-size: 12px;
             cursor: pointer;
             display: inline-flex;
             align-items: center;
-            gap: 6px;
+            gap: 5px;
             transition: 0.2s;
             border: 1px solid transparent;
             text-decoration: none;
+            font-family: 'Cairo', sans-serif;
         }
-        .btn-compile { background: rgba(245, 158, 11, 0.15); border-color: var(--gold); color: #FBBF24; }
-        .btn-compile:hover { background: var(--gold); color: #000; }
-        .btn-docx-nav { background: rgba(16, 185, 129, 0.15); border-color: #10B981; color: #34D399; }
-        .btn-docx-nav:hover { background: #10B981; color: #000; }
-        .btn-export-nav { background: rgba(59, 130, 246, 0.15); border-color: var(--accent); color: #60A5FA; }
-        .btn-export-nav:hover { background: var(--accent); color: #FFF; }
-
-        /* Modal Styles */
-        .modal-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.82);
-            backdrop-filter: blur(6px);
-            display: none;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-            padding: 20px;
-        }
-        .modal-overlay.open { display: flex; }
-        .modal-card {
-            background: #0F172A;
-            border: 1px solid var(--card-border);
-            border-radius: 16px;
-            width: 100%;
-            max-width: 980px;
-            max-height: 88vh;
-            display: flex;
-            flex-direction: column;
-            box-shadow: 0 25px 50px rgba(0,0,0,0.7);
-            overflow: hidden;
-        }
-        .modal-header {
-            padding: 16px 22px;
-            border-bottom: 1px solid var(--card-border);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            background: #131D31;
-        }
-        .modal-title {
-            font-weight: 800;
-            font-size: 16px;
-            color: var(--gold);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .modal-actions {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            flex-wrap: wrap;
-        }
-        .btn-modal-act {
-            background: rgba(59, 130, 246, 0.15);
-            border: 1px solid var(--accent);
-            color: #93C5FD;
-            padding: 6px 12px;
-            border-radius: 6px;
-            font-size: 12px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: 0.2s;
-        }
-        .btn-modal-act:hover { background: var(--accent); color: #FFF; }
-        .btn-modal-docx {
-            background: rgba(16, 185, 129, 0.2);
-            border-color: #10B981;
-            color: #6EE7B7;
-        }
-        .btn-modal-docx:hover { background: #10B981; color: #000; }
-        .btn-modal-close {
-            background: none;
-            border: none;
-            color: var(--text-sub);
-            font-size: 20px;
-            cursor: pointer;
-            padding: 4px 8px;
-        }
-        .btn-modal-close:hover { color: #EF4444; }
-        .modal-body {
-            flex: 1;
-            overflow-y: auto;
-            padding: 26px 30px;
-            color: var(--text-main);
-            font-size: 15px;
-            line-height: 1.85;
-        }
-        .modal-body h1, .modal-body h2, .modal-body h3 { color: #60A5FA; margin: 16px 0 8px 0; }
-        .modal-body strong { color: var(--gold); }
-        .modal-body blockquote { border-right: 4px solid var(--gold); padding-right: 14px; margin: 12px 0; color: #CBD5E1; font-style: italic; background: rgba(255,255,255,0.02); padding: 8px 14px; border-radius: 4px; }
+        .btn-compile { background: rgba(161, 98, 7, 0.14); border-color: var(--gold); color: var(--gold); }
+        .btn-compile:hover { background: var(--gold); color: #FFF; }
+        .btn-docx-nav { background: rgba(16, 185, 129, 0.14); border-color: #10B981; color: #059669; }
+        .btn-docx-nav:hover { background: #10B981; color: #FFF; }
 
         /* Messages Window */
         .messages-area {
@@ -452,18 +469,18 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             gap: 20px;
         }
         .messages-container {
-            max-width: 920px;
+            max-width: 900px;
             margin: 0 auto;
             width: 100%;
             display: flex;
             flex-direction: column;
-            gap: 22px;
+            gap: 20px;
         }
 
         /* Message Bubbles */
         .msg-row {
             display: flex;
-            gap: 14px;
+            gap: 12px;
             width: 100%;
         }
         .msg-row.user {
@@ -471,18 +488,18 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             flex-direction: row-reverse;
         }
         .msg-avatar {
-            width: 38px;
-            height: 38px;
-            border-radius: 10px;
+            width: 36px;
+            height: 36px;
+            border-radius: 9px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 16px;
+            font-size: 15px;
             font-weight: 900;
             flex-shrink: 0;
         }
-        .msg-avatar.ai { background: linear-gradient(135deg, #2563EB, #1D4ED8); color: #FFF; box-shadow: 0 4px 12px rgba(37,99,235,0.3); }
-        .msg-avatar.user { background: #475569; color: #FFF; }
+        .msg-avatar.ai { background: var(--accent); color: #FFF; box-shadow: var(--shadow-sm); }
+        .msg-avatar.user { background: var(--card-border); color: var(--text-main); }
 
         .msg-content {
             max-width: 86%;
@@ -493,9 +510,9 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            background: rgba(245, 158, 11, 0.15);
-            border: 1px solid rgba(245, 158, 11, 0.3);
-            color: var(--gold);
+            background: var(--accent-light);
+            border: 1px solid var(--card-border);
+            color: var(--accent);
             font-size: 11px;
             font-weight: 800;
             padding: 3px 10px;
@@ -504,40 +521,64 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             align-self: flex-start;
         }
         .bubble {
-            padding: 18px 22px;
+            padding: 20px 24px;
             border-radius: var(--radius-bubble);
-            font-size: 15px;
-            line-height: 1.8;
+            font-size: var(--font-size);
+            line-height: var(--line-height);
             word-break: break-word;
+            font-family: var(--font-reader);
+            box-shadow: var(--shadow-sm);
         }
         .msg-row.user .bubble {
             background: var(--bg-bubble-user);
-            color: #FFF;
+            color: var(--text-user);
             border-top-left-radius: 4px;
+            border: 1px solid var(--card-border);
+            font-family: 'Cairo', sans-serif;
+            font-weight: 600;
         }
         .msg-row.ai .bubble {
             background: var(--bg-bubble-ai);
             color: var(--text-main);
             border: 1px solid var(--card-border);
             border-top-right-radius: 4px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+            box-shadow: var(--shadow-md);
         }
 
-        /* Markdown inside assistant */
-        .bubble h1, .bubble h2, .bubble h3, .bubble h4 { color: #60A5FA; margin: 14px 0 6px 0; }
-        .bubble ul, .bubble ol { margin: 8px 24px; }
-        .bubble li { margin-bottom: 4px; }
-        .bubble strong { color: #F59E0B; }
+        /* Markdown Typography inside assistant bubble */
+        .bubble h1, .bubble h2, .bubble h3, .bubble h4 {
+            color: var(--accent);
+            margin: 16px 0 8px 0;
+            font-family: 'Cairo', sans-serif;
+            font-weight: 800;
+        }
+        .bubble h2 { font-size: 1.25em; border-bottom: 1px dashed var(--card-border); padding-bottom: 6px; }
+        .bubble h3 { font-size: 1.1em; }
+        .bubble p { margin-bottom: 14px; }
+        .bubble p:last-child { margin-bottom: 0; }
+        .bubble ul, .bubble ol { margin: 8px 24px 14px 24px; }
+        .bubble li { margin-bottom: 6px; }
+        .bubble strong { color: var(--gold); font-weight: 700; }
         .bubble hr { border: 0; height: 1px; background: var(--card-border); margin: 16px 0; }
-        .bubble blockquote { border-right: 3px solid var(--gold); padding-right: 12px; margin: 8px 0; color: #CBD5E1; font-style: italic; background: rgba(255,255,255,0.02); padding: 6px 12px; border-radius: 4px; }
+        .bubble blockquote {
+            border-right: 4px solid var(--quote-border);
+            padding: 10px 16px;
+            margin: 14px 0;
+            color: var(--text-main);
+            background: var(--quote-bg);
+            border-radius: 8px;
+            font-size: 1.02em;
+            line-height: 1.9;
+        }
 
         /* Citations Box */
         .citations-section {
-            margin-top: 12px;
-            background: rgba(15, 23, 42, 0.7);
+            margin-top: 14px;
+            background: var(--citation-bg);
             border: 1px solid var(--card-border);
             border-radius: 12px;
-            padding: 12px 14px;
+            padding: 12px 16px;
+            box-shadow: var(--shadow-sm);
         }
         .citations-header {
             font-size: 13px;
@@ -549,26 +590,27 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             justify-content: space-between;
         }
         .citations-list {
-            margin-top: 10px;
+            margin-top: 12px;
             display: flex;
             flex-direction: column;
             gap: 10px;
         }
         .citation-item {
-            background: rgba(30, 41, 59, 0.85);
-            border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 8px;
-            padding: 12px;
+            background: var(--bg-bubble-ai);
+            border: 1px solid var(--card-border);
+            border-radius: 9px;
+            padding: 12px 14px;
             font-size: 13px;
+            box-shadow: var(--shadow-sm);
         }
         .citation-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-        .citation-title { font-weight: 800; color: #93C5FD; font-size: 13px; }
-        .citation-badge { background: rgba(245, 158, 11, 0.2); color: var(--gold); padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; white-space: nowrap; }
-        .citation-meta { font-size: 12px; color: #94A3B8; margin-top: 4px; }
-        .citation-excerpt { color: #CBD5E1; font-size: 12px; margin-top: 8px; border-right: 2px solid var(--accent); padding-right: 10px; line-height: 1.6; }
-        .citation-actions { margin-top: 8px; display: flex; gap: 8px; }
+        .citation-title { font-weight: 800; color: var(--accent); font-size: 14px; font-family: 'Cairo', sans-serif; }
+        .citation-badge { background: var(--accent-light); color: var(--accent); padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+        .citation-meta { font-size: 12px; color: var(--text-sub); margin-top: 4px; }
+        .citation-excerpt { color: var(--text-main); font-size: 13px; margin-top: 8px; border-right: 3px solid var(--gold); padding: 8px 12px; border-radius: 6px; background: var(--card-hover); line-height: 1.75; font-family: var(--font-reader); }
+        .citation-actions { margin-top: 10px; display: flex; gap: 8px; }
         .btn-cite-act {
-            font-size: 11px;
+            font-size: 11.5px;
             font-weight: 700;
             padding: 4px 10px;
             border-radius: 6px;
@@ -577,11 +619,12 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             align-items: center;
             gap: 4px;
             transition: 0.2s;
+            font-family: 'Cairo', sans-serif;
         }
-        .btn-cite-view { background: rgba(59, 130, 246, 0.15); border: 1px solid var(--accent); color: #93C5FD; }
+        .btn-cite-view { background: var(--accent-light); border: 1px solid var(--accent); color: var(--accent); }
         .btn-cite-view:hover { background: var(--accent); color: #FFF; }
-        .btn-cite-dl { background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.15); color: #CBD5E1; }
-        .btn-cite-dl:hover { background: rgba(255, 255, 255, 0.15); color: #FFF; }
+        .btn-cite-dl { background: var(--card-hover); border: 1px solid var(--card-border); color: var(--text-main); }
+        .btn-cite-dl:hover { background: var(--card-border); }
 
         /* Hero / Empty State */
         .hero {
@@ -593,17 +636,17 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             display: inline-flex;
             align-items: center;
             gap: 8px;
-            background: rgba(59, 130, 246, 0.12);
+            background: var(--accent-light);
             border: 1px solid var(--accent);
-            color: #60A5FA;
+            color: var(--accent);
             padding: 6px 16px;
             border-radius: 30px;
-            font-size: 14px;
+            font-size: 13.5px;
             font-weight: 800;
             margin-bottom: 14px;
         }
-        .hero h2 { font-size: 2rem; font-weight: 900; color: #FFF; margin-bottom: 8px; }
-        .hero p { color: var(--text-sub); font-size: 15px; max-width: 640px; margin: 0 auto 26px auto; line-height: 1.7; }
+        .hero h2 { font-size: 1.85rem; font-weight: 900; color: var(--text-main); margin-bottom: 8px; }
+        .hero p { color: var(--text-sub); font-size: 15px; max-width: 640px; margin: 0 auto 26px auto; line-height: 1.75; }
         .prompt-cards {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
@@ -620,13 +663,14 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             cursor: pointer;
             transition: 0.2s;
             font-size: 14px;
-            color: #CBD5E1;
+            color: var(--text-main);
+            box-shadow: var(--shadow-sm);
         }
         .prompt-card:hover {
             border-color: var(--accent);
-            background: #253349;
+            background: var(--card-hover);
             transform: translateY(-2px);
-            color: #FFF;
+            box-shadow: var(--shadow-md);
         }
 
         /* Bottom Input Bar */
@@ -634,35 +678,42 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             padding: 14px 20px 18px 20px;
             border-top: 1px solid var(--card-border);
             background: var(--bg-sidebar);
+            transition: background 0.25s ease;
         }
         .input-box-wrapper {
-            max-width: 920px;
+            max-width: 900px;
             margin: 0 auto;
             position: relative;
-            background: #0F172A;
+            background: var(--input-bg);
             border: 1px solid var(--card-border);
             border-radius: 14px;
             display: flex;
             align-items: flex-end;
             padding: 8px 14px;
             transition: 0.2s;
+            box-shadow: var(--shadow-sm);
         }
         .input-box-wrapper:focus-within {
             border-color: var(--accent);
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+            box-shadow: 0 0 0 3px var(--accent-light);
         }
         .chat-textarea {
             flex: 1;
             background: transparent;
             border: none;
-            color: #FFF;
+            color: var(--text-main);
             font-size: 15px;
+            font-family: 'Cairo', sans-serif;
             resize: none;
             outline: none;
             max-height: 180px;
-            min-height: 26px;
-            line-height: 1.5;
+            min-height: 28px;
+            line-height: 1.6;
             padding: 6px 0;
+        }
+        .chat-textarea::placeholder {
+            color: var(--text-sub);
+            opacity: 0.8;
         }
         .btn-send {
             background: var(--accent);
@@ -681,7 +732,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             font-size: 16px;
         }
         .btn-send:hover { background: var(--accent-hover); transform: scale(1.05); }
-        .btn-send:disabled { background: #334155; cursor: not-allowed; opacity: 0.6; transform: none; }
+        .btn-send:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
         .input-disclaimer {
             text-align: center;
             font-size: 12px;
@@ -689,41 +740,130 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             margin-top: 8px;
         }
 
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.65);
+            backdrop-filter: blur(4px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 20px;
+        }
+        .modal-overlay.open { display: flex; }
+        .modal-card {
+            background: var(--modal-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            width: 100%;
+            max-width: 960px;
+            max-height: 88vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        .modal-header {
+            padding: 16px 22px;
+            border-bottom: 1px solid var(--card-border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--bg-sidebar);
+        }
+        .modal-title {
+            font-weight: 800;
+            font-size: 16px;
+            color: var(--accent);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .modal-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .btn-modal-act {
+            background: var(--accent-light);
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.2s;
+            font-family: 'Cairo', sans-serif;
+        }
+        .btn-modal-act:hover { background: var(--accent); color: #FFF; }
+        .btn-modal-docx {
+            background: rgba(16, 185, 129, 0.16);
+            border-color: #10B981;
+            color: #059669;
+        }
+        .btn-modal-docx:hover { background: #10B981; color: #FFF; }
+        .btn-modal-close {
+            background: none;
+            border: none;
+            color: var(--text-sub);
+            font-size: 20px;
+            cursor: pointer;
+            padding: 4px 8px;
+        }
+        .btn-modal-close:hover { color: #EF4444; }
+        .modal-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 26px 30px;
+            color: var(--text-main);
+            font-size: var(--font-size);
+            line-height: var(--line-height);
+            font-family: var(--font-reader);
+        }
+        .modal-body h1, .modal-body h2, .modal-body h3 { color: var(--accent); margin: 16px 0 8px 0; font-family: 'Cairo', sans-serif; }
+        .modal-body strong { color: var(--gold); }
+        .modal-body blockquote { border-right: 4px solid var(--quote-border); padding: 8px 14px; margin: 12px 0; background: var(--quote-bg); border-radius: 6px; }
+
         /* Loading Dots */
         .typing-dots { display: inline-flex; gap: 4px; padding: 6px 0; }
-        .typing-dots span { width: 6px; height: 6px; background: #60A5FA; border-radius: 50%; animation: blink 1.4s infinite; }
+        .typing-dots span { width: 6px; height: 6px; background: var(--accent); border-radius: 50%; animation: blink 1.4s infinite; }
         .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
         .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
         @keyframes blink { 0%, 100% { opacity: 0.2; } 50% { opacity: 1; } }
 
-        @media (max-width: 820px) {
+        @media (max-width: 992px) {
             .sidebar { display: none; }
-            .top-navbar { flex-direction: column; align-items: stretch; }
-            .depth-selector-group { justify-content: center; }
+            .top-navbar { flex-direction: column; align-items: stretch; gap: 8px; padding: 10px; }
+            .controls-wrapper { justify-content: center; }
+            .nav-actions { justify-content: center; }
         }
     </style>
 </head>
-<body>
+<body data-theme="sepia">
     <!-- Sidebar -->
     <aside class="sidebar">
         <div class="sidebar-header">
             <div class="app-brand">
                 <span>✠</span> ELANTONY AI
             </div>
-            <a href="https://t.me/ElantonyLibrarybot" target="_blank" title="فتح البوت الرسمي على تليجرام" style="color: #60A5FA; font-size: 18px; text-decoration: none;">
+            <a href="https://t.me/ElantonyLibrarybot" target="_blank" title="فتح البوت الرسمي على تليجرام" style="color: var(--accent); font-size: 18px; text-decoration: none;">
                 ✈️
             </a>
         </div>
         <button class="btn-new-chat" onclick="startNewChat()">
-            <span>➕</span> محادثة بحثية جديدة
+            <span>➕</span> بحث لاهوتي جديد
         </button>
         <div class="chat-history-title">📂 أبحاثك ومناقشاتك المحفوظة</div>
         <div class="chat-history" id="chatHistoryList">
             <!-- Sessions populate dynamically -->
         </div>
         <div class="sidebar-footer">
-            <div>🏛️ <strong>3,656</strong> كتاباً مفهرساً</div>
-            <div>🧠 <strong>Gemini 3.5 / 2.5 Flash</strong> (صفر هلوسة)</div>
+            <div>🏛️ <strong>7,200+</strong> كتاباً ومخطوطاً</div>
+            <div>📜 <strong>شواهد موثقة</strong> (صفر هلوسة)</div>
             <div>📄 <strong>تصدير فوري</strong> Word (.docx)</div>
             <div style="margin-top: 6px;">
                 <a href="https://t.me/ElantonyLibrarybot" target="_blank">📱 @ElantonyLibrarybot</a>
@@ -733,18 +873,36 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
 
     <!-- Main Chat Container -->
     <main class="main-container">
-        <!-- Top Navbar -->
+        <!-- Top Navbar with Eye-Comfort Controls -->
         <div class="top-navbar">
             <div class="nav-title">
                 <span>✠</span> المساعد والباحث اللاهوتي الذكي
             </div>
 
-            <!-- Depth Mode Switcher -->
-            <div class="depth-selector-group" title="اختر نمط وعمق الإجابة اللاهوتية">
-                <span class="depth-label">النمط:</span>
-                <button class="btn-depth active" id="depth_academic" onclick="setDepthMode('academic')">🎓 أكاديمي موسع</button>
-                <button class="btn-depth" id="depth_pastoral" onclick="setDepthMode('pastoral')">🕊️ رعوي روحي</button>
-                <button class="btn-depth" id="depth_apologetic" onclick="setDepthMode('apologetic')">⚖️ دفاعي مقارن</button>
+            <div class="controls-wrapper">
+                <!-- Theme Switcher (أقصى راحة للعين) -->
+                <div class="theme-switch-group" title="اختر نمط الإضاءة المريح لعينيك">
+                    <span class="ctrl-label">🎨 المظهر:</span>
+                    <button class="btn-ctrl active" id="th_sepia" onclick="setTheme('sepia')" title="ورق برديات دافئ مهدئ للعينين (الأفضل للقراءة المطولة)">📜 برديات دافئة</button>
+                    <button class="btn-ctrl" id="th_dark" onclick="setTheme('dark')" title="هدوء ليلي مخملي مضاد للوهج">🌙 ليلي هادئ</button>
+                    <button class="btn-ctrl" id="th_light" onclick="setTheme('light')" title="ورق كنسي صباحي هادئ">☀️ ورقي ناصع</button>
+                </div>
+
+                <!-- Font & Size Adjuster (التحكم في الخط والحجم) -->
+                <div class="font-ctrl-group" title="التحكم في خط وحجم القراءة">
+                    <button class="btn-ctrl" id="btnFontToggle" onclick="toggleFontFamily()" title="التبديل بين خط النسخ الآبائي وخط كايرو الحديث">🔤 نسخ آبائي</button>
+                    <button class="btn-ctrl" onclick="adjustFontSize(-1)" title="تصغير الخط">A-</button>
+                    <span class="font-size-label" id="fontSizeLabel">100%</span>
+                    <button class="btn-ctrl" onclick="adjustFontSize(1)" title="تكبير الخط">A+</button>
+                </div>
+
+                <!-- Depth Mode Switcher -->
+                <div class="depth-selector-group" title="اختر نمط وعمق الإجابة اللاهوتية">
+                    <span class="ctrl-label">العمق:</span>
+                    <button class="btn-ctrl active" id="depth_academic" onclick="setDepthMode('academic')">🎓 أكاديمي</button>
+                    <button class="btn-ctrl" id="depth_pastoral" onclick="setDepthMode('pastoral')">🕊️ رعوي</button>
+                    <button class="btn-ctrl" id="depth_apologetic" onclick="setDepthMode('apologetic')">⚖️ دفاعي</button>
+                </div>
             </div>
 
             <div class="nav-actions">
@@ -752,10 +910,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                     <span>📑</span> تجميع البحث
                 </button>
                 <button class="btn-nav btn-docx-nav" onclick="downloadCurrentExport('docx')" title="تنزيل أطروحة البحث كاملة كملف Microsoft Word منسق">
-                    <span>📄</span> تنزيل Word
-                </button>
-                <button class="btn-nav btn-export-nav" onclick="downloadCurrentExport('markdown')" title="تصدير كملف Markdown">
-                    <span>📥</span> .md
+                    <span>📄</span> Word
                 </button>
             </div>
         </div>
@@ -765,25 +920,25 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             <div class="messages-container" id="messagesContainer">
                 <!-- Hero screen when no messages -->
                 <div class="hero" id="heroScreen">
-                    <div class="hero-badge">✠ منظومة ELANTONY LIBRARY الذكية</div>
+                    <div class="hero-badge">✠ منظومة ELANTONY LIBRARY AI</div>
                     <h2>كيف يمكنني مساندتك في بحثك الكنسي اليوم؟</h2>
-                    <p>أنا مساعدك اللاهوتي والآبائي المتخصص؛ أستحضر لك دراسات موثقة بالشواهد والصفحات من بطون أمهات الكتب الكنسية المفهرسة مع حفظ سياق النقاش وإمكانية تصدير البحث كاملاً كملف Word.</p>
+                    <p>أنا مساعدك اللاهوتي والآبائي المتخصص؛ أستحضر لك دراسات موثقة بالشواهد والصفحات من بطون أمهات الكتب الكنسية مع إمكانية تصدير البحث كاملاً كملف Word منسق.</p>
                     <div class="prompt-cards">
                         <div class="prompt-card" onclick="sendPrompt('ما مفهوم التجسد الإلهي في الفكر الآبائي عند القديس أثناسيوس الرسولي؟ اذكر المراجع وأرقام الصفحات')">
                             🎓 <strong>دراسة أكاديمية آبائية:</strong>
-                            <div style="font-size: 12px; color: var(--text-sub); margin-top: 4px;">عقيدة تجسد الكلمة وتجديد الطبيعة مع الشواهد والصفحات</div>
+                            <div style="font-size: 12.5px; color: var(--text-sub); margin-top: 4px;">عقيدة تجسد الكلمة وتجديد الطبيعة مع الشواهد والصفحات</div>
                         </div>
                         <div class="prompt-card" onclick="sendPrompt('قارن بين إقامة السيد المسيح للموتى بسلطانه وإقامة أنبياء العهد القديم للموتى في تعليم الآباء')">
                             ⚖️ <strong>دراسة دفاعية ومقارنة:</strong>
-                            <div style="font-size: 12px; color: var(--text-sub); margin-top: 4px;">الفارق الجوهري والسلطان الإلهي الذاتي وتفنيد الشبهات</div>
+                            <div style="font-size: 12.5px; color: var(--text-sub); margin-top: 4px;">الفارق الجوهري والسلطان الإلهي الذاتي وتفنيد الشبهات</div>
                         </div>
                         <div class="prompt-card" onclick="sendPrompt('كيف يعيش المؤمن حياة الصلاة الدائمة ونقاوة الفكر بحسب تعاليم القديس أنطونيوس الكبير؟')">
                             🕊️ <strong>إرشاد رعوي وروحي:</strong>
-                            <div style="font-size: 12px; color: var(--text-sub); margin-top: 4px;">حرب الأفكار وجهاد التوبة والهدوء في الحياة اليومية</div>
+                            <div style="font-size: 12.5px; color: var(--text-sub); margin-top: 4px;">حرب الأفكار وجهاد التوبة والهدوء في الحياة اليومية</div>
                         </div>
                         <div class="prompt-card" onclick="sendPrompt('اشرح الأبعاد اللاهوتية والخلاصية لطقس صلاة الصلح وسر الإفخارستيا في القداس الباسيلي')">
                             ⛪ <strong>تأصيل طقسي وليتورجي:</strong>
-                            <div style="font-size: 12px; color: var(--text-sub); margin-top: 4px;">المصالحة العظمى وقبلة المحبة والسلام والشركة الحية</div>
+                            <div style="font-size: 12.5px; color: var(--text-sub); margin-top: 4px;">المصالحة العظمى وقبلة المحبة والسلام والشركة الحية</div>
                         </div>
                     </div>
                 </div>
@@ -796,7 +951,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                 <textarea 
                     id="chatInput" 
                     class="chat-textarea" 
-                    placeholder="تفضل بكتابة سؤالك اللاهوتي هنا... (يمكنك طرح أسئلة فرعية متتابعة وتجميعها في ملف Word بنقرة واحدة)"
+                    placeholder="تفضل بكتابة سؤالك اللاهوتي هنا... (يمكنك طرح أسئلة فرعية متتابعة وتجميعها كملف Word بنقرة واحدة)"
                     rows="1"
                     onkeydown="handleKey(event)"
                     oninput="autoResize(this)"
@@ -819,15 +974,15 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                     <span>✠</span> أطروحة البحث اللاهوتية المجمعة (سؤال وتحته الإجابات)
                 </div>
                 <div class="modal-actions">
-                    <button class="btn-modal-act btn-modal-docx" onclick="downloadCurrentExport('docx')">📄 تنزيل مستند Word (.docx)</button>
+                    <button class="btn-modal-act btn-modal-docx" onclick="downloadCurrentExport('docx')">📄 مستند Word (.docx)</button>
                     <button class="btn-modal-act" onclick="copyCompilationText()">📋 نسخ النص</button>
-                    <button class="btn-modal-act" onclick="downloadCurrentExport('markdown')">📥 تنزيل (.md)</button>
+                    <button class="btn-modal-act" onclick="downloadCurrentExport('markdown')">📥 (.md)</button>
                     <button class="btn-modal-act" onclick="window.print()">🖨️ طباعة</button>
                     <button class="btn-modal-close" onclick="closeCompilationModal()">✕</button>
                 </div>
             </div>
             <div class="modal-body" id="compileModalBody">
-                <div style="text-align: center; padding: 40px; color: #94A3B8;">جاري تجميع البحث وتوثيق المراجع...</div>
+                <div style="text-align: center; padding: 40px; color: var(--text-sub);">جاري تجميع البحث وتوثيق المراجع...</div>
             </div>
         </div>
     </div>
@@ -837,6 +992,10 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
         let currentSessionId = null;
         let currentDepthMode = "academic";
         let rawCompiledMarkdown = "";
+        let currentFont = 'amiri';
+        let currentFontSizeIndex = 2; // [14, 15, 16.5, 18, 20, 22]
+        const FONT_SIZES = [14, 15, 16.5, 18, 20, 22];
+        const FONT_LABELS = ['85%', '92%', '100%', '110%', '122%', '135%'];
 
         const messagesContainer = document.getElementById('messagesContainer');
         const heroScreen = document.getElementById('heroScreen');
@@ -845,6 +1004,32 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
         const messagesArea = document.getElementById('messagesArea');
         const compileModal = document.getElementById('compileModal');
         const compileModalBody = document.getElementById('compileModalBody');
+
+        function setTheme(theme) {
+            document.body.setAttribute('data-theme', theme);
+            ['sepia', 'dark', 'light'].forEach(t => {
+                const btn = document.getElementById('th_' + t);
+                if (btn) btn.classList.toggle('active', t === theme);
+            });
+            localStorage.setItem('elantony_theme', theme);
+        }
+
+        function toggleFontFamily() {
+            currentFont = currentFont === 'amiri' ? 'cairo' : 'amiri';
+            const readerFont = currentFont === 'amiri' ? "'Amiri', serif" : "'Cairo', sans-serif";
+            document.documentElement.style.setProperty('--font-reader', readerFont);
+            const btn = document.getElementById('btnFontToggle');
+            if (btn) btn.textContent = currentFont === 'amiri' ? '🔤 نسخ آبائي' : '🔤 كايرو حديث';
+            localStorage.setItem('elantony_font', currentFont);
+        }
+
+        function adjustFontSize(delta) {
+            currentFontSizeIndex = Math.max(0, Math.min(FONT_SIZES.length - 1, currentFontSizeIndex + delta));
+            document.documentElement.style.setProperty('--font-size', FONT_SIZES[currentFontSizeIndex] + 'px');
+            const label = document.getElementById('fontSizeLabel');
+            if (label) label.textContent = FONT_LABELS[currentFontSizeIndex];
+            localStorage.setItem('elantony_font_size_idx', currentFontSizeIndex);
+        }
 
         function setDepthMode(mode) {
             currentDepthMode = mode;
@@ -1051,7 +1236,6 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                 chatMessages.push({ role: 'assistant', content: aiResponse });
                 appendMessageBubble('assistant', aiResponse, citations, turnNumber);
                 
-                // Refresh sessions silently to reflect updated title
                 loadSessions();
 
             } catch (err) {
@@ -1092,7 +1276,6 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
 
             contentDiv.appendChild(bubble);
 
-            // Citations Box with direct book page links
             if (citations && citations.length > 0) {
                 const citeSection = document.createElement('div');
                 citeSection.className = 'citations-section';
@@ -1126,7 +1309,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                     item.innerHTML = `
                         <div class="citation-top">
                             <span class="citation-title">📖 ${idx + 1}. ${c.book_title}</span>
-                            <span class="citation-badge">Tier ${c.authenticity_tier || 3}</span>
+                            <span class="citation-badge">مرتبة التوثيق ${c.authenticity_tier || 3}</span>
                         </div>
                         <div class="citation-meta">
                             ✍️ ${c.author || 'آباء الكنيسة'} | 📄 ${pLabel}
@@ -1151,19 +1334,23 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
         function appendLoadingBubble() {
             const id = 'loading_' + Date.now();
             const row = document.createElement('div');
-            row.id = id;
             row.className = 'msg-row ai';
-            row.innerHTML = `
-                <div class="msg-avatar ai">✠</div>
-                <div class="msg-content">
-                    <div class="bubble">
-                        <div class="typing-dots">
-                            <span></span><span></span><span></span>
-                        </div>
-                        <span style="font-size: 13px; color: #94A3B8; margin-right: 8px;">جاري فحص المراجع واستخلاص الأقوال والتحليل الآبائي...</span>
-                    </div>
-                </div>
-            `;
+            row.id = id;
+
+            const avatar = document.createElement('div');
+            avatar.className = 'msg-avatar ai';
+            avatar.textContent = '✠';
+
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'msg-content';
+
+            const bubble = document.createElement('div');
+            bubble.className = 'bubble';
+            bubble.innerHTML = '<span style="font-size: 13.5px; color: var(--text-sub); margin-left: 10px;">جاري استحضار الشواهد والتحليل اللاهوتي...</span><div class="typing-dots"><span></span><span></span><span></span></div>';
+
+            contentDiv.appendChild(bubble);
+            row.appendChild(avatar);
+            row.appendChild(contentDiv);
             messagesContainer.appendChild(row);
             return id;
         }
@@ -1179,20 +1366,20 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
 
         async function openCompilationModal() {
             if (!currentSessionId) {
-                alert("لا توجد محادثة نشطة لتجميعها حالياً.");
+                alert("يرجى اختيار جلسة بحث أولاً لتجميعها.");
                 return;
             }
             compileModal.classList.add('open');
-            compileModalBody.innerHTML = '<div style="text-align: center; padding: 40px; color: #94A3B8;"><div class="typing-dots"><span></span><span></span><span></span></div><br>جاري تجميع البحث واستخراج الفهرس وتوثيق المراجع...</div>';
+            compileModalBody.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-sub);">جاري استخراج وتنسيق أطروحة البحث الكاملة...</div>';
 
             try {
                 const res = await fetch('/api/sessions/' + currentSessionId + '/compile', { method: 'POST' });
-                if (!res.ok) throw new Error('فشل تجميع البحث');
+                if (!res.ok) throw new Error("تعذر استرجاع الأطروحة");
                 const data = await res.json();
                 rawCompiledMarkdown = data.markdown;
-                compileModalBody.innerHTML = marked.parse(data.markdown);
+                compileModalBody.innerHTML = marked.parse(rawCompiledMarkdown);
             } catch (err) {
-                compileModalBody.innerHTML = '<div style="color: #EF4444; padding: 20px;">⚠️ تعذر تجميع البحث: ' + err.message + '</div>';
+                compileModalBody.innerHTML = '<div style="color: #EF4444; text-align: center; padding: 30px;">فشل تجميع البحث: ' + err.message + '</div>';
             }
         }
 
@@ -1216,13 +1403,34 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
         }
 
         window.onload = () => {
+            // Restore saved theme
+            const savedTheme = localStorage.getItem('elantony_theme') || 'sepia';
+            setTheme(savedTheme);
+
+            // Restore saved font
+            const savedFont = localStorage.getItem('elantony_font') || 'amiri';
+            if (savedFont !== 'amiri') {
+                currentFont = 'cairo';
+                document.documentElement.style.setProperty('--font-reader', "'Cairo', sans-serif");
+                const btn = document.getElementById('btnFontToggle');
+                if (btn) btn.textContent = '🔤 كايرو حديث';
+            }
+
+            // Restore saved font size
+            const savedSizeIdx = localStorage.getItem('elantony_font_size_idx');
+            if (savedSizeIdx !== null) {
+                currentFontSizeIndex = parseInt(savedSizeIdx, 10);
+                document.documentElement.style.setProperty('--font-size', FONT_SIZES[currentFontSizeIndex] + 'px');
+                const label = document.getElementById('fontSizeLabel');
+                if (label) label.textContent = FONT_LABELS[currentFontSizeIndex];
+            }
+
             loadSessions();
             chatInput.focus();
         };
     </script>
 </body>
-</html>
-"""
+</html>"""
 
 
 @app.get("/", response_class=HTMLResponse)
