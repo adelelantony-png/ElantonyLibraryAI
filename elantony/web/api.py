@@ -9,7 +9,7 @@ import os
 import urllib.parse
 import asyncio
 from pathlib import Path
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Tuple, Set
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Query, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse, Response, FileResponse
@@ -138,8 +138,9 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
     <!-- Google Fonts: Amiri (نسخ آبائي مريح للقراءة المطولة) + Cairo (واجهات) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400;1,700&family=Cairo:wght@400;600;700;800;900&family=Noto+Sans+Coptic&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js">
+    <link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400;1,700&family=Cairo:wght@400;600;700;800;900&family=Noto+Sans+Coptic:wght@400;700&family=Noto+Serif:ital,wght@0,400;0,700;1,400&family=Gentium+Plus:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script>
         // Mouse Drag to Pan Zoomed Image
         window.addEventListener('DOMContentLoaded', () => {
             const container = document.getElementById('refImgScrollWrap');
@@ -148,7 +149,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             let startX, startY, scrollLeft, scrollTop;
 
             container.addEventListener('mousedown', (e) => {
-                if (ZOOM_LEVELS[currentZoomIndex] <= 100) return;
+                if (typeof currentZoomIndex !== 'undefined' && ZOOM_LEVELS[currentZoomIndex] <= 100) return;
                 isDown = true;
                 container.classList.add('grabbing');
                 startX = e.pageX - container.offsetLeft;
@@ -175,7 +176,6 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                 container.scrollTop = scrollTop - walkY;
             });
         });
-
     </script>
     <style>
         /* ========================================================
@@ -273,7 +273,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
         body {
             background: var(--bg-darker);
             color: var(--text-main);
-            font-family: 'Cairo', sans-serif;
+            font-family: 'Cairo', 'Noto Sans Coptic', 'Gentium Plus', 'Noto Serif', 'Segoe UI Historic', Arial, sans-serif;
             height: 100vh;
             display: flex;
             overflow: hidden;
@@ -367,6 +367,13 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             overflow: hidden;
             text-overflow: ellipsis;
             padding-left: 6px;
+            direction: rtl;
+            text-align: right;
+            unicode-bidi: isolate;
+        }
+        .chat-item-text bdi, .tab-text bdi {
+            unicode-bidi: isolate;
+            direction: rtl;
         }
         .chat-item-actions {
             display: flex;
@@ -457,7 +464,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             font-weight: 700;
             cursor: pointer;
             transition: 0.18s;
-            font-family: 'Cairo', sans-serif;
+            font-family: 'Cairo', 'Noto Sans Coptic', 'Gentium Plus', 'Noto Serif', 'Segoe UI Historic', Arial, sans-serif;
             display: inline-flex;
             align-items: center;
             gap: 4px;
@@ -490,7 +497,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             transition: 0.2s;
             border: 1px solid transparent;
             text-decoration: none;
-            font-family: 'Cairo', sans-serif;
+            font-family: 'Cairo', 'Noto Sans Coptic', 'Gentium Plus', 'Noto Serif', 'Segoe UI Historic', Arial, sans-serif;
         }
         .btn-compile { background: rgba(161, 98, 7, 0.14); border-color: var(--gold); color: var(--gold); }
         .btn-compile:hover { background: var(--gold); color: #FFF; }
@@ -572,7 +579,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             color: var(--text-user);
             border-top-left-radius: 4px;
             border: 1px solid var(--card-border);
-            font-family: 'Cairo', sans-serif;
+            font-family: 'Cairo', 'Noto Sans Coptic', 'Gentium Plus', 'Noto Serif', 'Segoe UI Historic', Arial, sans-serif;
             font-weight: 600;
         }
         .msg-row.ai .bubble {
@@ -587,7 +594,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
         .bubble h1, .bubble h2, .bubble h3, .bubble h4 {
             color: var(--accent);
             margin: 16px 0 8px 0;
-            font-family: 'Cairo', sans-serif;
+            font-family: 'Cairo', 'Noto Sans Coptic', 'Gentium Plus', 'Noto Serif', 'Segoe UI Historic', Arial, sans-serif;
             font-weight: 800;
         }
         .bubble h2 { font-size: 1.25em; border-bottom: 1px dashed var(--card-border); padding-bottom: 6px; }
@@ -642,7 +649,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             box-shadow: var(--shadow-sm);
         }
         .citation-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-        .citation-title { font-weight: 800; color: var(--accent); font-size: 14px; font-family: 'Cairo', sans-serif; }
+        .citation-title { font-weight: 800; color: var(--accent); font-size: 14px; font-family: 'Cairo', 'Noto Sans Coptic', 'Gentium Plus', 'Noto Serif', 'Segoe UI Historic', Arial, sans-serif; }
         .citation-badge { background: var(--accent-light); color: var(--accent); padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; white-space: nowrap; }
         .citation-meta { font-size: 12px; color: var(--text-sub); margin-top: 4px; }
         .citation-excerpt { color: var(--text-main); font-size: 13px; margin-top: 8px; border-right: 3px solid var(--gold); padding: 8px 12px; border-radius: 6px; background: var(--card-hover); line-height: 1.75; font-family: var(--font-reader); }
@@ -657,7 +664,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             align-items: center;
             gap: 4px;
             transition: 0.2s;
-            font-family: 'Cairo', sans-serif;
+            font-family: 'Cairo', 'Noto Sans Coptic', 'Gentium Plus', 'Noto Serif', 'Segoe UI Historic', Arial, sans-serif;
         }
         .btn-cite-fast { background: rgba(16, 185, 129, 0.16); border: 1px solid #10B981; color: #059669; font-weight: 800; cursor: pointer; }
         .btn-cite-fast:hover { background: #10B981; color: #FFF; transform: translateY(-1px); }
@@ -743,7 +750,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             border: none;
             color: var(--text-main);
             font-size: 15px;
-            font-family: 'Cairo', sans-serif;
+            font-family: 'Cairo', 'Noto Sans Coptic', 'Gentium Plus', 'Noto Serif', 'Segoe UI Historic', Arial, sans-serif;
             resize: none;
             outline: none;
             max-height: 180px;
@@ -837,7 +844,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             font-weight: 700;
             cursor: pointer;
             transition: 0.2s;
-            font-family: 'Cairo', sans-serif;
+            font-family: 'Cairo', 'Noto Sans Coptic', 'Gentium Plus', 'Noto Serif', 'Segoe UI Historic', Arial, sans-serif;
         }
         .btn-modal-act:hover { background: var(--accent); color: #FFF; }
         .btn-modal-docx {
@@ -864,9 +871,123 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             line-height: var(--line-height);
             font-family: var(--font-reader);
         }
-        .modal-body h1, .modal-body h2, .modal-body h3 { color: var(--accent); margin: 16px 0 8px 0; font-family: 'Cairo', sans-serif; }
+        .modal-body h1, .modal-body h2, .modal-body h3 { color: var(--accent); margin: 16px 0 8px 0; font-family: 'Cairo', 'Noto Sans Coptic', 'Gentium Plus', 'Noto Serif', 'Segoe UI Historic', Arial, sans-serif; }
         .modal-body strong { color: var(--gold); }
         .modal-body blockquote { border-right: 4px solid var(--quote-border); padding: 8px 14px; margin: 12px 0; background: var(--quote-bg); border-radius: 6px; }
+
+        /* Dynamic Topic Tabs Bar */
+        .chat-tabs-bar {
+            background: var(--bg-sidebar);
+            border-bottom: 1px solid var(--card-border);
+            padding: 6px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            overflow-x: auto;
+            z-index: 5;
+            transition: background 0.25s ease;
+        }
+        .chat-tabs-scroll {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            overflow-x: auto;
+            flex: 1;
+            scrollbar-width: none;
+        }
+        .chat-tabs-scroll::-webkit-scrollbar { display: none; }
+        .chat-tab-chip {
+            background: var(--bg-darker);
+            border: 1px solid var(--card-border);
+            color: var(--text-sub);
+            padding: 5px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            white-space: nowrap;
+            max-width: 240px;
+            transition: 0.18s ease;
+            font-family: 'Cairo', 'Noto Sans Coptic', 'Gentium Plus', 'Noto Serif', 'Segoe UI Historic', Arial, sans-serif;
+        }
+        .chat-tab-chip:hover {
+            background: var(--card-hover);
+            color: var(--text-main);
+        }
+        .chat-tab-chip.active {
+            background: var(--accent);
+            color: #FFF;
+            border-color: var(--accent);
+            box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+        }
+        .chat-tab-chip .tab-text {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .chat-tab-chip .tab-close-btn {
+            background: none;
+            border: none;
+            color: inherit;
+            opacity: 0.6;
+            font-size: 13px;
+            padding: 0 2px;
+            cursor: pointer;
+            line-height: 1;
+            border-radius: 3px;
+        }
+        .chat-tab-chip .tab-close-btn:hover {
+            opacity: 1;
+            background: rgba(0,0,0,0.15);
+        }
+        .btn-new-tab {
+            background: var(--accent-light);
+            border: 1px dashed var(--accent);
+            color: var(--accent);
+            padding: 5px 11px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            white-space: nowrap;
+            transition: 0.18s;
+            font-family: 'Cairo', 'Noto Sans Coptic', 'Gentium Plus', 'Noto Serif', 'Segoe UI Historic', Arial, sans-serif;
+        }
+        .btn-new-tab:hover {
+            background: var(--accent);
+            color: #FFF;
+            border-style: solid;
+        }
+        .topic-toast {
+            position: fixed;
+            top: 64px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--accent);
+            color: #FFF;
+            padding: 8px 18px;
+            border-radius: 20px;
+            font-size: 12.5px;
+            font-weight: 800;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            animation: fadeInDown 0.3s ease;
+            font-family: 'Cairo', 'Noto Sans Coptic', 'Gentium Plus', 'Noto Serif', 'Segoe UI Historic', Arial, sans-serif;
+        }
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translate(-50%, -10px); }
+            to { opacity: 1; transform: translate(-50%, 0); }
+        }
 
         /* Loading Dots */
         .typing-dots { display: inline-flex; gap: 4px; padding: 6px 0; }
@@ -951,7 +1072,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             gap: 5px;
             transition: 0.2s;
             flex-shrink: 0;
-            font-family: 'Cairo', sans-serif;
+            font-family: 'Cairo', 'Noto Sans Coptic', 'Gentium Plus', 'Noto Serif', 'Segoe UI Historic', Arial, sans-serif;
         }
         .btn-modal-close-ref:hover {
             background: #EF4444;
@@ -983,7 +1104,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             font-size: 12px;
             font-weight: 700;
             cursor: pointer;
-            font-family: 'Cairo', sans-serif;
+            font-family: 'Cairo', 'Noto Sans Coptic', 'Gentium Plus', 'Noto Serif', 'Segoe UI Historic', Arial, sans-serif;
             transition: 0.18s;
         }
         .btn-ref-nav:hover { background: var(--card-hover); border-color: var(--accent); }
@@ -1007,7 +1128,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             font-weight: 800;
             text-align: center;
             outline: none;
-            font-family: 'Cairo', sans-serif;
+            font-family: 'Cairo', 'Noto Sans Coptic', 'Gentium Plus', 'Noto Serif', 'Segoe UI Historic', Arial, sans-serif;
         }
         .btn-ref-go {
             background: var(--accent);
@@ -1018,7 +1139,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             font-size: 11px;
             font-weight: 700;
             cursor: pointer;
-            font-family: 'Cairo', sans-serif;
+            font-family: 'Cairo', 'Noto Sans Coptic', 'Gentium Plus', 'Noto Serif', 'Segoe UI Historic', Arial, sans-serif;
         }
         .btn-ref-go:hover { background: var(--accent-hover); }
         .ref-mode-wrap {
@@ -1039,7 +1160,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             font-size: 11.5px;
             font-weight: 700;
             cursor: pointer;
-            font-family: 'Cairo', sans-serif;
+            font-family: 'Cairo', 'Noto Sans Coptic', 'Gentium Plus', 'Noto Serif', 'Segoe UI Historic', Arial, sans-serif;
             transition: 0.18s;
         }
         .btn-ref-mode.active {
@@ -1058,7 +1179,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             display: inline-flex;
             align-items: center;
             gap: 4px;
-            font-family: 'Cairo', sans-serif;
+            font-family: 'Cairo', 'Noto Sans Coptic', 'Gentium Plus', 'Noto Serif', 'Segoe UI Historic', Arial, sans-serif;
             transition: 0.18s;
             cursor: pointer;
         }
@@ -1136,7 +1257,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             font-size: 11.5px;
             font-weight: 700;
             cursor: pointer;
-            font-family: 'Cairo', sans-serif;
+            font-family: 'Cairo', 'Noto Sans Coptic', 'Gentium Plus', 'Noto Serif', 'Segoe UI Historic', Arial, sans-serif;
             display: inline-flex;
             align-items: center;
             gap: 4px;
@@ -1231,7 +1352,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             align-items: center;
             gap: 4px;
             transition: 0.18s;
-            font-family: 'Cairo', sans-serif;
+            font-family: 'Cairo', 'Noto Sans Coptic', 'Gentium Plus', 'Noto Serif', 'Segoe UI Historic', Arial, sans-serif;
         }
         .ext-source-chip:hover {
             background: var(--card-hover);
@@ -1318,6 +1439,16 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                     <span>📄</span> Word
                 </button>
             </div>
+        </div>
+
+        <!-- Dynamic Topic Tabs Bar (تبويبات الموضوعات الذكية التلقائية) -->
+        <div class="chat-tabs-bar" id="chatTabsBar">
+            <div class="chat-tabs-scroll" id="chatTabsList">
+                <!-- Dynamically populated from active sessions -->
+            </div>
+            <button class="btn-new-tab" onclick="startNewChat()" title="فتح موضوع لاهوتي جديد مستقل في تبويب جديد">
+                <span>➕</span> موضوع جديد
+            </button>
         </div>
 
         <!-- Messages Area -->
@@ -1434,17 +1565,18 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                     <button id="btnToggleFullscreen" class="btn-ref-tool" onclick="toggleFullscreen()" title="تكبير النافذة لملء الشاشة">⛶ ملء الشاشة</button>
                 </div>
 
-                <!-- View Mode Toggle (Image vs PDF) -->
+                <!-- View Mode Toggle (Image vs Single PDF vs Full Book) -->
                 <div class="ref-mode-wrap">
-                    <button class="btn-ref-mode active" id="btnModeImg" onclick="setRefViewMode('image')" title="عرض صورة الصفحة في أجزاء من الثانية">🖼️ صورة سريعة</button>
-                    <button class="btn-ref-mode" id="btnModePdf" onclick="setRefViewMode('pdf')" title="عرض صفحة الـ PDF المدمجة التفاعلية">📑 PDF تفاعلي</button>
+                    <button class="btn-ref-mode active" id="btnModeImg" onclick="setRefViewMode('image')" title="عرض صورة الصفحة الأصلية في أجزاء من الثانية مع التظليل والزوم">🖼️ صورة سريعة</button>
+                    <button class="btn-ref-mode" id="btnModePdf" onclick="setRefViewMode('pdf')" title="عرض صفحة الـ PDF المدمجة المستقلة والمظللة">📑 PDF الصفحة</button>
+                    <button class="btn-ref-mode" id="btnModeFull" onclick="setRefViewMode('full')" title="تصفح الكتاب كاملاً وقراءته تفاعلياً داخل هذه النافذة دون تنزيل">📖 تصفح الكتاب كاملاً</button>
                 </div>
 
                 <!-- Book Direct Actions -->
                 <div class="ref-actions-group">
                     <a id="refDirectPdfBtn" href="#" target="_blank" class="btn-ref-action" title="فتح صفحة المرجع كملف PDF مستقل (15-30 كيلوبايت)">📄 PDF الصفحة</a>
-                    <a id="refViewFullBtn" href="#" target="_blank" class="btn-ref-action" title="فتح الكتاب كاملاً في لسان جديد بالمتصفح">📖 فتح كامل بالمتصفح</a>
-                    <a id="refFullBookBtn" href="#" class="btn-ref-action btn-ref-download" title="تحميل ملف الكتاب كاملاً مباشرة على جهازك">💾 تحميل الكتاب</a>
+                    <a id="refViewFullBtn" href="#" target="_blank" class="btn-ref-action" title="فتح الكتاب كاملاً في لسان جديد مستقل بالمتصفح">↗ نافذة مستقلة</a>
+                    <a id="refFullBookBtn" href="#" class="btn-ref-action btn-ref-download" title="تحميل ملف الكتاب كاملاً مباشرة على جهازك">💾 تنزيل الكتاب</a>
                 </div>
             </div>
 
@@ -1537,6 +1669,12 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             }
         }
 
+                function escapeHtml(text) {
+            if (!text) return '';
+            const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+            return String(text).replace(/[&<>"']/g, function(m) { return map[m]; });
+        }
+
         async function loadSessions() {
             try {
                 const res = await fetch('/api/sessions?user_id=web');
@@ -1559,7 +1697,8 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                     
                     const textSpan = document.createElement('span');
                     textSpan.className = 'chat-item-text';
-                    textSpan.textContent = '💬 ' + (s.title || 'بحث لاهوتي');
+                    const safeSessTitle = escapeHtml(s.title || 'بحث لاهوتي');
+                    textSpan.innerHTML = '<span style="flex-shrink:0;">💬</span> <bdi dir="auto">' + safeSessTitle + '</bdi>';
                     textSpan.title = s.title || 'بحث لاهوتي';
                     textSpan.onclick = () => selectSession(s.id);
 
@@ -1586,6 +1725,38 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                     list.appendChild(item);
                 });
 
+                // Populate Dynamic Tabs Bar
+                const tabsList = document.getElementById('chatTabsList');
+                if (tabsList) {
+                    tabsList.innerHTML = '';
+                    sessions.forEach(s => {
+                        const tab = document.createElement('div');
+                        tab.className = 'chat-tab-chip' + (s.id === currentSessionId ? ' active' : '');
+                        tab.id = 'tab_' + s.id;
+                        tab.onclick = () => selectSession(s.id);
+                        tab.title = s.title || 'بحث لاهوتي';
+
+                        const icon = document.createElement('span');
+                        icon.className = 'tab-icon';
+                        icon.textContent = '💬';
+
+                        const text = document.createElement('span');
+                        text.className = 'tab-text';
+                        text.innerHTML = '<bdi dir="auto">' + escapeHtml(s.title || 'بحث لاهوتي') + '</bdi>';
+
+                        const closeBtn = document.createElement('button');
+                        closeBtn.className = 'tab-close-btn';
+                        closeBtn.textContent = '✕';
+                        closeBtn.title = 'حذف هذا الموضوع';
+                        closeBtn.onclick = (e) => deleteSession(e, s.id);
+
+                        tab.appendChild(icon);
+                        tab.appendChild(text);
+                        tab.appendChild(closeBtn);
+                        tabsList.appendChild(tab);
+                    });
+                }
+
                 if (!currentSessionId && sessions.length > 0) {
                     await selectSession(sessions[0].id);
                 }
@@ -1597,8 +1768,14 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
         async function selectSession(sessionId) {
             currentSessionId = sessionId;
             document.querySelectorAll('.chat-history-item').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.chat-tab-chip').forEach(el => el.classList.remove('active'));
             const activeEl = document.getElementById('sess_' + sessionId);
             if (activeEl) activeEl.classList.add('active');
+            const activeTab = document.getElementById('tab_' + sessionId);
+            if (activeTab) {
+                activeTab.classList.add('active');
+                activeTab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+            }
 
             try {
                 const res = await fetch('/api/sessions/' + sessionId);
@@ -1629,6 +1806,22 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             } catch (err) {
                 console.error("Error selecting session:", err);
             }
+        }
+
+        
+        function showTopicToast(message) {
+            let toast = document.getElementById('topicToast');
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.id = 'topicToast';
+                toast.className = 'topic-toast';
+                document.body.appendChild(toast);
+            }
+            toast.textContent = message;
+            toast.style.display = 'flex';
+            setTimeout(() => {
+                toast.style.display = 'none';
+            }, 4000);
         }
 
         async function startNewChat() {
@@ -1717,12 +1910,22 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                 const aiResponse = data.response;
                 const citations = data.citations || [];
                 const turnNumber = data.turn_number || null;
-                if (data.session_id) currentSessionId = data.session_id;
+                const isNewTopic = data.is_new_topic || false;
 
-                chatMessages.push({ role: 'assistant', content: aiResponse });
-                appendMessageBubble('assistant', aiResponse, citations, turnNumber);
-                
-                loadSessions();
+                if (isNewTopic && data.session_id !== currentSessionId) {
+                    currentSessionId = data.session_id;
+                    showTopicToast("✨ تم فتح تبويب وموضوع جديد تلقائياً: «" + (data.topic_title || "موضوع جديد") + "»");
+                    chatMessages = [{ role: 'user', content: text }, { role: 'assistant', content: aiResponse }];
+                    messagesContainer.innerHTML = '';
+                    appendMessageBubble('user', text);
+                    appendMessageBubble('assistant', aiResponse, citations, 1);
+                    await loadSessions();
+                } else {
+                    if (data.session_id) currentSessionId = data.session_id;
+                    chatMessages.push({ role: 'assistant', content: aiResponse });
+                    appendMessageBubble('assistant', aiResponse, citations, turnNumber);
+                    await loadSessions();
+                }
 
             } catch (err) {
                 removeLoadingBubble(loadingId);
@@ -2008,17 +2211,18 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             activeRefViewMode = mode;
             const btnImg = document.getElementById('btnModeImg');
             const btnPdf = document.getElementById('btnModePdf');
+            const btnFull = document.getElementById('btnModeFull');
             const imgContainer = document.getElementById('refImgContainer');
             const pdfContainer = document.getElementById('refPdfContainer');
             
+            if (btnImg) btnImg.classList.toggle('active', mode === 'image');
+            if (btnPdf) btnPdf.classList.toggle('active', mode === 'pdf');
+            if (btnFull) btnFull.classList.toggle('active', mode === 'full');
+
             if (mode === 'image') {
-                if (btnImg) btnImg.classList.add('active');
-                if (btnPdf) btnPdf.classList.remove('active');
                 if (imgContainer) imgContainer.style.display = 'block';
                 if (pdfContainer) pdfContainer.style.display = 'none';
             } else {
-                if (btnImg) btnImg.classList.remove('active');
-                if (btnPdf) btnPdf.classList.add('active');
                 if (imgContainer) imgContainer.style.display = 'none';
                 if (pdfContainer) pdfContainer.style.display = 'block';
             }
@@ -2055,9 +2259,12 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                     loading.innerHTML = '<div style="color: var(--accent); padding: 20px;">ℹ️ هذه الصفحة متوفرة كـ PDF خفيف أو النص مفهرس.<br><a href="/api/books/' + activeRefSha + '/pages/' + activeRefPage + '/view' + hlParamPdf + '" target="_blank" style="color:var(--gold); font-weight:bold; display:inline-block; margin-top:10px;">📄 انقر هنا لفتح صفحة الـ PDF مباشرة (15KB)</a></div>';
                 };
                 img.src = `/api/books/${activeRefSha}/pages/${activeRefPage}/image?t=` + Date.now() + hlParam;
-            } else {
+            } else if (activeRefViewMode === 'pdf') {
                 loading.style.display = 'none';
                 iframe.src = `/api/books/${activeRefSha}/pages/${activeRefPage}/view${hlParamPdf}`;
+            } else if (activeRefViewMode === 'full') {
+                loading.style.display = 'none';
+                iframe.src = `/api/books/${activeRefSha}/view#page=${activeRefPage}`;
             }
         }
 
@@ -2500,10 +2707,87 @@ async def api_audio_tts(req: TTSRequest):
     )
 
 
+def check_topic_continuity(prev_title: str, prev_messages: List[Dict[str, Any]], new_query: str) -> Tuple[bool, str]:
+    """
+    Determines whether new_query continues the current theological topic (same discussion)
+    or represents a completely new subject that deserves a separate tab/session.
+    """
+    if not prev_messages:
+        return True, "first_turn"
+
+    q_norm = new_query.strip().lower()
+
+    # 1. Linguistic continuity markers
+    CONTINUITY_PREFIXES = [
+        "وماذا عن", "وكيف", "وهل", "وضح اكثر", "وضح أكثر", "اشرح اكثر", "اشرح أكثر",
+        "اذكر المزيد", "ما المرجع", "وما رأي", "وما راي", "هل تقصد", "ما علاقة هذا",
+        "وما دلالة", "بماذا فسر", "وما الدليل", "لماذا قال", "اين ذكر", "أين ذكر",
+        "ما الفرق بينهما", "قارن بينهما", "هل هذا يعني", "ما حكم ذلك", "لماذا إذن",
+        "تابع", "اكمل", "أكمل", "استمر", "زدني", "فسر أكثر"
+    ]
+    for p in CONTINUITY_PREFIXES:
+        if q_norm.startswith(p) or f" {p} " in q_norm:
+            return True, "continuity_prefix"
+
+    CONTINUITY_PRONOUNS = [
+        " هذا ", " هذه ", " ذلك ", " تلك ", " هؤلاء ", " عنه ", " عنها ",
+        " فيه ", " فيها ", " منه ", " منها ", " به ", " بها ", " له ", " لها ",
+        " بينهما ", " إليه ", " إليها ", " كلاهما ", " كلتاهما "
+    ]
+    padded_q = f" {q_norm} "
+    for pron in CONTINUITY_PRONOUNS:
+        if pron in padded_q:
+            return True, "referential_pronoun"
+
+        # 2. Extract theological keyword roots excluding generic ecclesiastical stopwords
+    from elantony.search.search_engine import ARABIC_STOPWORDS
+    import re
+
+    GENERIC_ECCLESIASTICAL = {
+        'قبطي', 'القبطي', 'قبطية', 'القبطية', 'كنسي', 'الكنسي', 'كنسية', 'الكنسية',
+        'كنيسة', 'الكنيسة', 'ارثوذكسي', 'أرثوذكسي', 'الارثوذكسية', 'الأرثوذكسية',
+        'مسيحي', 'مسيحية', 'المسيحية', 'مقدس', 'المقدس', 'مقدسة', 'المقدسة',
+        'طقس', 'الطقس', 'تاريخ', 'تاريخه', 'مفهوم', 'معنى', 'شرح', 'تفسير',
+        'اقوال', 'أقوال', 'اباء', 'آباء', 'الاباء', 'الآباء', 'كتاب', 'كتب',
+        'سؤال', 'ماهو', 'ماهي', 'ماذا', 'لماذا', 'كيف', 'هل', 'اين', 'أين',
+        'اذكر', 'وضح', 'بين', 'حول', 'عن', 'في', 'من', 'إلى', 'الي', 'على', 'علي'
+    }
+    ALL_EXCLUDE = ARABIC_STOPWORDS.union(GENERIC_ECCLESIASTICAL)
+
+    def extract_keywords(text: str):
+        words = re.findall(r'[\wء-يͰ-ϿⲀ-⳿]+', text.lower())
+        norm_words = []
+        for w in words:
+            w_norm = re.sub(r'[إأآا]', 'ا', w)
+            w_norm = re.sub(r'ة$', 'ه', w_norm)
+            if len(w_norm) >= 3 and w_norm not in ALL_EXCLUDE and w not in ALL_EXCLUDE:
+                w_strip = w_norm[2:] if w_norm.startswith('ال') and len(w_norm) > 4 else w_norm
+                if w_strip not in ALL_EXCLUDE:
+                    norm_words.append(w_strip)
+        return set(norm_words)
+
+    last_user_msg = ""
+    for m in reversed(prev_messages):
+        if m.get("role") == "user":
+            last_user_msg = m.get("content", "")
+            break
+
+    prev_context = f"{prev_title or ''} {last_user_msg}"
+    prev_kw = extract_keywords(prev_context)
+    new_kw = extract_keywords(new_query)
+
+    overlap = prev_kw.intersection(new_kw)
+    if len(overlap) >= 1:
+        return True, f"keyword_overlap:{overlap}"
+
+    return False, "distinct_theological_topic" 
+
+
 @app.post("/api/chat")
 async def api_chat(req: ChatRequest):
     """
     Multi-turn Conversational AI Endpoint.
+    Supports intelligent auto-session splitting for distinct theological topics.
     Maintains dialogue history while anchoring answers strictly in library citations.
     Supports theological depth modes: 'academic', 'pastoral', 'apologetic'.
     Saves conversation to persistent database session.
@@ -2517,9 +2801,24 @@ async def api_chat(req: ChatRequest):
 
     user_id = req.user_id or "web"
     session_id = req.session_id
+    is_new_topic = False
+    new_topic_title = None
+
     if not session_id or session_id == "default":
         session_info = repo.get_or_create_active_session(user_id)
         session_id = session_info["id"]
+    else:
+        sess = repo.get_session(session_id)
+        if sess:
+            existing_messages = repo.get_session_messages(session_id)
+            if existing_messages:
+                is_same, reason = check_topic_continuity(sess.get("title", ""), existing_messages, latest_msg)
+                if not is_same:
+                    new_topic_title = latest_msg.split("\n")[0][:45].strip()
+                    new_sess_id = repo.create_session(user_id=user_id, title=new_topic_title)
+                    logger.info(f"[TopicSwitch] Detected distinct topic ({reason}). Created new session {new_sess_id} for '{new_topic_title}'.")
+                    session_id = new_sess_id
+                    is_new_topic = True
 
     # 1. Retrieve library context
     chunks = search_engine.search_fts5(latest_msg, limit=6)
@@ -2527,7 +2826,10 @@ async def api_chat(req: ChatRequest):
     depth_mode = req.depth_mode or "academic"
 
     # 2. Conversational reasoning with past dialogue turns
-    raw_history = [{"role": m.role, "content": m.content} for m in req.messages]
+    if is_new_topic:
+        raw_history = [{"role": "user", "content": latest_msg}]
+    else:
+        raw_history = [{"role": m.role, "content": m.content} for m in req.messages]
     if hasattr(ai_provider, "generate_chat_response"):
         answer = ai_provider.generate_chat_response(raw_history, chunks, depth_mode=depth_mode)
     else:
@@ -2558,7 +2860,7 @@ async def api_chat(req: ChatRequest):
         })
 
     # Turn number in discussion
-    turn_number = (len(raw_history) // 2) + 1
+    turn_number = 1 if is_new_topic else ((len(raw_history) // 2) + 1)
 
     # 4. Save to persistent discussion session
     try:
@@ -2573,10 +2875,15 @@ async def api_chat(req: ChatRequest):
     except Exception as save_err:
         logger.warning(f"Error saving chat message to session {session_id}: {save_err}")
 
+    current_sess_info = repo.get_session(session_id)
+    resolved_title = current_sess_info.get("title") if current_sess_info else (new_topic_title or "بحث لاهوتي")
+
     return {
         "response": answer,
         "citations": citations,
         "session_id": session_id,
+        "is_new_topic": is_new_topic,
+        "topic_title": resolved_title,
         "turn_number": turn_number
     }
 
