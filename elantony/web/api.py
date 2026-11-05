@@ -3259,8 +3259,11 @@ def check_topic_continuity(prev_title: str, prev_messages: List[Dict[str, Any]],
     # Includes title + all previous questions + the assistant's previous responses
     # (so sub-questions inspired by keywords in the AI's explanation stay in the SAME tab!)
     thread_parts = [prev_title or ""]
-    for m in prev_messages[-4:]:  # last 4 turns (user + assistant)
+    for m in prev_messages:  # ALL turns in this discussion thread
         thread_parts.append(m.get("content", ""))
+        cites = m.get("citations")
+        if cites:
+            thread_parts.append(str(cites))
 
     full_thread_context = " ".join(thread_parts)
     thread_kw = extract_keywords(full_thread_context)
