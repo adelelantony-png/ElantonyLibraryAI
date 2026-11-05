@@ -137,7 +137,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
     <!-- Google Fonts: Amiri (نسخ آبائي مريح للقراءة المطولة) + Cairo (واجهات) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400;1,700&family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400;1,700&family=Cairo:wght@400;600;700;800;900&family=Noto+Sans+Coptic&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
         /* ========================================================
@@ -171,7 +171,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             --modal-bg: #FFFDF9;
             --shadow-sm: 0 1px 3px rgba(42, 33, 24, 0.06);
             --shadow-md: 0 4px 16px rgba(42, 33, 24, 0.09);
-            --font-reader: 'Amiri', serif;
+            --font-reader: 'Amiri', 'Noto Sans Coptic', 'Segoe UI Historic', serif;
             --font-size: 16.5px;
             --line-height: 1.95;
             --radius-bubble: 14px;
