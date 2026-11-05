@@ -31,7 +31,8 @@ from elantony.telegram.commands import (
     send_daily_verse,
     handle_gdrive_sync_callback,
     handle_verse_audio_callback,
-    send_voice_bytes
+    send_voice_bytes,
+    send_special_commands_menu
 )
 from elantony.telegram.keyboards import (
     get_main_menu_reply_keyboard,
@@ -578,6 +579,11 @@ class TelegramHandlerService:
         parts = text.split()
         first_token = parts[0] if parts else ""
         cmd = first_token.split("@")[0].lower() if first_token.startswith("/") else ""
+
+        # 0. /commands or special commands menu
+        if cmd in ["/commands", "/tools", "/menu_commands"] or text in ["قائمة الأوامر", "الأوامر الخاصة", "⚡ قائمة الأوامر الخاصة", "⚡ قائمة الأوامر والتحكم"]:
+            await send_special_commands_menu(self, client, chat_id)
+            return
 
         # 1. /admin_dashboard
         if cmd == "/admin_dashboard" or text in ["لوحة الإشراف", "لوحة التحكم", "لوحة الادمن", "إحصائيات المكتبة", "📊 لوحة الإشراف"]:
@@ -1737,6 +1743,10 @@ class TelegramHandlerService:
 
         if data == "menu:harvest_tg":
             await send_harvest_tg(self, client, chat_id)
+            return
+
+        if data == "menu:special_commands":
+            await send_special_commands_menu(self, client, chat_id)
             return
 
         if data == "menu:admin_dash":

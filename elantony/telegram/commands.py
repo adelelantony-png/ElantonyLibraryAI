@@ -281,3 +281,20 @@ async def handle_verse_audio_callback(service: Any, client: httpx.AsyncClient, c
             )
         else:
             await service.send_message(client, chat_id, "⚠️ تعذر إنشاء التسجيل الصوتي حالياً.")
+
+
+async def send_special_commands_menu(service: Any, client: httpx.AsyncClient, chat_id: int) -> None:
+    """Renders the special commands menu with full descriptions and instant action buttons."""
+    msg = (
+        "⚡ *قائمة الأوامر الذكية ولوحة التحكم الخاصة* ✠\n\n"
+        "يمكنك الضغط على أي زر أدناه لتنفيذ الإجراء فوراً دون الحاجة لكتابة أي أمر يدوي:\n\n"
+        "• 🌐 *سحب وفهرسة Google Drive:* سحب دفعة كتب من المكتبات السبع الكبرى.\n"
+        "• 📡 *دليل قنوات تليجرام:* تصفح قنوات الكتب مع ميزة التنزيل التلقائي بالـ Forward.\n"
+        "• 📜 *سنكسار اليوم:* قراءات وتذكارات سنكسار اليوم القبطي وسير الآباء.\n"
+        "• 📖 *آية اليوم وتأمل الآباء:* الشاهد وشرح الآباء مع الاستماع الصوتي.\n"
+        "• 📑 *تجميع أطروحة البحث (Word):* تصدير كامل مناقشتك الحالية كملف Word منسق.\n"
+        "• 📊 *لوحة الإشراف المركزية:* إحصائيات الـ 7,200 كتاب ومراتب التوثيق.\n\n"
+        "💡 *ملاحظة:* تم تفعيل القائمة التلقائية الرسمية في تليجرام! يمكنك الضغط على زر `[Menu]` الأزرق بجوار صندوق الكتابة لاختيار أي أمر فوراً بنقرة واحدة."
+    )
+    from elantony.telegram.keyboards import get_special_commands_inline_keyboard
+    await service.send_message(client, chat_id, msg, reply_markup=get_special_commands_inline_keyboard())

@@ -18,9 +18,10 @@ def get_main_menu_reply_keyboard() -> Dict[str, Any]:
         "keyboard": [
             [{"text": "🤖 اسأل المساعد الذكي"}, {"text": "📑 تجميع البحث (Word)"}],
             [{"text": "📜 سنكسار اليوم"}, {"text": "📖 آية وتفسير آبائي"}],
+            [{"text": "🌐 سحب جوجل درايف"}, {"text": "📡 قنوات تليجرام"}],
+            [{"text": "📊 لوحة الإشراف (Admin)"}, {"text": "⚡ قائمة الأوامر الخاصة"}],
             [{"text": "🔄 بحث جديد"}, {"text": "📂 أبحاثي السابقة"}],
             [{"text": "📑 فهرس المكتبة الشامل"}, {"text": "📚 البحث في المكتبة"}],
-            [{"text": "📖 اسأل كتابًا"}, {"text": "⛪ أقوال الآباء"}],
             [{"text": "⚙️ عمق الإجابة"}, {"text": "ℹ️ حول المكتبة"}]
         ],
         "resize_keyboard": True,
@@ -58,10 +59,15 @@ def get_main_menu_inline_keyboard() -> Dict[str, Any]:
                 {"text": "🏛️ أمهات الكتب والموسوعات", "callback_data": "cat:encyclopedias"}
             ],
             [
-                {"text": "⚙️ عمق الإجابة والنمط", "callback_data": "menu:depth"},
-                {"text": "📊 إحصائيات المكتبة", "callback_data": "menu:stats"}
+                {"text": "🌐 سحب Google Drive", "callback_data": "menu:harvest_drive"},
+                {"text": "📡 دليل قنوات تليجرام", "callback_data": "menu:harvest_tg"}
             ],
             [
+                {"text": "📊 لوحة الإشراف المركزية", "callback_data": "menu:admin_dash"},
+                {"text": "⚡ قائمة الأوامر والتحكم", "callback_data": "menu:special_commands"}
+            ],
+            [
+                {"text": "⚙️ عمق الإجابة والنمط", "callback_data": "menu:depth"},
                 {"text": "🔄 تحديث اللوحة", "callback_data": "nav:main"}
             ]
         ]
@@ -481,3 +487,28 @@ def format_reference_card(chunk: Any, idx: int) -> str:
         f"🏷️ *التوثيق:* [{citation_label} - {citation_tag}]\n"
         f"📝 *مقتطف من النص:* ❝ {excerpt} ❞"
     )
+
+
+def get_special_commands_inline_keyboard() -> Dict[str, Any]:
+    """
+    Returns dedicated inline drawer keyboard for quick access to the 6 commands.
+    """
+    return {
+        "inline_keyboard": [
+            [
+                {"text": "🌐 سحب وفهرسة Google Drive", "callback_data": "menu:harvest_drive"},
+                {"text": "📡 دليل قنوات تليجرام", "callback_data": "menu:harvest_tg"}
+            ],
+            [
+                {"text": "📜 سنكسار اليوم وسير الآباء", "callback_data": "menu:synaxarium"},
+                {"text": "📖 آية اليوم وتلاوة صوتية", "callback_data": "menu:daily_verse"}
+            ],
+            [
+                {"text": "📑 تجميع أطروحة البحث (Word)", "callback_data": "session:compile"},
+                {"text": "📊 لوحة الإشراف المركزية", "callback_data": "menu:admin_dash"}
+            ],
+            [
+                {"text": "🔙 القائمة الرئيسية", "callback_data": "nav:main"}
+            ]
+        ]
+    }

@@ -29,6 +29,33 @@ class TelegramBotEngine:
         self.running = False
         self.last_update_id = 0
 
+    async def register_bot_commands(self) -> None:
+        """Registers the official commands in Telegram's Menu button drawer."""
+        commands = [
+            {"command": "start", "description": "🏠 القائمة الرئيسية واللوحة التفاعلية"},
+            {"command": "ask", "description": "🤖 سؤال المساعد اللاهوتي والبحث الدلالي"},
+            {"command": "compile", "description": "📑 تجميع البحث وتصدير ملف Word (.docx)"},
+            {"command": "synaxarium", "description": "📜 سنكسار اليوم وقراءات الكنيسة القبطية"},
+            {"command": "verse", "description": "📖 آية اليوم وتأمل الآباء مع الاستماع الصوتي"},
+            {"command": "harvest_drive", "description": "🌐 سحب وفهرسة مكتبات Google Drive الكبرى"},
+            {"command": "harvest_tg", "description": "📡 دليل ومكتبات قنوات تليجرام الكنسية"},
+            {"command": "admin_dashboard", "description": "📊 لوحة الإشراف المركزية ومراتب الموثوقية"},
+            {"command": "catalog", "description": "📚 فهرس المكتبة الشامل والأقسام الكنسية"},
+            {"command": "new", "description": "🔄 فتح جلسة بحثية جديدة بالذاكرة المستمرة"},
+            {"command": "history", "description": "📂 أبحاثي ومناقشاتي السابقة المحفوظة"},
+            {"command": "depth", "description": "⚙️ ضبط نمط الإجابة (أكاديمي / رعوي / دفاعي)"},
+            {"command": "help", "description": "ℹ️ دليل استخدام المساعد والمكتبة"}
+        ]
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                res = await client.post(f"{self.api_base}/setMyCommands", json={"commands": commands})
+                if res.status_code == 200:
+                    logger.info("Successfully registered 13 official Telegram bot commands menu.")
+                else:
+                    logger.warning(f"Could not register commands menu: HTTP {res.status_code}")
+        except Exception as e:
+            logger.warning(f"Error registering bot commands menu: {e}")
+
     async def run(self) -> None:
         """Continuous resilient long-polling loop with automatic socket recreation."""
         if not self.token:
@@ -37,6 +64,7 @@ class TelegramBotEngine:
 
         self.running = True
         logger.info(f"ELANTONY Telegram Bot worker started in {settings.telegram_mode} mode.")
+        await self.register_bot_commands()
 
         # Timeout config: read timeout slightly larger than telegram server timeout (20s)
         client_timeout = httpx.Timeout(connect=10.0, read=28.0, write=10.0, pool=10.0)
