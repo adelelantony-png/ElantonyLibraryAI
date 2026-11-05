@@ -2215,54 +2215,135 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                     citeList.appendChild(item);
                 });
 
-                // 4. Dynamic Deep-Linked External Patristic Sources
-                const PATRISTIC_MAP = {
-                    'كيرلس الكبير': { en: 'Cyril of Alexandria', pg: 'PG 68-77', ar: 'القديس كيرلس الكبير' },
-                    'أثناسيوس': { en: 'Athanasius of Alexandria', pg: 'PG 25-28', ar: 'القديس أثناسيوس الرسولي' },
-                    'باسيليوس': { en: 'Basil the Great', pg: 'PG 29-32', ar: 'القديس باسيليوس الكبير' },
-                    'ذهبي الفم': { en: 'John Chrysostom', pg: 'PG 47-64', ar: 'القديس يوحنا ذهبي الفم' },
-                    'غريغوريوس النزينزي': { en: 'Gregory Nazianzen', pg: 'PG 35-38', ar: 'القديس غريغوريوس اللاهوتي' },
-                    'غريغوريوس اللاهوتي': { en: 'Gregory Nazianzen', pg: 'PG 35-38', ar: 'القديس غريغوريوس اللاهوتي' },
-                    'غريغوريوس النيسي': { en: 'Gregory of Nyssa', pg: 'PG 44-46', ar: 'القديس غريغوريوس النيسي' },
-                    'أنطونيوس الكبير': { en: 'Anthony the Great', pg: 'PG 40', ar: 'القديس العظيم أنطونيوس' },
-                    'مكاريوس الكبير': { en: 'Macarius the Great', pg: 'PG 34', ar: 'القديس مكاريوس الكبير' },
-                    'ديديموس الضرير': { en: 'Didymus the Blind', pg: 'PG 39', ar: 'القديس ديديموس الضرير' },
-                    'متى المسكين': { en: 'Matta El Meskeen', pg: '', ar: 'القمص متى المسكين' },
-                    'شنودة الثالث': { en: 'Pope Shenouda III', pg: '', ar: 'قداسة البابا شنودة الثالث' }
+                // 4. DIRECT Patristic Links (بدون أي صفحات وسيطة أو بحث جوجل)
+                const PATRISTIC_DIRECT_MAP = {
+                    'غريغوريوس النزينزي': { 
+                        en: 'St. Gregory Nazianzen', 
+                        ar: 'القديس غريغوريوس اللاهوتي', 
+                        pg: 'PG 35-38',
+                        newAdvent: 'https://www.newadvent.org/fathers/31.htm',
+                        ccel: 'https://www.ccel.org/ccel/schaff/npnf207.html'
+                    },
+                    'غريغوريوس اللاهوتي': { 
+                        en: 'St. Gregory Nazianzen', 
+                        ar: 'القديس غريغوريوس اللاهوتي', 
+                        pg: 'PG 35-38',
+                        newAdvent: 'https://www.newadvent.org/fathers/31.htm',
+                        ccel: 'https://www.ccel.org/ccel/schaff/npnf207.html'
+                    },
+                    'أثناسيوس': { 
+                        en: 'St. Athanasius of Alexandria', 
+                        ar: 'القديس أثناسيوس الرسولي', 
+                        pg: 'PG 25-28',
+                        newAdvent: 'https://www.newadvent.org/fathers/28.htm',
+                        ccel: 'https://www.ccel.org/ccel/schaff/npnf204.html'
+                    },
+                    'كيرلس الكبير': { 
+                        en: 'St. Cyril of Alexandria', 
+                        ar: 'القديس كيرلس الكبير', 
+                        pg: 'PG 68-77',
+                        newAdvent: 'https://www.newadvent.org/fathers/3810.htm',
+                        ccel: 'https://www.ccel.org/ccel/schaff/npnf214.html'
+                    },
+                    'باسيليوس': { 
+                        en: 'St. Basil the Great', 
+                        ar: 'القديس باسيليوس الكبير', 
+                        pg: 'PG 29-32',
+                        newAdvent: 'https://www.newadvent.org/fathers/32.htm',
+                        ccel: 'https://www.ccel.org/ccel/schaff/npnf208.html'
+                    },
+                    'ذهبي الفم': { 
+                        en: 'St. John Chrysostom', 
+                        ar: 'القديس يوحنا ذهبي الفم', 
+                        pg: 'PG 47-64',
+                        newAdvent: 'https://www.newadvent.org/fathers/30.htm',
+                        ccel: 'https://www.ccel.org/ccel/schaff/npnf109.html'
+                    },
+                    'غريغوريوس النيسي': { 
+                        en: 'St. Gregory of Nyssa', 
+                        ar: 'القديس غريغوريوس النيسي', 
+                        pg: 'PG 44-46',
+                        newAdvent: 'https://www.newadvent.org/fathers/29.htm',
+                        ccel: 'https://www.ccel.org/ccel/schaff/npnf205.html'
+                    },
+                    'أنطونيوس الكبير': { 
+                        en: 'St. Anthony the Great', 
+                        ar: 'القديس العظيم أنطونيوس', 
+                        pg: 'PG 40',
+                        newAdvent: 'https://www.newadvent.org/fathers/2811.htm',
+                        ccel: 'https://www.ccel.org/ccel/schaff/npnf204.xxv.i.html'
+                    },
+                    'مكاريوس الكبير': { 
+                        en: 'St. Macarius the Great', 
+                        ar: 'القديس مكاريوس الكبير', 
+                        pg: 'PG 34',
+                        newAdvent: 'https://www.newadvent.org/fathers/',
+                        ccel: 'https://www.ccel.org/search/fulltext?query=Macarius'
+                    },
+                    'ديديموس الضرير': { 
+                        en: 'Didymus the Blind', 
+                        ar: 'القديس ديديموس الضرير', 
+                        pg: 'PG 39',
+                        newAdvent: 'https://www.newadvent.org/fathers/',
+                        ccel: 'https://www.ccel.org/search/fulltext?query=Didymus'
+                    },
+                    'متى المسكين': { 
+                        en: 'Fr. Matta El Meskeen', 
+                        ar: 'القمص متى المسكين', 
+                        pg: '',
+                        newAdvent: 'https://st-takla.org/Full-Free-Coptic-Books/His-Holiness-Pope-Shenouda-III-Books-Online/36-Haya-El-Kadasa/Holy-Life-00-index.html',
+                        ccel: 'https://st-takla.org/books'
+                    },
+                    'شنودة الثالث': { 
+                        en: 'Pope Shenouda III', 
+                        ar: 'قداسة البابا شنودة الثالث', 
+                        pg: '',
+                        newAdvent: 'https://st-takla.org/Full-Free-Coptic-Books/His-Holiness-Pope-Shenouda-III-Books-Online/',
+                        ccel: 'https://st-takla.org/Full-Free-Coptic-Books/His-Holiness-Pope-Shenouda-III-Books-Online/'
+                    }
                 };
 
                 let detectedFather = null;
                 for (let c of citations) {
                     const authorTxt = (c.author || '') + ' ' + (c.book_title || '');
-                    for (let k in PATRISTIC_MAP) {
+                    for (let k in PATRISTIC_DIRECT_MAP) {
                         if (authorTxt.includes(k)) {
-                            detectedFather = PATRISTIC_MAP[k];
+                            detectedFather = PATRISTIC_DIRECT_MAP[k];
                             break;
                         }
                     }
                     if (detectedFather) break;
                 }
 
-                const queryContext = (chatMessages.length > 0 ? chatMessages[chatMessages.length - 1].content : '').slice(0, 30);
-                const searchTargetEn = detectedFather ? detectedFather.en : (queryContext || 'Early Church Fathers');
-                const searchTargetAr = detectedFather ? detectedFather.ar : (queryContext || 'آباء الكنيسة');
-                const pgLabel = detectedFather && detectedFather.pg ? ` (${detectedFather.pg})` : '';
+                if (!detectedFather && chatMessages.length > 0) {
+                    const lastUserMsg = chatMessages[chatMessages.length - 1].content || '';
+                    for (let k in PATRISTIC_DIRECT_MAP) {
+                        if (lastUserMsg.includes(k)) {
+                            detectedFather = PATRISTIC_DIRECT_MAP[k];
+                            break;
+                        }
+                    }
+                }
 
-                const ccelSearchUrl = `https://www.google.com/search?q=site:ccel.org/fathers+${encodeURIComponent(searchTargetEn)}`;
-                const newAdventSearchUrl = `https://www.google.com/search?q=site:newadvent.org/fathers+${encodeURIComponent(searchTargetEn)}`;
-                const pgUrl = `https://patristica.net/migne/`;
-                const taklaSearchUrl = `https://st-takla.org/search.php?q=${encodeURIComponent(searchTargetAr)}`;
+                const targetEnName = detectedFather ? detectedFather.en : 'Early Church Fathers';
+                const targetArName = detectedFather ? detectedFather.ar : 'آباء الكنيسة الأوائل';
+                const pgVol = detectedFather && detectedFather.pg ? ` (${detectedFather.pg})` : '';
+
+                const directNewAdventUrl = detectedFather ? detectedFather.newAdvent : 'https://www.newadvent.org/fathers/';
+                const directCcelUrl = detectedFather ? detectedFather.ccel : 'https://www.ccel.org/fathers';
+                const directPgUrl = 'https://patristica.net/migne/';
+                const directTaklaUrl = `https://st-takla.org/search.php?q=${encodeURIComponent(targetArName)}`;
 
                 const extBox = document.createElement('div');
                 extBox.className = 'external-sources-pill-box';
                 extBox.innerHTML = `
-                    <div class="ext-label">🌐 مراجع خارجية مدققة لنفس موضوع وآباء هذا البحث (تحقق مباشر):</div>
+                    <div class="ext-label">🌐 نصوص ومخطوطات أصلية مباشرة (بدون محركات بحث وسيطة):</div>
                     <div class="ext-chips-row">
-                        <a href="${ccelSearchUrl}" target="_blank" class="ext-source-chip" title="بحث نصوص ${searchTargetEn} في موسوعة فيليب شاف النقدية CCEL (38 مجلداً)">📚 نصوص NPNF في CCEL: ${searchTargetEn}</a>
-                        <a href="${newAdventSearchUrl}" target="_blank" class="ext-source-chip" title="نصوص ومخطوطات ${searchTargetEn} بالإنجليزية واليونانية في New Advent">🏛️ نصوص New Advent: ${searchTargetEn}</a>
-                        <a href="${pgUrl}" target="_blank" class="ext-source-chip" title="الأصل اليوناني في باترولوجيا ميني (Patrologia Graeca) 161 مجلداً">📜 أصول Migne PG اليونانية${pgLabel}</a>
-                        <a href="${taklaSearchUrl}" target="_blank" class="ext-source-chip" title="بحث نصوص ومقالات ${searchTargetAr} في مكتبة الكنيسة القبطية">📖 نصوص ومقالات: ${searchTargetAr}</a>
-                        <a href="https://katameros.bible/" target="_blank" class="ext-source-chip" title="ربط الموضوع بالقطمارس والسنكسار الكنسي اليومي">⛪ القطمارس والسنكسار الكنسي</a>
+                        <a href="${directNewAdventUrl}" target="_blank" class="ext-source-chip" title="فتح صفحة ومؤلفات ${targetEnName} مباشرة في New Advent باليونانية والإنجليزية">🏛️ أعمال ${targetEnName} (New Advent) ↗</a>
+                        <a href="${directCcelUrl}" target="_blank" class="ext-source-chip" title="فتح مجلد ${targetEnName} مباشرة في موسوعة NPNF بـ CCEL">📚 نصوص ${targetEnName} في NPNF CCEL ↗</a>
+                        <a href="${directPgUrl}" target="_blank" class="ext-source-chip" title="المجلدات اليونانية الأصلية في Patrologia Graeca 161 مجلداً">📜 أصول Migne PG اليونانية${pgVol} ↗</a>
+                        <a href="${directTaklaUrl}" target="_blank" class="ext-source-chip" title="بحث مكتبة سانت تكلا مباشرة عن ${targetArName}">📖 مكتبة وتراث: ${targetArName} ↗</a>
+                        <a href="https://katameros.bible/" target="_blank" class="ext-source-chip" title="القطمارس والسنكسار الكنسي اليومي المعتمد">⛪ قطمارس وسنكسار الكنيسة ↗</a>
                     </div>
                 `;
                 citeSection.appendChild(citeHeader);
@@ -3111,37 +3192,43 @@ async def api_audio_tts(req: TTSRequest):
 
 def check_topic_continuity(prev_title: str, prev_messages: List[Dict[str, Any]], new_query: str) -> Tuple[bool, str]:
     """
-    Determines whether new_query continues the current theological topic (same discussion)
+    Determines whether new_query continues the current theological topic (same discussion or sub-question branch)
     or represents a completely new subject that deserves a separate tab/session.
+    
+    Sub-questions (e.g. asking about 'التأله' then 'التجسد' then 'موقف الطوائف' inspired by keywords in the response)
+    stay in the SAME tab as part of the unified research thesis.
     """
     if not prev_messages:
         return True, "first_turn"
 
     q_norm = new_query.strip().lower()
 
-    # 1. Linguistic continuity markers
+    # 1. Sub-question and follow-up prefixes
     CONTINUITY_PREFIXES = [
         "وماذا عن", "وكيف", "وهل", "وضح اكثر", "وضح أكثر", "اشرح اكثر", "اشرح أكثر",
         "اذكر المزيد", "ما المرجع", "وما رأي", "وما راي", "هل تقصد", "ما علاقة هذا",
         "وما دلالة", "بماذا فسر", "وما الدليل", "لماذا قال", "اين ذكر", "أين ذكر",
         "ما الفرق بينهما", "قارن بينهما", "هل هذا يعني", "ما حكم ذلك", "لماذا إذن",
-        "تابع", "اكمل", "أكمل", "استمر", "زدني", "فسر أكثر"
+        "تابع", "اكمل", "أكمل", "استمر", "زدني", "فسر أكثر", "ومن هم", "ومن هو", "وما هي",
+        "وما موقف", "وما نظرة", "وما تعليم", "وما رد", "وماذا بخصوص", "وعن", "وبالنسبة ل",
+        "ما الفرق", "قارن بين", "هل يختلف", "كيف ذلك", "ما أصل", "ما سبب", "ما موقف"
     ]
     for p in CONTINUITY_PREFIXES:
         if q_norm.startswith(p) or f" {p} " in q_norm:
-            return True, "continuity_prefix"
+            return True, f"continuity_prefix:{p}"
 
+    # 2. Referential Pronouns
     CONTINUITY_PRONOUNS = [
         " هذا ", " هذه ", " ذلك ", " تلك ", " هؤلاء ", " عنه ", " عنها ",
         " فيه ", " فيها ", " منه ", " منها ", " به ", " بها ", " له ", " لها ",
-        " بينهما ", " إليه ", " إليها ", " كلاهما ", " كلتاهما "
+        " بينهما ", " إليه ", " إليها ", " كلاهما ", " كلتاهما ", " عندهم ", " لديهم ", " معهم "
     ]
     padded_q = f" {q_norm} "
     for pron in CONTINUITY_PRONOUNS:
         if pron in padded_q:
-            return True, "referential_pronoun"
+            return True, f"referential_pronoun:{pron.strip()}"
 
-        # 2. Extract theological keyword roots excluding generic ecclesiastical stopwords
+    # 3. Extract keywords excluding generic ecclesiastical stopwords
     from elantony.search.search_engine import ARABIC_STOPWORDS
     import re
 
@@ -3168,19 +3255,33 @@ def check_topic_continuity(prev_title: str, prev_messages: List[Dict[str, Any]],
                     norm_words.append(w_strip)
         return set(norm_words)
 
-    last_user_msg = ""
-    for m in reversed(prev_messages):
-        if m.get("role") == "user":
-            last_user_msg = m.get("content", "")
-            break
+    # 4. Build comprehensive thread context:
+    # Includes title + all previous questions + the assistant's previous responses
+    # (so sub-questions inspired by keywords in the AI's explanation stay in the SAME tab!)
+    thread_parts = [prev_title or ""]
+    for m in prev_messages[-4:]:  # last 4 turns (user + assistant)
+        thread_parts.append(m.get("content", ""))
 
-    prev_context = f"{prev_title or ''} {last_user_msg}"
-    prev_kw = extract_keywords(prev_context)
+    full_thread_context = " ".join(thread_parts)
+    thread_kw = extract_keywords(full_thread_context)
     new_kw = extract_keywords(new_query)
 
-    overlap = prev_kw.intersection(new_kw)
+    overlap = thread_kw.intersection(new_kw)
     if len(overlap) >= 1:
-        return True, f"keyword_overlap:{overlap}"
+        return True, f"thread_overlap:{overlap}"
+
+    # 5. Doctrinal Affinity Clusters (المجموعات العقائدية واللاهوتية المتلازمة)
+    DOCTRINAL_CLUSTERS = [
+        {"تجسد", "تانس", "لاهوت", "ناسوت", "تاله", "فداء", "خلاص", "صليب", "قيامه", "طوائف", "بروتستانت", "كاثوليك", "ارثوذكس", "طبيعه", "مجمع", "افسس", "كيرلس", "اثناسيوس", "نسطور"},
+        {"ثالوث", "اقنوم", "جوهر", "اب", "ابن", "روح", "انبثاق", "ولاده", "مساو", "نيقيه"},
+        {"معموديه", "ميرون", "افخارستيا", "تناول", "اعتراف", "اسرار", "كهنوت", "مسحه", "زواج"},
+        {"صوم", "صيام", "يونان", "بصخه", "اسبوع", "الام", "قيامه", "ميلاد", "قطمارس", "سنكسار", "قراءات"}
+    ]
+    for cluster in DOCTRINAL_CLUSTERS:
+        thread_in_cluster = len(thread_kw.intersection(cluster)) >= 1
+        new_in_cluster = len(new_kw.intersection(cluster)) >= 1
+        if thread_in_cluster and new_in_cluster:
+            return True, "doctrinal_cluster_affinity"
 
     return False, "distinct_theological_topic" 
 
