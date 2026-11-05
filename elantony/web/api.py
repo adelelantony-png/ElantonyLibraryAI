@@ -3146,98 +3146,113 @@ def check_topic_continuity(prev_title: str, prev_messages: List[Dict[str, Any]],
     Determines whether new_query continues the current theological topic (same discussion or sub-question branch)
     or represents a completely new subject that deserves a separate tab/session.
     
-    Sub-questions (e.g. asking about 'التأله' then 'التجسد' then 'موقف الطوائف' inspired by keywords in the response)
-    stay in the SAME tab as part of the unified research thesis.
+    Uses Theological Domain Categorization and compares against user queries only (excluding AI essays)
+    to ensure topics like 'إقامة الموتى' vs 'صلب المسيح' vs 'طوفان نوح' are cleanly separated into tabs.
     """
     if not prev_messages:
         return True, "first_turn"
 
     q_norm = new_query.strip().lower()
 
-    # 1. Sub-question and follow-up prefixes
-    CONTINUITY_PREFIXES = [
-        "وماذا عن", "وكيف", "وهل", "وضح اكثر", "وضح أكثر", "اشرح اكثر", "اشرح أكثر",
-        "اذكر المزيد", "ما المرجع", "وما رأي", "وما راي", "هل تقصد", "ما علاقة هذا",
-        "وما دلالة", "بماذا فسر", "وما الدليل", "لماذا قال", "اين ذكر", "أين ذكر",
-        "ما الفرق بينهما", "قارن بينهما", "هل هذا يعني", "ما حكم ذلك", "لماذا إذن",
-        "تابع", "اكمل", "أكمل", "استمر", "زدني", "فسر أكثر", "ومن هم", "ومن هو", "وما هي",
-        "وما موقف", "وما نظرة", "وما تعليم", "وما رد", "وماذا بخصوص", "وعن", "وبالنسبة ل",
-        "ما الفرق", "قارن بين", "هل يختلف", "كيف ذلك", "ما أصل", "ما سبب", "ما موقف"
+    # 1. Sub-question and Follow-up prefixes
+    FOLLOWUP_PREFIXES = [
+        "وضح اكثر", "وضح أكثر", "اشرح لي اكثر", "اشرح لي أكثر", "ماذا عن", "وماذا عن",
+        "لا اقصد", "لا أقصد", "اقصد", "أقصد", "بمعنى اخر", "بمعنى آخر", "هل هذا يعني",
+        "هل تقصد", "ولكن كيف", "لكن كيف", "طب و", "طب بالنسبه", "وما الدليل", "ما الدليل",
+        "عايز اعرف", "أريد أن أعرف", "هل ينطبق", "وبالنسبة لـ", "وبالنسبه ل", "ما رأيك في"
     ]
-    for p in CONTINUITY_PREFIXES:
+    for p in FOLLOWUP_PREFIXES:
         if q_norm.startswith(p) or f" {p} " in q_norm:
-            return True, f"continuity_prefix:{p}"
+            return True, f"followup_prefix:{p}"
 
     # 2. Referential Pronouns
-    CONTINUITY_PRONOUNS = [
-        " هذا ", " هذه ", " ذلك ", " تلك ", " هؤلاء ", " عنه ", " عنها ",
-        " فيه ", " فيها ", " منه ", " منها ", " به ", " بها ", " له ", " لها ",
-        " بينهما ", " إليه ", " إليها ", " كلاهما ", " كلتاهما ", " عندهم ", " لديهم ", " معهم "
-    ]
+    PRONOUNS = [" هذا ", " هذه ", " ذلك ", " تلك ", " هؤلاء ", " عنه ", " عنها ", " فيه ", " فيها ", " منه ", " منها ", " به ", " بها ", " له ", " لها "]
     padded_q = f" {q_norm} "
-    for pron in CONTINUITY_PRONOUNS:
+    for pron in PRONOUNS:
         if pron in padded_q:
             return True, f"referential_pronoun:{pron.strip()}"
 
-    # 3. Extract keywords excluding generic ecclesiastical stopwords
-    from elantony.search.search_engine import ARABIC_STOPWORDS
-    import re
-
-    GENERIC_ECCLESIASTICAL = {
-        'قبطي', 'القبطي', 'قبطية', 'القبطية', 'كنسي', 'الكنسي', 'كنسية', 'الكنسية',
-        'كنيسة', 'الكنيسة', 'ارثوذكسي', 'أرثوذكسي', 'الارثوذكسية', 'الأرثوذكسية',
-        'مسيحي', 'مسيحية', 'المسيحية', 'مقدس', 'المقدس', 'مقدسة', 'المقدسة',
-        'طقس', 'الطقس', 'تاريخ', 'تاريخه', 'مفهوم', 'معنى', 'شرح', 'تفسير',
-        'اقوال', 'أقوال', 'اباء', 'آباء', 'الاباء', 'الآباء', 'كتاب', 'كتب',
-        'سؤال', 'ماهو', 'ماهي', 'ماذا', 'لماذا', 'كيف', 'هل', 'اين', 'أين',
-        'اذكر', 'وضح', 'بين', 'حول', 'عن', 'في', 'من', 'إلى', 'الي', 'على', 'علي'
+    # 3. Canonical Theological Domain Categorization
+    THEOLOGICAL_DOMAINS = {
+        "CRUCIFIXION_PASSION": {
+            "صلب", "الصلب", "المصلوب", "الصليب", "صليب", "الجلجثة", "الجمعة العظيمة", "آلام المسيح", "اسبوع الالام", "أسبوع الآلام",
+            "بيلاطس", "باراباس", "قيافا", "حنانيا", "المحاكمة", "اللص اليمين", "طريق الالام", "الدفن", "القبر",
+            "زلزال", "تزلزلت", "الشمس", "أظلمت", "ظلمة", "كسوف", "انشقاق", "انشق", "حجاب الهيكل", "الصخور", "تفتحت القبور", "الآيات الكونية"
+        },
+        "RESURRECTION_MIRACLES": {
+            "إقامة", "اقامة", "أقام", "اقام", "يقيم", "الموتى", "الموتي", "الأموات", "الاموات",
+            "لعازر", "يايرس", "طليثا قومي", "نايين", "أرملة نايين", "معجزات", "معجزة", "إيليا", "اليشع"
+        },
+        "CHRIST_RESURRECTION": {
+            "قيامة", "القيامة", "قام", "الباكورة", "القبر الفارغ", "أحد القيامة", "الظهورات", "توما", "المجدلية", "عمواس"
+        },
+        "INCARNATION_CHRISTOLOGY": {
+            "تجسد", "التجسد", "الكلمة المتجسد", "التأنس", "تأنس", "صار جسدا", "سر التجسد", "عمانوئيل",
+            "طبيعة المسيح", "ميافيزيس", "كيرلس", "أثناسيوس", "نسطور", "أفسس", "خلقيدونية"
+        },
+        "THEOSIS": {
+            "تأله", "التأله", "شريك الطبيعة الإلهية", "الاتحاد بالله", "theosis", "ثيؤسيس", "نعمة التبني"
+        },
+        "TRINITY": {
+            "ثالوث", "الثالوث", "الأقانيم", "أقنوم", "الآب والابن", "الروح القدس", "الجوهر الإلهي", "هومواوسيوس", "الولادة الأزلية", "الانبثاق"
+        },
+        "SACRAMENTS": {
+            "أسرار", "اسرار", "معمودية", "المعمودية", "إفخارستيا", "افخارستيا", "القربان", "التناول", "ميرون", "الميرون", "اعتراف", "توبة", "كهنوت"
+        },
+        "CREATION_FLOOD": {
+            "طوفان", "الطوفان", "نوح", "فلك نوح", "الخلق", "الخليقة", "آدم وحواء", "السقوط", "تكوين", "سفر التكوين"
+        }
     }
-    ALL_EXCLUDE = ARABIC_STOPWORDS.union(GENERIC_ECCLESIASTICAL)
 
-    def extract_keywords(text: str):
-        words = re.findall(r'[\wء-يͰ-ϿⲀ-⳿]+', text.lower())
-        norm_words = []
-        for w in words:
-            w_norm = re.sub(r'[إأآا]', 'ا', w)
-            w_norm = re.sub(r'ة$', 'ه', w_norm)
-            if len(w_norm) >= 3 and w_norm not in ALL_EXCLUDE and w not in ALL_EXCLUDE:
-                w_strip = w_norm[2:] if w_norm.startswith('ال') and len(w_norm) > 4 else w_norm
-                if w_strip not in ALL_EXCLUDE:
-                    norm_words.append(w_strip)
-        return set(norm_words)
+    GENERIC_NOISE = {
+        'مفهوم', 'فكر', 'اقوال', 'أقوال', 'الموضوع', 'موضوع', 'المراجع', 'مراجع', 'شرح', 'تفسير',
+        'قديس', 'القديس', 'انبا', 'الأنبا', 'بابا', 'البابا', 'حول', 'هذا', 'هذه', 'ذلك', 'تلك',
+        'ما', 'هو', 'هي', 'عن', 'هل', 'كيف', 'ماذا', 'لماذا', 'اين', 'أين', 'متى', 'كم', 'من', 'في',
+        'على', 'إلى', 'الي', 'مع', 'هكذا', 'وهكذا', 'مثل', 'كذلك', 'اثبت', 'يثبت', 'اثبات', 'أثبت',
+        'تطابق', 'يطابق', 'مطابقة', 'الحدث', 'حدث', 'احداث', 'أحداث', 'العلم', 'العلمي', 'علميا', 'علم',
+        'حقيقة', 'امر', 'أمر', 'شأن', 'نوع', 'وجود', 'بين', 'ايضا', 'أيضا', 'اريد', 'أريد', 'ابحث',
+        'أبحث', 'اعطني', 'أعطني', 'توضيح', 'بيان', 'رأي', 'راي', 'موقف', 'نظرة', 'بخصوص', 'بشأن',
+        'المسيح', 'السيد', 'الله', 'الرب', 'الإله', 'العهد', 'القديم', 'الجديد', 'الكتاب', 'المقدس'
+    }
 
-    # 4. Build comprehensive thread context:
-    # Includes title + all previous questions + the assistant's previous responses
-    # (so sub-questions inspired by keywords in the AI's explanation stay in the SAME tab!)
-    thread_parts = [prev_title or ""]
-    for m in prev_messages:  # ALL turns in this discussion thread
-        thread_parts.append(m.get("content", ""))
-        cites = m.get("citations")
-        if cites:
-            thread_parts.append(str(cites))
+    def detect_domains(text: str) -> Set[str]:
+        text_clean = re.sub(r'[^\w\s]', ' ', text).lower()
+        words = set(text_clean.split())
+        matched = set()
+        for domain, kws in THEOLOGICAL_DOMAINS.items():
+            for kw in kws:
+                kw_clean = kw.lower()
+                if kw_clean in words or f" {kw_clean} " in f" {text_clean} ":
+                    matched.add(domain)
+                    break
+        return matched
 
-    full_thread_context = " ".join(thread_parts)
-    thread_kw = extract_keywords(full_thread_context)
-    new_kw = extract_keywords(new_query)
+    # 4. Compare only user questions and thread title (Never AI encyclopedic essays)
+    prev_user_queries = [m.get("content", "") for m in prev_messages if m.get("role") == "user"]
+    prev_context = " ".join([prev_title or ""] + prev_user_queries)
 
-    overlap = thread_kw.intersection(new_kw)
+    prev_domains = detect_domains(prev_context)
+    new_domains = detect_domains(new_query)
+
+    if prev_domains and new_domains:
+        common = prev_domains.intersection(new_domains)
+        if common:
+            return True, f"domain_affinity:{common}"
+        else:
+            return False, f"distinct_domain:{new_domains}_vs_{prev_domains}"
+
+    # 5. Fallback: substantive keyword overlap on user text only
+    prev_clean = re.sub(r'[^\w\s]', ' ', prev_context).lower()
+    prev_words = {w for w in prev_clean.split() if len(w) >= 3 and w not in GENERIC_NOISE}
+    
+    new_clean = re.sub(r'[^\w\s]', ' ', new_query).lower()
+    new_words = {w for w in new_clean.split() if len(w) >= 3 and w not in GENERIC_NOISE}
+
+    overlap = prev_words.intersection(new_words)
     if len(overlap) >= 1:
-        return True, f"thread_overlap:{overlap}"
+        return True, f"user_keyword_overlap:{overlap}"
 
-    # 5. Doctrinal Affinity Clusters (المجموعات العقائدية واللاهوتية المتلازمة)
-    DOCTRINAL_CLUSTERS = [
-        {"تجسد", "تانس", "لاهوت", "ناسوت", "تاله", "فداء", "خلاص", "صليب", "قيامه", "طوائف", "بروتستانت", "كاثوليك", "ارثوذكس", "طبيعه", "مجمع", "افسس", "كيرلس", "اثناسيوس", "نسطور"},
-        {"ثالوث", "اقنوم", "جوهر", "اب", "ابن", "روح", "انبثاق", "ولاده", "مساو", "نيقيه"},
-        {"معموديه", "ميرون", "افخارستيا", "تناول", "اعتراف", "اسرار", "كهنوت", "مسحه", "زواج"},
-        {"صوم", "صيام", "يونان", "بصخه", "اسبوع", "الام", "قيامه", "ميلاد", "قطمارس", "سنكسار", "قراءات"}
-    ]
-    for cluster in DOCTRINAL_CLUSTERS:
-        thread_in_cluster = len(thread_kw.intersection(cluster)) >= 1
-        new_in_cluster = len(new_kw.intersection(cluster)) >= 1
-        if thread_in_cluster and new_in_cluster:
-            return True, "doctrinal_cluster_affinity"
-
-    return False, "distinct_theological_topic" 
+    return False, "distinct_theological_topic"
 
 
 @app.post("/api/chat")
