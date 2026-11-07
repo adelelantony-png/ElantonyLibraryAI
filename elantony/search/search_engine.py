@@ -804,7 +804,38 @@ class ChurchSearchEngine:
 
         # Sort: Highest authority weight first, then highest relevance score
         candidate_items.sort(key=lambda x: (x[0], x[1]), reverse=True)
-        results = [item[2] for item in candidate_items[:limit]]
+
+        # Smart Deduplication across duplicate files and repeated book editions
+        results: List[ChunkEntity] = []
+        seen_texts: List[str] = []
+        seen_fingerprints = set()
+
+        for item in candidate_items:
+            entity = item[2]
+            text = entity.chunk_text.strip()
+            words = text.split()
+            fp = " ".join(words[:18]) if len(words) >= 18 else text
+            if fp in seen_fingerprints:
+                continue
+
+            is_dup = False
+            cand_word_set = set(words[:30])
+            for prev_text in seen_texts:
+                prev_word_set = set(prev_text.split()[:30])
+                if cand_word_set and prev_word_set:
+                    overlap = len(cand_word_set & prev_word_set) / min(len(cand_word_set), len(prev_word_set))
+                    if overlap >= 0.65:
+                        is_dup = True
+                        break
+            if is_dup:
+                continue
+
+            seen_fingerprints.add(fp)
+            seen_texts.append(text)
+            results.append(entity)
+            if len(results) >= limit:
+                break
+
         return results
 
     def search_scoped_book(self, sha256: str, query: str, limit: int = 4) -> List[ChunkEntity]:

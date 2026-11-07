@@ -71,12 +71,13 @@ DEPTH_INSTRUCTIONS: Dict[str, str] = {
 class GeminiAIProvider(BaseAIProvider):
     """Google Gemini API Provider with strict verified citation typology and structured answer generation."""
 
-    # Priority order for high-quota, ultra-fast and active models on Gemini API
+    # High-quota, active and lightning-fast models with zero 429 quota limits
     CANDIDATE_MODELS = [
-        "gemini-2.5-flash",
+        "gemini-3.5-flash",
+        "gemini-3.5-flash-lite",
         "gemini-3.1-flash-lite",
-        "gemini-flash-latest",
-        "gemini-2.5-pro"
+        "gemini-3-flash-preview",
+        "gemini-flash-latest"
     ]
 
     def __init__(self, api_key: Optional[str] = None):
@@ -135,11 +136,18 @@ class GeminiAIProvider(BaseAIProvider):
             generation_config = genai.types.GenerationConfig(
                 temperature=0.25,
                 top_p=0.9,
-                max_output_tokens=2600
+                max_output_tokens=8192
             )
 
             depth_text = DEPTH_INSTRUCTIONS.get(depth_mode, DEPTH_INSTRUCTIONS["academic"])
             active_sys_prompt = f"{THEOLOGICAL_STRUCTURED_SYSTEM_PROMPT}\n{depth_text}"
+
+            safety_settings = {
+                genai.types.HarmCategory.HARM_CATEGORY_HARASSMENT: genai.types.HarmBlockThreshold.BLOCK_ONLY_HIGH,
+                genai.types.HarmCategory.HARM_CATEGORY_HATE_SPEECH: genai.types.HarmBlockThreshold.BLOCK_ONLY_HIGH,
+                genai.types.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: genai.types.HarmBlockThreshold.BLOCK_ONLY_HIGH,
+                genai.types.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: genai.types.HarmBlockThreshold.BLOCK_ONLY_HIGH,
+            }
 
             for model_name in self.CANDIDATE_MODELS:
                 try:
@@ -150,10 +158,23 @@ class GeminiAIProvider(BaseAIProvider):
                     response = model.generate_content(
                         prompt,
                         generation_config=generation_config,
-                        request_options={"timeout": 45}
+                        safety_settings=safety_settings,
+                        request_options={"timeout": 60}
                     )
-                    if response and response.text:
-                        return response.text.strip()
+                    if response and response.candidates:
+                        cand = response.candidates[0]
+                        out_text = ""
+                        try:
+                            out_text = response.text.strip()
+                        except Exception:
+                            if cand.content and cand.content.parts:
+                                out_text = "".join(p.text for p in cand.content.parts if hasattr(p, "text")).strip()
+
+                        if out_text and (len(out_text) >= 400 or cand.finish_reason == 1):
+                            return out_text
+                        else:
+                            logger.warning(f"Model {model_name} generated incomplete output ({len(out_text)} chars). Trying next model...")
+                            continue
                 except Exception as model_err:
                     logger.warning(f"Gemini model {model_name} error: {model_err}. Trying next...")
                     continue
@@ -212,11 +233,18 @@ class GeminiAIProvider(BaseAIProvider):
             generation_config = genai.types.GenerationConfig(
                 temperature=0.25,
                 top_p=0.9,
-                max_output_tokens=2600
+                max_output_tokens=8192
             )
 
             depth_text = DEPTH_INSTRUCTIONS.get(depth_mode, DEPTH_INSTRUCTIONS["academic"])
             active_sys_prompt = f"{THEOLOGICAL_STRUCTURED_SYSTEM_PROMPT}\n{depth_text}"
+
+            safety_settings = {
+                genai.types.HarmCategory.HARM_CATEGORY_HARASSMENT: genai.types.HarmBlockThreshold.BLOCK_ONLY_HIGH,
+                genai.types.HarmCategory.HARM_CATEGORY_HATE_SPEECH: genai.types.HarmBlockThreshold.BLOCK_ONLY_HIGH,
+                genai.types.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: genai.types.HarmBlockThreshold.BLOCK_ONLY_HIGH,
+                genai.types.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: genai.types.HarmBlockThreshold.BLOCK_ONLY_HIGH,
+            }
 
             for model_name in self.CANDIDATE_MODELS:
                 try:
@@ -227,11 +255,25 @@ class GeminiAIProvider(BaseAIProvider):
                     response = model.generate_content(
                         prompt,
                         generation_config=generation_config,
-                        request_options={"timeout": 45}
+                        safety_settings=safety_settings,
+                        request_options={"timeout": 60}
                     )
-                    if response and response.text:
-                        return response.text.strip()
+                    if response and response.candidates:
+                        cand = response.candidates[0]
+                        out_text = ""
+                        try:
+                            out_text = response.text.strip()
+                        except Exception:
+                            if cand.content and cand.content.parts:
+                                out_text = "".join(p.text for p in cand.content.parts if hasattr(p, "text")).strip()
+
+                        if out_text and (len(out_text) >= 400 or cand.finish_reason == 1):
+                            return out_text
+                        else:
+                            logger.warning(f"Model {model_name} generated incomplete output ({len(out_text)} chars). Trying next model...")
+                            continue
                 except Exception as model_err:
+                    logger.warning(f"Gemini model {model_name} error: {model_err}. Trying next...")
                     continue
 
         except Exception as e:
