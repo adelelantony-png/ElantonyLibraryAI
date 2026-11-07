@@ -14,7 +14,7 @@ from typing import List, Dict, Any, Optional, Set, Tuple
 from elantony.database.connection import get_connection
 from elantony.database.models import ChunkEntity
 from elantony.core.logging import logger
-from elantony.core.text_cleaner import clean_theological_text, extract_coherent_sentences
+from elantony.core.text_cleaner import clean_theological_text, extract_coherent_sentences, is_theologically_substantive
 import json
 from elantony.classifier.source_classifier import ChurchSourceClassifier, SourceType, AuthenticityTier
 from elantony.ocr.advanced_ocr import ArabicOcrPostProcessor
@@ -572,7 +572,7 @@ class ChurchSearchEngine:
                         if ("الكنوز فى الثالوث" in b_title or "تثليث وتوحيد" in b_title or "الثالوث القدوس" in b_title) and not any(k in c_text for k in ["صلب", "الصليب", "صلبوا", "المصلوب", "الجلجثة", "الآلام"]):
                             continue
 
-                    if ref not in seen_refs and is_chunk_high_quality(c_text):
+                    if ref not in seen_refs and is_chunk_high_quality(c_text) and is_theologically_substantive(c_text):
                         seen_refs.add(ref)
                         rows.append(cr)
                         if len(rows) >= limit:
@@ -594,7 +594,7 @@ class ChurchSearchEngine:
                 candidate_rows = cur.fetchall()
                 for cr in candidate_rows:
                     ref = cr["source_reference"]
-                    if ref not in seen_refs and is_chunk_high_quality(cr["chunk_text"]):
+                    if ref not in seen_refs and is_chunk_high_quality(cr["chunk_text"]) and is_theologically_substantive(cr["chunk_text"]):
                         seen_refs.add(ref)
                         rows.append(cr)
                         if len(rows) >= limit:
@@ -695,9 +695,18 @@ class ChurchSearchEngine:
             if target_fathers:
                 is_father_match = any(tf in b_meta["matched_fathers"] or tf in clean_title for tf in target_fathers)
 
-            if target_fathers and is_father_match:
-                weight = 1.8  # Top priority: original text attributed to the requested Father
-                relevance_score = 0.96
+            is_bio = any(bio in clean_title for bio in ["حياة", "سيرة", "قصة", "تاريخ"])
+            is_primary_father_work = is_father_match and not is_bio and (tier == 1 or any(tf in resolved_author for tf in target_fathers))
+
+            if target_fathers and is_primary_father_work:
+                weight = 2.0  # Top priority: genuine original patristic writing of the requested Father
+                relevance_score = 0.98
+            elif target_fathers and is_father_match and not is_bio:
+                weight = 1.5  # Scholarly patristic commentary referencing the Father
+                relevance_score = 0.92
+            elif is_bio:
+                weight = 0.6  # Biographical/narrative secondary book - lowest priority
+                relevance_score = 0.60
             elif tier == 1:
                 weight = 1.5  # Primary Patristic original
                 relevance_score = 0.92

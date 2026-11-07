@@ -73,10 +73,10 @@ class GeminiAIProvider(BaseAIProvider):
 
     # Priority order for high-quota, ultra-fast and active models on Gemini API
     CANDIDATE_MODELS = [
-        "gemini-3.1-flash-lite",
         "gemini-2.5-flash",
-        "gemini-3.1-flash-lite-preview",
-        "gemini-3.5-flash-lite"
+        "gemini-3.1-flash-lite",
+        "gemini-flash-latest",
+        "gemini-2.5-pro"
     ]
 
     def __init__(self, api_key: Optional[str] = None):
@@ -150,7 +150,7 @@ class GeminiAIProvider(BaseAIProvider):
                     response = model.generate_content(
                         prompt,
                         generation_config=generation_config,
-                        request_options={"timeout": 12}
+                        request_options={"timeout": 45}
                     )
                     if response and response.text:
                         return response.text.strip()
@@ -227,7 +227,7 @@ class GeminiAIProvider(BaseAIProvider):
                     response = model.generate_content(
                         prompt,
                         generation_config=generation_config,
-                        request_options={"timeout": 12}
+                        request_options={"timeout": 45}
                     )
                     if response and response.text:
                         return response.text.strip()

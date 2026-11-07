@@ -21,6 +21,7 @@ from pydantic import BaseModel
 from elantony.core.config import settings
 from elantony.core.logging import logger
 from elantony.database.repository import repo
+from elantony.database.connection import get_connection
 from elantony.search.search_engine import search_engine
 from elantony.ai.factory import get_ai_provider
 from elantony.telegram.bot_service import TelegramBotEngine
@@ -1635,6 +1636,97 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             .controls-wrapper { justify-content: center; }
             .nav-actions { justify-content: center; }
         }
+    
+        /* Upload Modal Dropzone */
+        .upload-dropzone {
+            border: 2px dashed var(--accent);
+            border-radius: 10px;
+            padding: 30px 20px;
+            text-align: center;
+            background: rgba(217, 119, 6, 0.04);
+            cursor: pointer;
+            transition: all 0.25s ease;
+        }
+        .upload-dropzone:hover, .upload-dropzone.dragover {
+            background: rgba(217, 119, 6, 0.12);
+            border-color: #f59e0b;
+            transform: scale(1.01);
+        }
+        .sidebar-search-box {
+            width: 100%;
+            padding: 7px 10px;
+            border-radius: 6px;
+            border: 1px solid var(--card-border);
+            background: var(--bg-darker);
+            color: var(--text-main);
+            font-size: 12px;
+            font-family: inherit;
+            outline: none;
+            transition: border 0.2s;
+        }
+        .sidebar-search-box:focus { border-color: var(--accent); }
+        .sess-count-badge {
+            background: rgba(146, 64, 14, 0.12);
+            color: var(--accent);
+            font-size: 10px;
+            padding: 1px 6px;
+            border-radius: 10px;
+            font-weight: 700;
+            margin-right: 4px;
+        }
+        .sess-subq-tree {
+            margin: 4px 10px 4px 4px;
+            padding-right: 8px;
+            border-right: 2px solid var(--gold);
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+        .subq-tree-item {
+            font-size: 11px;
+            color: var(--text-sub);
+            padding: 3px 6px;
+            border-radius: 4px;
+            cursor: pointer;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            transition: 0.15s;
+        }
+        .subq-tree-item:hover { background: var(--bg-darker); color: var(--accent); }
+        .subq-num { font-weight: 700; color: var(--accent); font-size: 10px; }
+        .btn-cite-fav {
+            background: transparent;
+            border: 1px solid rgba(202, 138, 4, 0.4);
+            color: #ca8a04;
+            border-radius: 4px;
+            padding: 2px 7px;
+            font-size: 11px;
+            cursor: pointer;
+            font-family: inherit;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            transition: 0.2s;
+        }
+        .btn-cite-fav:hover, .btn-cite-fav.active { background: #ca8a04; color: #FFF; }
+        .btn-cite-split {
+            background: rgba(59, 130, 246, 0.12);
+            border-color: #3b82f6;
+            color: #2563eb;
+        }
+        .btn-cite-split:hover { background: #2563eb; color: #FFF; }
+        .turn-highlight-pulse { animation: pulseTurn 1.8s ease; }
+        @keyframes pulseTurn {
+            0% { box-shadow: 0 0 0 0 rgba(217, 119, 6, 0.6); }
+            70% { box-shadow: 0 0 0 12px rgba(217, 119, 6, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(217, 119, 6, 0); }
+        }
+
     </style>
 </head>
 <body data-theme="sepia">
@@ -1662,9 +1754,19 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             </button>
         </div>
 
-        <button class="btn-new-chat" onclick="startNewChat()">
-            <span>➕</span> بحث لاهوتي جديد
-        </button>
+        <div style="display:flex; flex-direction:column; gap:6px; margin: 0 16px 10px;">
+            <button class="btn-new-chat" onclick="startNewChat()" style="margin:0;">
+                <span>➕</span> بحث لاهوتي جديد
+            </button>
+            <button class="btn-ctrl" onclick="openUploadBookModal()" style="padding: 7px 12px; font-size: 12px; font-weight: 700; background: rgba(14, 165, 233, 0.1); border-color: #0284c7; color: #0284c7;">
+                <span>📥</span> إضافة كتاب للمكتبة
+            </button>
+        </div>
+
+        <div style="padding: 0 16px 6px;">
+            <input type="text" id="sidebarSearchInput" placeholder="🔍 بحث في أبحاثك..." oninput="filterSidebarSessions(this.value)" class="sidebar-search-box">
+        </div>
+
         <div class="chat-history-title">📂 أبحاثك ومناقشاتك المحفوظة</div>
         <div class="chat-history" id="chatHistoryList">
             <!-- Sessions populate dynamically -->
@@ -1719,6 +1821,15 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                 </button>
                 <button class="btn-nav btn-docx-nav" onclick="downloadCurrentExport('docx')" title="تنزيل أطروحة البحث كاملة كملف Microsoft Word منسق">
                     <span>📄</span> Word
+                </button>
+                <button class="btn-nav btn-pdf-nav" onclick="downloadCurrentExport('pdf')" title="تنزيل أطروحة البحث كملف PDF كنسي منسق" style="background: rgba(220, 38, 38, 0.12); border-color: #dc2626; color: #dc2626; font-weight: 700;">
+                    <span>📕</span> PDF
+                </button>
+                <button class="btn-nav btn-fav-nav" onclick="openScholarNotebookModal()" title="كشكول الباحث ومفضلة الشواهد وتدوين الهوامش" style="background: rgba(234, 179, 8, 0.15); border-color: #ca8a04; color: #a16207; font-weight: 700;">
+                    <span>⭐</span> الكشكول (<span id="notebookBadge">0</span>)
+                </button>
+                <button class="btn-nav btn-upload-nav" onclick="openUploadBookModal()" title="رفع وإضافة كتاب جديد للمكتبة مع فهرسته فورياً" style="background: rgba(14, 165, 233, 0.14); border-color: #0284c7; color: #0369a1; font-weight: 700;">
+                    <span>📥</span> إضافة كتاب
                 </button>
                 <button class="btn-nav btn-admin-nav" onclick="openAdminConsole()" title="لوحة إشراف المدير العام ومتابعة أبحاث كل المستخدمين (PIN: 2026)" style="background: rgba(217, 119, 6, 0.12); border-color: #d97706; color: #d97706; font-weight: 800;">
                     <span>🛡️</span> الإشراف
@@ -2481,6 +2592,9 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                                 <button onclick="openInstantPageModal('${c.sha256}', ${c.page_number}, '${safeTitle}', '${safeExcerpt}')" class="btn-cite-act btn-cite-fast" title="معاينة الصفحة وتصفح الكتاب مع هاي لايت وزوم فوراً">
                                     ⚡ معاينة وتظليل (صـ ${c.page_number})
                                 </button>
+                                <button onclick="openSynopticSplitView('${c.sha256}', ${c.page_number}, '${safeTitle}', '${safeExcerpt}')" class="btn-cite-act btn-cite-split" title="مقارنة متزامنة مع شاهد آخر جنباً إلى جنب">
+                                    ⚖️ مقارنة متزامنة
+                                </button>
                                 <a href="/api/books/${c.sha256}/pages/${c.page_number}/view?highlight=${safeExcerpt}" target="_blank" class="btn-cite-act btn-cite-view" title="فتح صفحة المرجع كـ PDF مستقل مظلل (15-30 كيلوبايت)">
                                     📄 PDF الصفحة (15KB)
                                 </a>
@@ -2497,7 +2611,10 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                     item.innerHTML = `
                         <div class="citation-top">
                             <span class="citation-title">📖 ${idx + 1}. ${c.book_title}</span>
-                            <span class="citation-badge">مرتبة التوثيق ${c.authenticity_tier || 3}</span>
+                            <div style="display:flex; align-items:center; gap:6px;">
+                                <button class="btn-cite-fav" onclick='toggleSaveCitation(${JSON.stringify(c).replace(/'/g, "&#39;")})' title="إضافة الشاهد إلى كشكول الباحث والمفضلة">⭐ حفظ</button>
+                                <span class="citation-badge">مرتبة التوثيق ${c.authenticity_tier || 3}</span>
+                            </div>
                         </div>
                         <div class="citation-meta">
                             ✍️ ${(!c.author || c.author === 'غير محدد' || c.author === 'غير معروف') ? 'آباء ومعلمو الكنيسة' : c.author} | 📄 ${pLabel}
@@ -2991,6 +3108,529 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             chatInput.focus();
         };
     </script>
+
+    <!-- 1. Web Drag & Drop Book Uploader Modal -->
+    <div class="modal-overlay" id="uploadBookModal">
+        <div class="modal-card" style="max-width: 580px;">
+            <div class="ref-modal-header">
+                <div class="ref-modal-title-wrap">
+                    <span class="ref-icon">📥</span>
+                    <span class="ref-book-name" style="color:var(--accent);">إضافة وفهرسة كتاب جديد في المكتبة</span>
+                    <span class="ref-badge-page">Instant FTS5 Ingestion</span>
+                </div>
+                <button class="btn-modal-close-ref" onclick="closeUploadBookModal()">✕ إغلاق</button>
+            </div>
+            <div class="modal-body" style="padding: 24px; background: var(--bg-chat);">
+                <div id="uploadDropzone" class="upload-dropzone" onclick="document.getElementById('bookFileInput').click()" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleFileDrop(event)">
+                    <div style="font-size: 38px; margin-bottom: 8px;">📚</div>
+                    <div style="font-weight: 700; font-size: 15px; color: var(--text-main); margin-bottom: 4px;">اسحب وأفلت ملف الكتاب بصيغة PDF هنا</div>
+                    <div style="font-size: 12px; color: var(--text-sub);">أو انقر لاختيار الملف من جهازك (يدعم كافة المخطوطات والكتب الكنسية)</div>
+                    <input type="file" id="bookFileInput" accept=".pdf" style="display:none;" onchange="onBookFileSelected(this)">
+                </div>
+                <div id="selectedFileInfo" style="display:none; margin-top: 14px; padding: 10px 14px; background: var(--bg-darker); border-radius: 8px; border: 1px solid var(--card-border); font-size: 13px;">
+                    <span style="color: var(--accent); font-weight: 700;">الملف المختار:</span> <span id="selectedFileName">--</span> (<span id="selectedFileSize">--</span>)
+                </div>
+                <div style="margin-top: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div>
+                        <label style="display:block; font-size: 12px; font-weight: 700; color: var(--text-sub); margin-bottom: 4px;">المؤلف أو الأب (اختياري)</label>
+                        <input type="text" id="uploadAuthorInput" placeholder="مثال: البابا أثناسيوس الرسولي" style="width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--card-border); background: var(--bg-card); color: var(--text-main); font-family: inherit; font-size: 12px;">
+                    </div>
+                    <div>
+                        <label style="display:block; font-size: 12px; font-weight: 700; color: var(--text-sub); margin-bottom: 4px;">التصنيف الكنسي (اختياري)</label>
+                        <select id="uploadCategorySelect" style="width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--card-border); background: var(--bg-card); color: var(--text-main); font-family: inherit; font-size: 12px;">
+                            <option value="PATRISTICS">آبائيات (Patristics)</option>
+                            <option value="THEOLOGICAL_STUDIES">دراسات لاهوتية وعقيدة</option>
+                            <option value="BIBLICAL_STUDIES">كتاب مقدس وتفاسير</option>
+                            <option value="LITURGICAL">ليتورجيات وطقوس</option>
+                            <option value="CHURCH_HISTORY">تاريخ كنسي وسير</option>
+                            <option value="CANON_LAW">قوانين ومجامع كنسية</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="uploadProgressBarWrap" style="display:none; margin-top: 18px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px;">
+                        <span id="uploadProgressStatus" style="font-weight: 700; color: var(--accent);">جاري الرفع واستخراج الصفحات...</span>
+                        <span id="uploadProgressPct" style="font-weight: 700;">0%</span>
+                    </div>
+                    <div style="width: 100%; height: 8px; background: var(--bg-darker); border-radius: 4px; overflow: hidden;">
+                        <div id="uploadProgressBar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #d97706, #10b981); transition: width 0.3s;"></div>
+                    </div>
+                </div>
+                <div id="uploadResultCard" style="display:none; margin-top: 16px; padding: 14px; border-radius: 8px; font-size: 13px;"></div>
+                <div style="margin-top: 20px; display: flex; justify-content: flex-end; gap: 8px;">
+                    <button class="btn-ctrl" onclick="closeUploadBookModal()">إلغاء</button>
+                    <button id="btnStartUpload" class="btn-nav btn-compile" onclick="startBookUpload()" style="padding: 8px 16px; font-size: 13px;">
+                        <span>🚀</span> بدء الرفع والفهرسة الفورية
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. Scholar Research Notebook & Marginalia Modal -->
+    <div class="modal-overlay" id="scholarNotebookModal">
+        <div class="modal-card" style="max-width: 820px;">
+            <div class="ref-modal-header">
+                <div class="ref-modal-title-wrap">
+                    <span class="ref-icon">⭐</span>
+                    <span class="ref-book-name" style="color:var(--gold);">كشكول الباحث ومفضلة الشواهد الكنسية</span>
+                    <span class="ref-badge-page" id="notebookItemsCountBadge">0 شواهد محفوظة</span>
+                </div>
+                <div style="display: flex; gap: 6px;">
+                    <button class="btn-cite-act" onclick="exportNotebookDocx()" title="تصدير الشواهد والهوامش إلى ملف Word">📄 تصدير الكشكول</button>
+                    <button class="btn-modal-close-ref" onclick="closeScholarNotebookModal()">✕ إغلاق</button>
+                </div>
+            </div>
+            <div class="modal-body" style="padding: 20px; overflow-y: auto; max-height: 70vh; background: var(--bg-chat);">
+                <div id="notebookListContainer">
+                    <div style="text-align: center; padding: 40px; color: var(--text-sub);">جاري تحميل كشكول الباحث...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. Synoptic Patristic Split-View (العرض الآبائي المقارن المتزامن) -->
+    <div class="modal-overlay" id="synopticCompareModal">
+        <div class="modal-card" style="max-width: 96vw; width: 96vw; height: 92vh; display: flex; flex-direction: column;">
+            <div class="ref-modal-header">
+                <div class="ref-modal-title-wrap">
+                    <span class="ref-icon">⚖️</span>
+                    <span class="ref-book-name" style="color:var(--accent);">العرض الآبائي المقارن المتزامن (Synoptic Patristic Split-View)</span>
+                    <span class="ref-badge-page">مقارنة نصين جنبًا إلى جنب</span>
+                </div>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <button class="btn-ctrl" onclick="toggleSyncScroll()" id="btnSyncScroll">🔄 تمرير متزامن: مفعل</button>
+                    <button class="btn-modal-close-ref" onclick="closeSynopticCompareModal()">✕ إغلاق</button>
+                </div>
+            </div>
+            <div class="modal-body" style="flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 12px; background: var(--bg-darker); overflow: hidden;">
+                <!-- Left Pane: Primary Text -->
+                <div class="synoptic-pane" id="synopticPaneLeft" style="display: flex; flex-direction: column; background: var(--bg-card); border-radius: 8px; border: 1px solid var(--card-border); overflow: hidden;">
+                    <div style="padding: 10px 14px; background: var(--bg-darker); border-bottom: 1px solid var(--card-border); display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-weight: 700; font-size: 13px; color: var(--text-main);" id="synopticLeftTitle">الشاهد الأول: --</span>
+                        <div style="display: flex; gap: 4px;">
+                            <button class="btn-ctrl" onclick="changeSynopticPage('left', -1)">◀</button>
+                            <span id="synopticLeftPageBadge" style="font-size: 12px; padding: 2px 6px; font-weight: 700;">صـ 1</span>
+                            <button class="btn-ctrl" onclick="changeSynopticPage('left', 1)">▶</button>
+                        </div>
+                    </div>
+                    <div class="synoptic-content" id="synopticLeftBody" style="flex: 1; overflow-y: auto; padding: 16px; font-family: 'Amiri', serif; font-size: 16px; line-height: 1.8;">
+                        جاري تحميل النص الأول...
+                    </div>
+                </div>
+
+                <!-- Right Pane: Comparative Text -->
+                <div class="synoptic-pane" id="synopticPaneRight" style="display: flex; flex-direction: column; background: var(--bg-card); border-radius: 8px; border: 1px solid var(--card-border); overflow: hidden;">
+                    <div style="padding: 10px 14px; background: var(--bg-darker); border-bottom: 1px solid var(--card-border); display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-weight: 700; font-size: 13px; color: var(--text-main);" id="synopticRightTitle">الشاهد الثاني / النص المقارن: --</span>
+                        <div style="display: flex; gap: 4px;">
+                            <button class="btn-ctrl" onclick="changeSynopticPage('right', -1)">◀</button>
+                            <span id="synopticRightPageBadge" style="font-size: 12px; padding: 2px 6px; font-weight: 700;">صـ 1</span>
+                            <button class="btn-ctrl" onclick="changeSynopticPage('right', 1)">▶</button>
+                        </div>
+                    </div>
+                    <div class="synoptic-content" id="synopticRightBody" style="flex: 1; overflow-y: auto; padding: 16px; font-family: 'Amiri', serif; font-size: 16px; line-height: 1.8;">
+                        اختر شاهداً من القائمة للمقارنة أو انتظر التحميل...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script>
+
+        // ==========================================
+        // JavaScript for Uploader, Notebook, Synoptic View & Sidebar Filter
+        // ==========================================
+        let selectedUploadFile = null;
+        let scholarNotebookItems = [];
+        let synopticLeftData = null;
+        let synopticRightData = null;
+        let isSyncScrollActive = true;
+
+        function openUploadBookModal() {
+            const m = document.getElementById('uploadBookModal');
+            if (m) m.classList.add('active');
+            resetUploadForm();
+        }
+
+        function closeUploadBookModal() {
+            const m = document.getElementById('uploadBookModal');
+            if (m) m.classList.remove('active');
+        }
+
+        function resetUploadForm() {
+            selectedUploadFile = null;
+            document.getElementById('bookFileInput').value = '';
+            document.getElementById('selectedFileInfo').style.display = 'none';
+            document.getElementById('uploadProgressBarWrap').style.display = 'none';
+            document.getElementById('uploadResultCard').style.display = 'none';
+            document.getElementById('uploadProgressBar').style.width = '0%';
+            document.getElementById('uploadAuthorInput').value = '';
+            document.getElementById('uploadCategorySelect').value = 'PATRISTICS';
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            document.getElementById('uploadDropzone').classList.add('dragover');
+        }
+
+        function handleDragLeave(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            document.getElementById('uploadDropzone').classList.remove('dragover');
+        }
+
+        function handleFileDrop(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            document.getElementById('uploadDropzone').classList.remove('dragover');
+            if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                const f = e.dataTransfer.files[0];
+                if (f.name.toLowerCase().endsWith('.pdf')) {
+                    applySelectedFile(f);
+                } else {
+                    alert('يرجى اختيار ملف PDF فقط.');
+                }
+            }
+        }
+
+        function onBookFileSelected(input) {
+            if (input.files && input.files.length > 0) {
+                applySelectedFile(input.files[0]);
+            }
+        }
+
+        function applySelectedFile(f) {
+            selectedUploadFile = f;
+            document.getElementById('selectedFileName').textContent = f.name;
+            const sizeMb = (f.size / (1024 * 1024)).toFixed(1);
+            document.getElementById('selectedFileSize').textContent = sizeMb >= 1 ? sizeMb + ' MB' : Math.round(f.size / 1024) + ' KB';
+            document.getElementById('selectedFileInfo').style.display = 'block';
+        }
+
+        async function startBookUpload() {
+            if (!selectedUploadFile) {
+                alert('يرجى اختيار ملف PDF أولاً.');
+                return;
+            }
+
+            const author = document.getElementById('uploadAuthorInput').value.trim();
+            const category = document.getElementById('uploadCategorySelect').value;
+
+            const wrap = document.getElementById('uploadProgressBarWrap');
+            const bar = document.getElementById('uploadProgressBar');
+            const status = document.getElementById('uploadProgressStatus');
+            const pct = document.getElementById('uploadProgressPct');
+            const resCard = document.getElementById('uploadResultCard');
+
+            wrap.style.display = 'block';
+            bar.style.width = '35%';
+            pct.textContent = '35%';
+            status.textContent = 'جاري رفع الملف إلى الخادم...';
+            resCard.style.display = 'none';
+
+            const formData = new FormData();
+            formData.append('file', selectedUploadFile);
+            if (author) formData.append('author', author);
+            if (category) formData.append('category', category);
+
+            try {
+                bar.style.width = '65%';
+                pct.textContent = '65%';
+                status.textContent = 'جاري المعالجة الرقمية واستخراج الصفحات والفهرسة الفورية...';
+
+                const response = await fetch('/api/books/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                bar.style.width = '100%';
+                pct.textContent = '100%';
+
+                const result = await response.json();
+                if (response.ok && result.success) {
+                    status.textContent = 'تمت الفهرسة بنجاح!';
+                    resCard.style.display = 'block';
+                    resCard.style.background = 'rgba(16, 185, 129, 0.15)';
+                    resCard.style.border = '1px solid #10b981';
+                    resCard.style.color = '#065f46';
+                    resCard.innerHTML = `
+                        <div style="font-weight:700; margin-bottom: 6px;">🎉 تم إضافة وفهرسة الكتاب بنجاح!</div>
+                        <div>📖 <strong>العنوان:</strong> ${result.book_title || selectedUploadFile.name}</div>
+                        <div>📄 <strong>الصفحات المفهرسة:</strong> ${result.pages_extracted || result.page_count || 'تم بنجاح'}</div>
+                        <div>🔍 <strong>المقاطع المستخرجة:</strong> ${result.chunks_indexed || 'مفهرس في FTS5'}</div>
+                        <div style="margin-top: 10px;">
+                            <button class="btn-nav btn-compile" onclick="closeUploadBookModal(); askNewQuery('ابحث في كتاب ' + '${result.book_title || selectedUploadFile.name}');">
+                                🔍 ابحث في هذا الكتاب فوراً
+                            </button>
+                        </div>
+                    `;
+                } else {
+                    status.textContent = 'فشلت المعالجة';
+                    resCard.style.display = 'block';
+                    resCard.style.background = 'rgba(239, 68, 68, 0.12)';
+                    resCard.style.border = '1px solid #ef4444';
+                    resCard.style.color = '#991b1b';
+                    resCard.textContent = 'خطأ: ' + (result.error || result.detail || 'تعذر استكمال فهرسة الكتاب');
+                }
+            } catch (err) {
+                status.textContent = 'حدث خطأ في الاتصال';
+                resCard.style.display = 'block';
+                resCard.style.background = 'rgba(239, 68, 68, 0.12)';
+                resCard.style.border = '1px solid #ef4444';
+                resCard.style.color = '#991b1b';
+                resCard.textContent = 'خطأ شبكة أثناء رفع الملف: ' + err.message;
+            }
+        }
+
+        async function openScholarNotebookModal() {
+            const m = document.getElementById('scholarNotebookModal');
+            if (m) m.classList.add('active');
+            await loadScholarNotebook();
+        }
+
+        function closeScholarNotebookModal() {
+            const m = document.getElementById('scholarNotebookModal');
+            if (m) m.classList.remove('active');
+        }
+
+        async function loadScholarNotebook() {
+            const cont = document.getElementById('notebookListContainer');
+            try {
+                const res = await fetch('/api/scholar/notebook?user_id=' + encodeURIComponent(currentUserId));
+                if (!res.ok) throw new Error('فشل جلب الشواهد');
+                const data = await res.json();
+                scholarNotebookItems = data.items || [];
+                renderScholarNotebook();
+            } catch (err) {
+                if (cont) cont.innerHTML = '<div style="color:var(--text-sub); text-align:center; padding:30px;">' + err.message + '</div>';
+            }
+        }
+
+        function renderScholarNotebook() {
+            const cont = document.getElementById('notebookListContainer');
+            const badge = document.getElementById('notebookItemsCountBadge');
+            const navBadge = document.getElementById('notebookBadge');
+            if (badge) badge.textContent = scholarNotebookItems.length + ' شواهد محفوظة';
+            if (navBadge) navBadge.textContent = scholarNotebookItems.length;
+
+            if (!cont) return;
+
+            if (scholarNotebookItems.length === 0) {
+                cont.innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: var(--text-sub);">
+                        <div style="font-size: 32px; margin-bottom: 8px;">⭐</div>
+                        <div style="font-weight: 700; margin-bottom: 4px;">كشكول الباحث فارغ حالياً</div>
+                        <div style="font-size: 12px;">انقر على زر "⭐ حفظ" على أي شاهد كنسي أثناء البحث لحفظه هنا مع تدوين تأملاتك وهوامشك الخاصة.</div>
+                    </div>
+                `;
+                return;
+            }
+
+            cont.innerHTML = '';
+            scholarNotebookItems.forEach(item => {
+                const card = document.createElement('div');
+                card.style.background = 'var(--bg-card)';
+                card.style.border = '1px solid var(--card-border)';
+                card.style.borderRadius = '8px';
+                card.style.padding = '14px';
+                card.style.marginBottom = '12px';
+
+                const pLabel = item.printed_page ? `صـ ${item.printed_page} (مطبوعة)` : `صـ ${item.page_number}`;
+                card.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom: 6px;">
+                        <span style="font-weight: 700; color: var(--accent); font-size: 14px;">📖 ${item.book_title}</span>
+                        <div style="display:flex; gap:6px;">
+                            <button class="btn-cite-act btn-cite-fast" onclick="openInstantPageModal('${item.sha256}', ${item.page_number}, '${encodeURIComponent(item.book_title)}', '${encodeURIComponent(item.excerpt || '')}')">⚡ تصفح</button>
+                            <button class="btn-sess-act btn-sess-del" onclick="deleteNotebookItem(${item.id})" title="حذف من الكشكول">✕</button>
+                        </div>
+                    </div>
+                    <div style="font-size: 12px; color: var(--text-sub); margin-bottom: 8px;">
+                        ✍️ ${item.author || 'آباء الكنيسة'} | 📄 ${pLabel} | 🕒 ${item.created_at || ''}
+                    </div>
+                    <div style="font-size: 13px; line-height: 1.6; color: var(--text-main); margin-bottom: 8px; font-family: 'Amiri', serif;">
+                        ❝ ${item.excerpt || ''} ❞
+                    </div>
+                    ${item.notes ? `<div style="background: rgba(217, 119, 6, 0.08); padding: 8px; border-radius: 6px; font-size: 12px; color: var(--text-main);"><strong>📝 هامش وتأمل الباحث:</strong> ${item.notes}</div>` : ''}
+                `;
+                cont.appendChild(card);
+            });
+        }
+
+        async function toggleSaveCitation(c) {
+            const note = prompt('أضف هامشاً أو تأملاً شخصياً لهذا الشاهد (اختياري):', '');
+            if (note === null) return;
+
+            try {
+                const res = await fetch('/api/scholar/notebook', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        user_id: currentUserId,
+                        book_title: c.book_title,
+                        author: c.author,
+                        page_number: c.page_number,
+                        printed_page: c.printed_page,
+                        sha256: c.sha256,
+                        excerpt: c.excerpt,
+                        notes: note
+                    })
+                });
+                if (res.ok) {
+                    alert('⭐ تم حفظ الشاهد في كشكول الباحث بنجاح!');
+                    await loadScholarNotebook();
+                }
+            } catch (e) {
+                alert('فشل حفظ الشاهد: ' + e.message);
+            }
+        }
+
+        async function deleteNotebookItem(id) {
+            if (!confirm('هل تريد حذف هذا الشاهد من كشكولك؟')) return;
+            try {
+                await fetch('/api/scholar/notebook/' + id, { method: 'DELETE' });
+                scholarNotebookItems = scholarNotebookItems.filter(x => x.id !== id);
+                renderScholarNotebook();
+            } catch (e) {
+                alert('تعذر الحذف: ' + e.message);
+            }
+        }
+
+        function exportNotebookDocx() {
+            if (scholarNotebookItems.length === 0) {
+                alert('الكشكول فارغ.');
+                return;
+            }
+            let text = "✠ كشكول الباحث ومفضلة الشواهد الكنسية ✠\n\n";
+            scholarNotebookItems.forEach((it, idx) => {
+                text += `[${idx+1}] ${it.book_title} صـ ${it.printed_page || it.page_number} (المؤلف: ${it.author})\n`;
+                text += `النص: ❝ ${it.excerpt} ❞\n`;
+                if (it.notes) text += `الهامش: ${it.notes}\n`;
+                text += "---------------------------------------\n\n";
+            });
+            const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = "scholar_notebook.txt";
+            link.click();
+        }
+
+        async function openSynopticSplitView(sha, pageNum, encTitle, encExcerpt) {
+            const m = document.getElementById('synopticCompareModal');
+            if (m) m.classList.add('active');
+
+            synopticLeftData = { sha, pageNum: parseInt(pageNum, 10), title: decodeURIComponent(encTitle), excerpt: decodeURIComponent(encExcerpt) };
+            document.getElementById('synopticLeftTitle').textContent = synopticLeftData.title;
+            document.getElementById('synopticLeftPageBadge').textContent = 'صـ ' + synopticLeftData.pageNum;
+
+            await loadSynopticText('left', synopticLeftData.sha, synopticLeftData.pageNum, synopticLeftData.excerpt);
+            loadSynopticRightDefault();
+        }
+
+        function closeSynopticCompareModal() {
+            const m = document.getElementById('synopticCompareModal');
+            if (m) m.classList.remove('active');
+        }
+
+        async function loadSynopticText(pane, sha, pageNum, excerpt) {
+            const targetEl = document.getElementById(pane === 'left' ? 'synopticLeftBody' : 'synopticRightBody');
+            targetEl.innerHTML = '<div style="text-align:center; padding:30px; color:var(--text-sub);">جاري استحضار النص من أصل الكتاب...</div>';
+
+            try {
+                const res = await fetch(`/api/books/${sha}/pages/${pageNum}/view?highlight=${encodeURIComponent(excerpt || '')}`);
+                if (res.ok) {
+                    targetEl.innerHTML = `
+                        <div style="margin-bottom: 12px; padding: 10px; background: rgba(217, 119, 6, 0.08); border-radius: 6px; font-size: 14px;">
+                            <strong>الشاهد المستخرج:</strong> ❝ ${escapeHtml(excerpt || '')} ❞
+                        </div>
+                        <iframe src="/api/books/${sha}/pages/${pageNum}/view?highlight=${encodeURIComponent(excerpt || '')}" style="width:100%; height:75vh; border:none; border-radius: 6px;"></iframe>
+                    `;
+                } else {
+                    targetEl.textContent = 'تعذر تحميل الصفحة المحددة.';
+                }
+            } catch (e) {
+                targetEl.textContent = 'خطأ في جلب النص: ' + e.message;
+            }
+        }
+
+        function loadSynopticRightDefault() {
+            const rightBody = document.getElementById('synopticRightBody');
+            rightBody.innerHTML = `
+                <div style="padding: 20px; text-align: center;">
+                    <div style="font-size: 28px; margin-bottom: 8px;">⚖️</div>
+                    <div style="font-weight: 700; margin-bottom: 8px; color: var(--accent);">اختر الشاهد المقابل للمقارنة المباشرة:</div>
+                    <div id="synopticCitationsPicker" style="display: flex; flex-direction: column; gap: 8px; text-align: right; max-height: 60vh; overflow-y: auto;">
+                    </div>
+                </div>
+            `;
+
+            const picker = document.getElementById('synopticCitationsPicker');
+            if (window.lastLoadedCitations && window.lastLoadedCitations.length > 0) {
+                window.lastLoadedCitations.forEach((c, idx) => {
+                    const row = document.createElement('div');
+                    row.style.padding = '8px 12px';
+                    row.style.background = 'var(--bg-card)';
+                    row.style.border = '1px solid var(--card-border)';
+                    row.style.borderRadius = '6px';
+                    row.style.cursor = 'pointer';
+                    row.innerHTML = `<strong>${idx+1}. ${c.book_title}</strong> (صـ ${c.printed_page || c.page_number}) - ${c.author || ''}`;
+                    row.onclick = () => {
+                        synopticRightData = { sha: c.sha256, pageNum: c.page_number, title: c.book_title, excerpt: c.excerpt };
+                        document.getElementById('synopticRightTitle').textContent = c.book_title;
+                        document.getElementById('synopticRightPageBadge').textContent = 'صـ ' + c.page_number;
+                        loadSynopticText('right', c.sha256, c.page_number, c.excerpt);
+                    };
+                    picker.appendChild(row);
+                });
+            } else {
+                picker.innerHTML = '<div style="color:var(--text-sub); font-size:12px;">قم بإجراء بحث لعرض الشواهد المتاحة للمقارنة أو افتح كتاباً آخر.</div>';
+            }
+        }
+
+        function toggleSyncScroll() {
+            isSyncScrollActive = !isSyncScrollActive;
+            const btn = document.getElementById('btnSyncScroll');
+            if (btn) btn.textContent = isSyncScrollActive ? '🔄 تمرير متزامن: مفعل' : '⏸️ تمرير منفصل';
+        }
+
+        function changeSynopticPage(pane, delta) {
+            const data = pane === 'left' ? synopticLeftData : synopticRightData;
+            if (!data) return;
+            data.pageNum = Math.max(1, data.pageNum + delta);
+            document.getElementById(pane === 'left' ? 'synopticLeftPageBadge' : 'synopticRightPageBadge').textContent = 'صـ ' + data.pageNum;
+            loadSynopticText(pane, data.sha, data.pageNum, '');
+        }
+
+        function filterSidebarSessions(val) {
+            const q = (val || '').toLowerCase().trim();
+            const items = document.querySelectorAll('#chatHistoryList .chat-history-item');
+            items.forEach(it => {
+                const text = it.textContent.toLowerCase();
+                it.style.display = text.includes(q) ? 'block' : 'none';
+            });
+        }
+
+        function selectSessionAndJump(sessId, turnIdx) {
+            selectSession(sessId).then(() => {
+                setTimeout(() => {
+                    const target = document.getElementById('turn_' + turnIdx);
+                    if (target) {
+                        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        target.classList.add('turn-highlight-pulse');
+                        setTimeout(() => target.classList.remove('turn-highlight-pulse'), 2000);
+                    }
+                }, 400);
+            });
+        }
+
+        // Initialize notebook badge count on startup
+        document.addEventListener('DOMContentLoaded', () => {
+            loadScholarNotebook().catch(() => {});
+        });
+
+</script>
 </body>
 </html>"""
 
@@ -3128,6 +3768,20 @@ async def export_discussion_session(session_id: str, format: str = "markdown"):
             content=docx_bytes,
             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             headers={"Content-Disposition": f"attachment; filename*=UTF-8''research_{session_id}.docx"}
+        )
+
+    if format == "pdf":
+        from elantony.services.pdf_exporter import generate_session_pdf
+        doc_dir = settings.base_dir / "data" / "compiled_researches"
+        doc_dir.mkdir(parents=True, exist_ok=True)
+        pdf_path = doc_dir / f"research_{session_id}.pdf"
+        generate_session_pdf(res, str(pdf_path))
+        with open(pdf_path, "rb") as f:
+            pdf_bytes = f.read()
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename*=UTF-8''research_{session_id}.pdf"}
         )
 
     content = res["markdown"] if format == "markdown" else res["plain_text"]
@@ -3578,10 +4232,20 @@ async def api_chat(req: ChatRequest):
         raw_history = [{"role": "user", "content": latest_msg}]
     else:
         raw_history = [{"role": m.role, "content": m.content} for m in req.messages]
-    if hasattr(ai_provider, "generate_chat_response"):
-        answer = ai_provider.generate_chat_response(raw_history, chunks, depth_mode=depth_mode)
-    else:
-        answer = ai_provider.generate_answer(latest_msg, chunks, depth_mode=depth_mode)
+    try:
+        if hasattr(ai_provider, "generate_chat_response"):
+            answer = ai_provider.generate_chat_response(raw_history, chunks, depth_mode=depth_mode)
+        else:
+            answer = ai_provider.generate_answer(latest_msg, chunks, depth_mode=depth_mode)
+    except Exception as ai_err:
+        logger.error(f"[ChatAPI] AI Generation exception: {ai_err}. Falling back to RuleBasedChurchProvider...")
+        try:
+            from elantony.ai.rule_based_provider import RuleBasedChurchProvider
+            fallback_provider = RuleBasedChurchProvider()
+            answer = fallback_provider.generate_answer(latest_msg, chunks, depth_mode=depth_mode)
+        except Exception as fb_err:
+            logger.error(f"[ChatAPI] Rule-based fallback also failed: {fb_err}")
+            answer = "⚠️ تعذر توليد الشرح الإنشائي بسبب انقطاع الاتصال الخارجي المؤقت، ولكن تم استخراج الشواهد الآبائية والكنسية المعتمدة وتوثيقها أدناه بنجاح لدراستك الموثقة." 
 
     # 3. Format citations with sha256 and metadata for live book viewer
     citations = []
@@ -3712,3 +4376,109 @@ async def admin_run_maintenance():
     """Triggers WAL checkpoint, FTS5 index optimization, and PRAGMA optimize."""
     result = repo.run_maintenance()
     return result
+
+
+# ==========================================
+# Feature 1: Web Drag & Drop Book Uploader
+# ==========================================
+from fastapi import UploadFile, File, Form
+from services.permanent_assistant.ingestion_pipeline import auto_ingestor
+
+@app.post("/api/books/upload")
+async def upload_book_file(
+    file: UploadFile = File(...),
+    author: Optional[str] = Form(None),
+    category: Optional[str] = Form(None)
+):
+    """
+    Autonomous Web Book Uploader:
+    Saves uploaded PDF book, performs SHA-256 integrity check,
+    extracts pages, classifies ecclesiastical tier, and indexes into FTS5.
+    """
+    if not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="يرجى رفع ملف بصيغة PDF فقط")
+
+    dest_dir = Path(r"I:\2021\2020\✠ Cross Coptic Library ✠\الكتب المضافة حديثاً")
+    try:
+        dest_dir.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        dest_dir = settings.base_dir / "data" / "uploaded_books"
+        dest_dir.mkdir(parents=True, exist_ok=True)
+
+    dest_file = dest_dir / file.filename
+    content = await file.read()
+    with open(dest_file, "wb") as f:
+        f.write(content)
+
+    # Ingest book into system FTS5 database
+    res = auto_ingestor.ingest_pdf(dest_file, forced=True)
+
+    if res.get("success") and (author or category):
+        sha = res.get("sha256")
+        if sha:
+            try:
+                conn = get_connection()
+                cur = conn.cursor()
+                if author:
+                    cur.execute("UPDATE church_books SET author = ? WHERE sha256 = ?", (author, sha))
+                if category:
+                    cur.execute("UPDATE church_books SET source_types = ? WHERE sha256 = ?", (json.dumps([category], ensure_ascii=False), sha))
+                conn.commit()
+                conn.close()
+            except Exception as e:
+                logger.warning(f"Failed to update metadata for uploaded book: {e}")
+
+    return res
+
+
+# ==========================================
+# Feature 3: Scholar Research Notebook
+# ==========================================
+class NotebookItem(BaseModel):
+    user_id: Optional[str] = "web"
+    book_title: str
+    author: Optional[str] = "آباء الكنيسة"
+    page_number: Optional[int] = 1
+    printed_page: Optional[str] = None
+    sha256: Optional[str] = None
+    excerpt: Optional[str] = None
+    notes: Optional[str] = ""
+
+@app.get("/api/scholar/notebook")
+async def get_scholar_notebook(user_id: str = "web"):
+    """Retrieves all bookmarked citations and scholar marginalia."""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT id, book_title, author, page_number, printed_page, sha256, excerpt, notes, created_at
+        FROM scholar_notebook
+        WHERE user_id = ?
+        ORDER BY id DESC
+    """, (user_id,))
+    rows = [dict(r) for r in cur.fetchall()]
+    conn.close()
+    return {"items": rows}
+
+@app.post("/api/scholar/notebook")
+async def add_scholar_notebook_item(item: NotebookItem):
+    """Saves a citation bookmark with researcher notes into scholar notebook."""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO scholar_notebook (user_id, book_title, author, page_number, printed_page, sha256, excerpt, notes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, (item.user_id or "web", item.book_title, item.author, item.page_number, item.printed_page, item.sha256, item.excerpt, item.notes or ""))
+    item_id = cur.lastrowid
+    conn.commit()
+    conn.close()
+    return {"success": True, "id": item_id}
+
+@app.delete("/api/scholar/notebook/{item_id}")
+async def delete_scholar_notebook_item(item_id: int):
+    """Deletes a citation bookmark from the notebook."""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM scholar_notebook WHERE id = ?", (item_id,))
+    conn.commit()
+    conn.close()
+    return {"success": True}

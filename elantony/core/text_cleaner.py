@@ -240,49 +240,101 @@ def clean_theological_text(text: str) -> str:
 
 
 def extract_coherent_sentences(text: str, max_length: int = 350) -> str:
-    """Extracts a self-contained, grammatically clean excerpt from cleaned text."""
-    cleaned = clean_theological_text(text)
-    if len(cleaned) <= max_length:
-        return cleaned
+    """Extracts a self-contained, grammatically clean excerpt from text without cutting mid-word."""
+    if not text:
+        return ""
+    if len(text) <= max_length:
+        return text.strip()
 
-    # Try cutting at sentence boundary (. or ؟ or !)
-    truncated = cleaned[:max_length]
+    truncated = text[:max_length]
     last_stop = max(truncated.rfind('.'), truncated.rfind('،'), truncated.rfind('؛'))
     if last_stop > int(max_length * 0.6):
         return truncated[:last_stop + 1].strip()
 
-    # Otherwise cut at last space
     last_space = truncated.rfind(' ')
     if last_space > 0:
         return truncated[:last_space].strip() + "..."
     return truncated + "..."
 
 
+# Core theological and biblical vocabulary for verifying citation substance
+THEOLOGICAL_SUBSTANTIVE_KEYWORDS = {
+    # Doctrine & Trinity
+    "لاهوت", "عقيدة", "إيمان", "جوهر", "طبيعة", "أقنوم", "أقانيم", "ثالوث", "الآب", "الابن", "الروح القدس",
+    "مساو", "مساوٍ", "مساويا", "سرمدي", "أزلي", "مولود", "منبثق", "واحد",
+    # Christology & Salvation
+    "تجسد", "تأنس", "فداء", "خلاص", "صليب", "قيامة", "كفارة", "موت", "حياة", "مخلص", "فادي", "يسوع", "المسيح",
+    "تجديد", "فساد", "غلبة", "نعمة", "بر", "قداسة",
+    # Scripture & Canon
+    "كتاب", "مقدس", "إنجيل", "رسالة", "أصحاح", "آية", "سفر", "أسفار", "قانونية", "توراة", "مزامير", "نبوءة", "نبي",
+    "طوبيا", "يهوديت", "حكمة", "سيراخ", "باروخ", "مكابيين", "تتمة",
+    # Church & Sacraments
+    "كنيسة", "أسرار", "معمودية", "إفخارستيا", "ميرون", "توبة", "اعتراف", "كهنوت", "قداس", "صلوات", "ليتورجية",
+    # Patristic & Councils
+    "آباء", "مجمع", "نيقية", "أفسس", "قسطنطينية", "أرثوذكسية", "تقليد", "رسولي", "تعليم", "عظة", "تفسير"
+}
+
+
+def is_theologically_substantive(text: str) -> bool:
+    """Verifies that a chunk discusses real theological, biblical, or ecclesiastical doctrine
+    rather than purely administrative anecdotes, travel stories, or editorial boilerplate."""
+    if not text or len(text.strip()) < 80:
+        return False
+    lower_t = text.lower()
+    matches = sum(1 for kw in THEOLOGICAL_SUBSTANTIVE_KEYWORDS if kw in lower_t)
+    return matches >= 2
+
+
 def clean_leading_ocr_noise(text: str) -> str:
     """Detects and removes leading OCR scanning garbage, isolated 1-2 letter fragments, and broken punct."""
     if not text:
         return ""
-    t = re.sub(r'^[^\w\sء-ي]+', '', text).strip()
+
+    # 1. Strip directionality and invisible unicode noise
+    t = re.sub(r'[‎‏​-‍‪-‮﻿�]', '', text)
+
+    # 2. Fix punctuation and digits corrupted INSIDE Arabic words (e.g. نفس!ر -> نفسر)
+    t = re.sub(r'([ء-ي])[\!؟\?\#\$\%\^\&\*\_0-9\-]+([ء-ي])', r'', t)
+
+    # 3. Strip standalone 1-6 letter Latin OCR fragments that contaminate scanned Arabic pages
+    t = re.sub(r'(?<![a-zA-Z])[a-zA-Z]{1,6}(?![a-zA-Z])', ' ', t)
+
+    # 4. Strip guillemets, stray symbols, and bracket garbage
+    t = re.sub(r'[»«‹›\[\]\(\)\<\>]', ' ', t)
+
+    # 5. Fix repetitive adjacent words (e.g. الله الله -> الله, ااا -> empty)
+    t = re.sub(r'([ء-ي]{2,})\s+', r'', t)
+    t = re.sub(r'([ء-ي]){2,}', ' ', t)
+
+    # 6. Remove leading isolated 1-2 letter non-words with punctuation (e.g. 1 لقا ب! أ! بم لال! "ش!نا!؟ -6-)
+    t = re.sub(r'^(?:[0-9ء-يa-zA-Z]{1,2}[\!؟\?\.\,\:\;\-"\s]+){1,6}', '', t).strip()
+
+    # 7. Locate first fluent Arabic clause (scan up to 25 words)
     words = t.split()
     start_idx = 0
-    consecutive_coherent = 0
-    for i, w in enumerate(words):
-        clean_w = re.sub(r'[^\wء-ي]', '', w)
-        is_normal = (
-            len(clean_w) >= 3 and
-            not re.match(r'^(.)\1+$', clean_w) and
-            not any(p in w for p in ['!', '؟', '?', '#'])
-        )
-        if is_normal:
-            consecutive_coherent += 1
-            if consecutive_coherent >= 2:
-                start_idx = max(0, i - 1)
+    for i in range(min(25, max(0, len(words) - 2))):
+        w = words[i]
+        # Skip isolated broken characters or single letters
+        if len(w) < 2:
+            continue
+        # Skip repetitive or known noisy tokens
+        if re.match(r'^(.)+$', w) or w in ["محفم", "للهلان", "قالله"]:
+            continue
+        # If words start with legitimate Arabic word
+        if re.fullmatch(r'[ء-ي]{3,}', w):
+            prefix_len = len(" ".join(words[:i]))
+            if prefix_len < 50:
+                start_idx = i
                 break
-        else:
-            consecutive_coherent = 0
-    if 0 < start_idx < (len(words) // 2):
+            else:
+                start_idx = 0
+                break
+
+    if start_idx > 0:
         t = " ".join(words[start_idx:])
-    return re.sub(r'^[^\w\sء-ي]+', '', t).strip()
+
+    t = re.sub(r'^[^\wء-ي]+', '', t).strip()
+    return t
 
 
 def clean_citation_excerpt(text: str, max_length: int = 320) -> str:
@@ -290,4 +342,3 @@ def clean_citation_excerpt(text: str, max_length: int = 320) -> str:
     cleaned = clean_theological_text(text)
     cleaned = clean_leading_ocr_noise(cleaned)
     return extract_coherent_sentences(cleaned, max_length=max_length)
-
