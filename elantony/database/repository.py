@@ -760,22 +760,39 @@ class DatabaseRepository:
         content: str,
         citations: Optional[List[Dict[str, Any]]] = None
     ) -> int:
-        """Appends a message to a session and updates the session's timestamp."""
-        conn = get_connection()
-        cur = conn.cursor()
+        """Appends a message to a session and updates the session's timestamp with retry loop & FK auto-recovery."""
+        import time
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         cits_json = json.dumps(citations or [], ensure_ascii=False)
-        cur.execute(
-            "INSERT INTO chat_messages (session_id, role, content, citations) VALUES (?, ?, ?, ?)",
-            (session_id, role, content, cits_json)
-        )
-        msg_id = cur.lastrowid
-        cur.execute(
-            "UPDATE chat_sessions SET updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-            (session_id,)
-        )
-        conn.commit()
-        conn.close()
-        return msg_id
+        for attempt in range(4):
+            try:
+                conn = get_connection()
+                cur = conn.cursor()
+                # Verify session exists to prevent foreign key violation
+                cur.execute("SELECT id FROM chat_sessions WHERE id = ?", (session_id,))
+                if not cur.fetchone():
+                    cur.execute(
+                        "INSERT INTO chat_sessions (id, user_id, title, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+                        (session_id, "web", content.split("\n")[0][:45], now, now)
+                    )
+                cur.execute(
+                    "INSERT INTO chat_messages (session_id, role, content, citations) VALUES (?, ?, ?, ?)",
+                    (session_id, role, content, cits_json)
+                )
+                msg_id = cur.lastrowid
+                cur.execute("UPDATE chat_sessions SET updated_at = ? WHERE id = ?", (now, session_id))
+                conn.commit()
+                conn.close()
+                return msg_id
+            except sqlite3.OperationalError as op_err:
+                time.sleep(0.15 * (2 ** attempt))
+                if attempt == 3:
+                    logger.warning(f"Error saving chat message to session {session_id}: {op_err}")
+                    return -1
+            except Exception as e:
+                logger.warning(f"Error saving chat message to session {session_id}: {e}")
+                return -1
+        return -1
 
     def get_session_messages(self, session_id: str, limit: int = 100) -> List[Dict[str, Any]]:
         """Retrieves chronological messages of a discussion session."""

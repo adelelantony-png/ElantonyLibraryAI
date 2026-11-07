@@ -2451,6 +2451,12 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                 if (res.ok) {
                     if (currentSessionId === sessionId) {
                         currentSessionId = null;
+                        chatMessages = [];
+                        messagesContainer.innerHTML = '';
+                        if (heroScreen) {
+                            messagesContainer.appendChild(heroScreen);
+                            heroScreen.style.display = 'block';
+                        }
                     }
                     await loadSessions();
                 }
@@ -2536,7 +2542,12 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                 removeLoadingBubble(loadingId);
 
                 if (!response.ok) {
-                    throw new Error('فشل معالجة السؤال من محرك الذكاء الاصطناعي');
+                    let errDetail = 'فشل معالجة السؤال من محرك الذكاء الاصطناعي';
+                    try {
+                        const errJson = await response.json();
+                        if (errJson && errJson.detail) errDetail = errJson.detail;
+                    } catch (_) {}
+                    throw new Error(errDetail);
                 }
 
                 const data = await response.json();
@@ -2562,7 +2573,10 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
 
             } catch (err) {
                 removeLoadingBubble(loadingId);
-                appendMessageBubble('assistant', '⚠️ حدث خطأ أثناء معالجة السؤال: ' + err.message);
+                if (chatMessages.length > 0 && chatMessages[chatMessages.length - 1].role === 'user') {
+                    chatMessages.pop();
+                }
+                appendMessageBubble('assistant', '⚠️ حدث خطأ أثناء معالجة السؤال: ' + err.message + ' <button onclick="retryLastQuestion()" style="margin-right:10px; padding:3px 10px; border-radius:6px; cursor:pointer; background:var(--gold-church); color:#fff; border:none;">🔄 إعادة المحاولة</button>');
             } finally {
                 btnSend.disabled = false;
                 scrollToBottom();
@@ -4259,6 +4273,10 @@ async def api_chat(req: ChatRequest):
         session_id = session_info["id"]
     else:
         sess = repo.get_session(session_id)
+        if not sess:
+            session_id = repo.create_session(user_id=user_id, title=latest_msg.split("\n")[0][:45].strip(), session_id=session_id)
+            is_new_topic = True
+            sess = repo.get_session(session_id)
         if sess:
             if topic_mode == "new":
                 new_topic_title = latest_msg.split("\n")[0][:45].strip()

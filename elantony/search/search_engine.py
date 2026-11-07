@@ -145,8 +145,12 @@ CONVERSATIONAL_BOILERPLATE = {
     "هكذا", "وهكذا", "مثل", "كذلك", "اثبت", "يثبت", "اثبات", "أثبت", "تطابق", "يطابق", "مطابقة",
     "الحدث", "حدث", "احداث", "أحداث", "العلم", "العلمي", "علميا", "علم", "حقيقة", "امر", "أمر",
     "شأن", "نوع", "وجود", "بين", "ايضا", "أيضا", "اريد", "أريد", "ابحث", "أبحث", "اعطني", "أعطني",
-    "توضيح", "بيان", "رأي", "راي", "موقف", "نظرة", "بخصوص", "بشأن", "تعمق", "استخدام", "الثانية",
-    "عمود", "الدين", "عمود الدين", "الذهبي", "اللاهوتي", "الكبير", "المتوشح بالله"
+    "توضيح", "بيان", "رأي", "راي", "موقف", "نظرة", "بخصوص", "بشأن", "تعمق", "استخدام",
+    "عمود", "الدين", "عمود الدين", "الذهبي", "اللاهوتي", "الكبير", "المتوشح بالله",
+    "اريدك", "أريدك", "ببحث", "بحث", "اكاديمي", "أكاديمي", "تثبت", "إثبات", "لي", "اتفاق", "القرون", "قرون",
+    "الاولي", "الأولى", "الثالثة", "الرابعة", "عليها", "فيها", "منها", "لها",
+    "صلواتها", "صلوات", "واثبتها", "واثبت", "نفسه", "بصراحة", "جرب", "شف", "شوف", "حتحزن",
+    "ناقصة", "دائما", "بشكل", "ملحوظ", "جدا", "عايز", "اعرف", "وضح", "اشرح", "فهمني"
 }
 
 
@@ -155,15 +159,14 @@ def extract_search_keywords(raw_query: str) -> List[str]:
     clean = re.sub(r'[^\w\s]', ' ', raw_query).strip()
     tokens = [w.strip() for w in clean.split() if len(w.strip()) > 1]
     
-    # Strip coordinating conjunction 'و' from names and topics (e.g. وكيرلس -> كيرلس, واثناسيوس -> اثناسيوس)
+        # Strip coordinating conjunction 'و' from names and topics (e.g. وكيرلس -> كيرلس, واثناسيوس -> اثناسيوس)
+    KNOWN_W_WORDS = {"واحد", "وقفة", "وجود", "وقت", "وحيد", "وثيقة", "وصية", "ولادة", "وادي", "وعد", "وفاة", "وجوب", "وجوه", "وصايا"}
     normalized_tokens = []
     for w in tokens:
-        if w.startswith("و") and len(w) >= 4:
+        if w.startswith("و") and len(w) >= 4 and w not in KNOWN_W_WORDS:
             stem = w[1:]
-            # If stem is a known Church Father or thesaurus entry or common theological word
-            if any(stem in father_kws for father_kws in ChurchSourceClassifier.PATRISTIC_FATHERS.values()) or stem in THEOLOGICAL_THESAURUS or stem.startswith("ال"):
-                normalized_tokens.append(stem)
-                continue
+            normalized_tokens.append(stem)
+            continue
         normalized_tokens.append(w)
 
     keywords = [w for w in normalized_tokens if w not in ARABIC_STOPWORDS and w not in CONVERSATIONAL_BOILERPLATE]
@@ -252,12 +255,31 @@ def is_chunk_high_quality(text: str) -> bool:
     if re.search(r'[ً-ٰٟـ]{4,}', text):
         return False
 
+    # Stray corrupted OCR symbols
+    if any(sym in text for sym in ["©", "¢", "¤", "§"]):
+        return False
+
+    # Web links or watermark banners
+    if any(dom in text.lower() for dom in ["coptic-treasures.com", "st-takla.org", "coptichistory.org", "http://", "https://"]):
+        return False
+
     # Normal Arabic words check
     words = text.split()
     if not words:
         return False
+
+    # Reversed Arabic detection: No legitimate Arabic word begins with 'ة' or 'اً'
+    reversed_words = [w for w in words if w.startswith("ة") or w.startswith("اً")]
+    if len(reversed_words) >= 2:
+        return False
+
+    # Check for excessive Latin words: only reject if non-Arabic characters dominate (> 15% of words)
+    latin_words = re.findall(r'\b[a-zA-Z]{2,}\b', text)
+    if len(words) > 0 and (len(latin_words) / len(words)) > 0.15:
+        return False
+
     clean_words = [w for w in words if re.fullmatch(r'[ء-ي]{3,}', w)]
-    if len(clean_words) / len(words) < 0.40:
+    if len(clean_words) / len(words) < 0.50:
         return False
 
     # Filter out Table of Contents / Index / Bibliography pages
@@ -348,7 +370,8 @@ class ChurchSearchEngine:
         if not keywords:
             return []
 
-        valid_kws = [k for k in keywords if k not in ARABIC_STOPWORDS and k not in CONVERSATIONAL_BOILERPLATE and len(k) >= 3]
+        GENERIC_TOPIC_WORDS = {"الاباء", "الآباء", "اباء", "آباء", "الكتاب", "كتاب", "الكنيسة", "كنسية"}
+        valid_kws = [k for k in keywords if k not in ARABIC_STOPWORDS and k not in CONVERSATIONAL_BOILERPLATE and k not in GENERIC_TOPIC_WORDS and len(k) >= 3]
 
         # Collect topic keywords and their un-prefixed stems (e.g. التجسد -> تجسد)
         topic_stems = set()
@@ -435,9 +458,12 @@ class ChurchSearchEngine:
                     if len(found_books) >= limit:
                         break
 
-        # Tier 2 Priority: General topic matching if limit not reached
+        # Tier 2 Priority: General topic matching if limit not reached (excluding generic & Sunday school titles)
+        GENERIC_IGNORE_TITLES = {"الكتاب المقدس", "الكتاب", "الله", "المسيح", "الانجيل", "الإنجيل", "رسالة", "رسائل", "إبتدائي", "ابتدائي", "حضانة", "مدارس الأحد", "نشاط وتلوين", "مسابقات"}
         if len(found_books) < limit and topic_stems:
             for kw in topic_stems:
+                if kw in GENERIC_IGNORE_TITLES or len(kw) < 3:
+                    continue
                 variants = normalize_alef_variants(kw)
                 for v in variants:
                     cur.execute("""
@@ -449,7 +475,8 @@ class ChurchSearchEngine:
                             file_name LIKE ? OR
                             file_name LIKE ?
                         ) AND is_duplicate_of IS NULL
-                        ORDER BY (authenticity_tier = 1) DESC, page_count DESC
+                          AND authenticity_tier <= 4
+                        ORDER BY (authenticity_tier = 1) DESC, (authenticity_tier = 2) DESC, page_count DESC
                         LIMIT ?
                     """, (f"% {v} %", f"%_{v}_%", f"% {v}.pdf", f"{v} %", limit))
                     for b in cur.fetchall():
@@ -488,6 +515,7 @@ class ChurchSearchEngine:
         if not keywords:
             return []
 
+        target_fathers = [f for f, kws in ChurchSourceClassifier.PATRISTIC_FATHERS.items() if any(k in query.lower() for k in kws)]
         anchors, qualifiers = expand_theological_synonyms(keywords)
         conn = get_connection()
         cur = conn.cursor()
@@ -536,7 +564,7 @@ class ChurchSearchEngine:
                     """, (b_sha, book_fts_expr))
                     for r in cur.fetchall():
                         ref = r["source_reference"]
-                        if ref not in seen_refs and is_chunk_high_quality(r["chunk_text"]):
+                        if ref not in seen_refs and is_chunk_high_quality(r["chunk_text"]) and is_theologically_substantive(r["chunk_text"]):
                             seen_refs.add(ref)
                             rows.append(r)
                             if len(rows) >= limit:
@@ -544,11 +572,29 @@ class ChurchSearchEngine:
                 except Exception as e:
                     logger.debug(f"Scoped dedicated book chunk query error: {e}")
 
-                # Step 2: Boolean Anchor Intersection Across Entire Library
+                # Step 2: Targeted Father + Anchor Intersection (Highest Precision)
+        # If specific Church Fathers are detected in query, require them in the FTS boolean expression
+        father_terms_for_fts = []
+        if target_fathers:
+            for tf in target_fathers:
+                for fk in ChurchSourceClassifier.PATRISTIC_FATHERS.get(tf, [])[:3]:
+                    for fv in normalize_alef_variants(fk):
+                        if len(fv) >= 4 and fv not in ["الكبير", "الرسولي", "الذهبي"]:
+                            father_terms_for_fts.append(f'"{fv}"')
+
         if len(rows) < limit and anchor_clause:
-            if all_qual_terms:
-                qual_clause = " OR ".join([f'"{q}"' for q in list(all_qual_terms)[:8]])
-                fts_expr = f"chunk_text: (({anchor_clause}) AND ({qual_clause}))"
+            if father_terms_for_fts:
+                father_clause = " OR ".join(list(set(father_terms_for_fts))[:6])
+                fts_expr = f"chunk_text: (({anchor_clause}) AND ({father_clause}))"
+            elif all_qual_terms:
+                # Exclude generic words from qualifier clause
+                GENERIC_QUALS = {"الاباء", "الآباء", "الثانية", "الاولى", "الأولى", "القرون", "قرون", "الكنسية", "الكنيسة"}
+                specific_quals = [q for q in all_qual_terms if q not in GENERIC_QUALS]
+                if specific_quals:
+                    qual_clause = " OR ".join([f'"{q}"' for q in list(specific_quals)[:6]])
+                    fts_expr = f"chunk_text: (({anchor_clause}) AND ({qual_clause}))"
+                else:
+                    fts_expr = f"chunk_text: ({anchor_clause})"
             else:
                 fts_expr = f"chunk_text: ({anchor_clause})" 
 
@@ -648,6 +694,10 @@ class ChurchSearchEngine:
                 "matched_fathers": ""
             })
 
+            # Exclude Tier 5 (Sunday school / Kids curricula) from general theological search unless explicitly requested
+            if b_meta["authenticity_tier"] == 5 and filter_source_type != "EDUCATIONAL_SOURCES":
+                continue
+
             # Check source type filter if provided
             if filter_source_type:
                 if filter_source_type not in b_meta["source_types"] and filter_source_type != "ALL":
@@ -698,15 +748,23 @@ class ChurchSearchEngine:
             is_bio = any(bio in clean_title for bio in ["حياة", "سيرة", "قصة", "تاريخ"])
             is_primary_father_work = is_father_match and not is_bio and (tier == 1 or any(tf in resolved_author for tf in target_fathers))
 
+            # Check if chunk mentions requested Fathers
+            father_in_text = False
+            if target_fathers:
+                father_in_text = any(tf in cleaned_text or any(k in cleaned_text for k in ChurchSourceClassifier.PATRISTIC_FATHERS.get(tf, [])) for tf in target_fathers)
+
             if target_fathers and is_primary_father_work:
-                weight = 2.0  # Top priority: genuine original patristic writing of the requested Father
+                weight = 2.2  # Top priority: genuine original patristic writing of the requested Father
                 relevance_score = 0.98
+            elif target_fathers and father_in_text and tier <= 3 and not is_bio:
+                weight = 1.9  # Major scholarly patristic compendium (e.g. Anba Gregorios) detailing the requested Father
+                relevance_score = 0.95
             elif target_fathers and is_father_match and not is_bio:
                 weight = 1.5  # Scholarly patristic commentary referencing the Father
                 relevance_score = 0.92
             elif is_bio:
-                weight = 0.6  # Biographical/narrative secondary book - lowest priority
-                relevance_score = 0.60
+                weight = 0.3  # Biographical/narrative secondary book - lowest priority
+                relevance_score = 0.50
             elif tier == 1:
                 weight = 1.5  # Primary Patristic original
                 relevance_score = 0.92

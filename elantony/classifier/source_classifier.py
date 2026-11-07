@@ -132,12 +132,17 @@ class ChurchSourceClassifier:
         confidence = 0.5
         primary_tier = AuthenticityTier.TIER_3_ENCYCLOPEDIA_CHURCH
 
+        # --- 0. Pre-checks for Educational and Hagiographical Context ---
+        is_educational = any(edu in combined for edu in ["إبتدائي", "ابتدائي", "حضانة", "إعدادي", "اعدادي", "مدارس الأحد", "تلوين", "مسابقات", "تربية كنسية"])
+        is_biography = any(bio in title for bio in ["حياة ", "سيرة ", "قصة ", "تاريخ "]) and not ("حياة أنطونيوس" in title)
+
         # --- 1. Patristic Detection (Highest Scientific Precision) ---
         is_patristic = False
-        for father, keywords in cls.PATRISTIC_FATHERS.items():
-            if any(kw.lower() in combined for kw in keywords):
-                matched_fathers.append(father)
-                is_patristic = True
+        if not is_educational and not is_biography:
+            for father, keywords in cls.PATRISTIC_FATHERS.items():
+                if any(kw.lower() in combined for kw in keywords):
+                    matched_fathers.append(father)
+                    is_patristic = True
 
         has_patristic_publisher = any(pub.lower() in combined for pub in cls.PATRISTIC_PUBLISHERS)
 
@@ -150,6 +155,15 @@ class ChurchSourceClassifier:
                 primary_tier = AuthenticityTier.TIER_2_SCHOLARLY_STUDY
                 confidence = 0.88
                 assigned_types.add(SourceType.THEOLOGICAL_STUDIES)
+        elif is_biography:
+            # Biographies and historical narratives mentioning Church Fathers are Tier 3 Historical Studies
+            for father, keywords in cls.PATRISTIC_FATHERS.items():
+                if any(kw.lower() in combined for kw in keywords):
+                    matched_fathers.append(father)
+            assigned_types.add(SourceType.HISTORICAL_SOURCES)
+            assigned_types.add(SourceType.THEOLOGICAL_STUDIES)
+            primary_tier = AuthenticityTier.TIER_3_ENCYCLOPEDIA_CHURCH
+            confidence = 0.85
 
         # --- 2. Liturgical Detection ---
         if any(term in combined for term in cls.LITURGICAL_TERMS):
@@ -166,19 +180,19 @@ class ChurchSourceClassifier:
                 confidence = max(confidence, 0.88)
 
         # --- 4. Educational / Sunday School Detection ---
-        if any(term in combined for term in cls.EDUCATIONAL_TERMS):
+        if is_educational or any(term in combined for term in cls.EDUCATIONAL_TERMS):
             assigned_types.add(SourceType.EDUCATIONAL_SOURCES)
             if not is_patristic and SourceType.LITURGICAL_SOURCES not in assigned_types:
                 primary_tier = AuthenticityTier.TIER_5_EDUCATIONAL_CATECHESIS
-                confidence = max(confidence, 0.88)
+                confidence = max(confidence, 0.92)
 
         # --- 5. Biblical Exegesis & Theological Studies Detection ---
         is_biblical = any(re.search(rf"(?:^|\D){b}(?:\D|$)", combined) for b in cls.BIBLICAL_BOOKS)
         is_theological = any(term in combined for term in cls.THEOLOGICAL_TERMS) or "تفسير" in combined
 
-        if is_biblical or is_theological:
+        if (is_biblical or is_theological) and not is_educational:
             assigned_types.add(SourceType.THEOLOGICAL_STUDIES)
-            if primary_tier > AuthenticityTier.TIER_2_SCHOLARLY_STUDY:
+            if primary_tier > AuthenticityTier.TIER_2_SCHOLARLY_STUDY and not is_biography:
                 primary_tier = AuthenticityTier.TIER_2_SCHOLARLY_STUDY if ("تفسير" in combined or "بحث" in combined or is_biblical) else AuthenticityTier.TIER_3_ENCYCLOPEDIA_CHURCH
                 confidence = max(confidence, 0.85)
 
