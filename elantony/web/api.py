@@ -6,6 +6,8 @@ Word (.docx) Export, Book Viewing, and Admin Management Endpoints.
 """
 
 import os
+import re
+import json
 import urllib.parse
 import asyncio
 from pathlib import Path
