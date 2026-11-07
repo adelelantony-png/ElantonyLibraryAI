@@ -73,24 +73,26 @@ THEOLOGICAL_THESAURUS: Dict[str, List[str]] = {
     "باروخ": ["باروخ", "سفر باروخ"],
 
     # التجسد الإلهي والتأنس
-    "تجسد": ["تجسد", "التجسد", "تأنس", "التأنس", "الكلمة", "تجسد الكلمة", "صار جسدا", "أثناسيوس", "ἐνανθρώπησις", "enanthropesis", "ⲁϥϭⲓⲥⲁⲣⲝ"],
-    "التجسد": ["التجسد", "تجسد", "تأنس", "التأنس", "الكلمة", "تجسد الكلمة", "صار جسدا"],
-    "تأله": ["تأله", "التأله", "شريك الطبيعة الإلهية", "الاتحاد بالله", "ثيؤسيس", "theosis", "شبه الله", "نعمة التبني"],
+    "تجسد": ["تجسد", "التجسد", "تأنس", "التأنس", "الكلمة", "تجسد الكلمة", "صار جسدا", "ἐνανθρώπησις", "enanthropesis", "ⲁϥϭⲓⲥⲁⲣⲝ"],
+    "التجسد": ["التجسد", "تجسد", "تأنس", "التأنس", "الكلمة", "تجسد الكلمة", "صار جسدا", "ἐνανθρώπησις", "ⲁϥϭⲓⲥⲁⲣⲝ"],
+    "تأله": ["تأله", "التأله", "شريك الطبيعة الإلهية", "الاتحاد بالله", "ثيؤسيس", "theosis", "θέωσις", "شبه الله", "نعمة التبني"],
     "ثيؤطوكوس": ["ثيؤطوكوس", "ثيئوطوكوس", "والدة الإله", "Theotokos", "Θεοτόκος", "Ϯⲑⲉⲟⲧⲟⲕⲟⲥ"],
+    "جوهر": ["جوهر", "الجوهر", "مساو في الجوهر", "هومواوسيوس", "ὁμοούσιος", "homoousios", "الجوهر الإلهي"],
+    "طبيعة": ["طبيعة واحدة", "ميافيزيس", "طبيعة المسيح", "اتحاد طبيعي", "μία φύσις"],
 
     # الفداء والقيامة
     "فداء": ["فداء", "الفداء", "كفارة", "الكفارة", "خلاص", "الخلاص", "ذبيحة", "دم المسيح", "المصالحة"],
     "الفداء": ["الفداء", "فداء", "كفارة", "خلاص", "ذبيحة", "دم المسيح"],
-    "قيامة": ["قيامة", "القيامة", "القبر الفارغ", "باكورة الراقدين", "انتصار على الموت", "قام من بين الاموات", "حياة أبدية"],
-    "القيامة": ["القيامة", "قيامة", "القبر الفارغ", "باكورة الراقدين", "انتصار على الموت", "قام من بين الاموات"],
+    "قيامة": ["قيامة", "القيامة", "القبر الفارغ", "باكورة الراقدين", "انتصار على الموت", "قام من بين الاموات", "حياة أبدية", "ἀνάστασις", "anastasis"],
+    "القيامة": ["القيامة", "قيامة", "القبر الفارغ", "باكورة الراقدين", "انتصار على الموت", "قام من بين الاموات", "ἀνάστασις", "anastasis"],
 
     # الثالوث القدوس واللاهوت النظري
-    "ثالوث": ["ثالوث", "الثالوث", "أقانيم", "الأقانيم", "الآب والابن", "الروح القدس", "جوهر واحد", "طبيعة واحدة", "هومواوسيوس"],
-    "الثالوث": ["الثالوث", "ثالوث", "أقانيم", "الأقانيم", "الآب والابن", "الروح القدس", "جوهر واحد", "طبيعة واحدة", "هومواوسيوس"],
-    "روح": ["الروح القدس", "المعزي", "روح الحق", "مواهب الروح", "ثمار الروح"],
+    "ثالوث": ["ثالوث", "الثالوث", "أقانيم", "الأقانيم", "الآب والابن", "الروح القدس", "جوهر واحد", "طبيعة واحدة", "هومواوسيوس", "ὁμοούσιος"],
+    "الثالوث": ["الثالوث", "ثالوث", "أقانيم", "الأقانيم", "الآب والابن", "الروح القدس", "جوهر واحد", "طبيعة واحدة", "هومواوسيوس", "ὁμοούσιος"],
+    "روح": ["الروح القدس", "المعزي", "روح الحق", "مواهب الروح", "ثمار الروح", "ⲡⲓⲡⲛⲉⲩⲙⲁ"],
 
     # الأسرار الكنسية والعبادة
-    "معمودية": ["معمودية", "المعمودية", "الغطاس", "ميلاد ثان", "الجرن", "التغطيس", "جرن المعمودية"],
+    "معمودية": ["معمودية", "المعمودية", "الغطاس", "ميلاد ثان", "الجرن", "التغطيس", "جرن المعمودية", "ⲡⲓⲱⲙⲥ", "βάπτισμα"],
     "افخارستيا": ["افخارستيا", "الإفخارستيا", "القربان", "التناول", "جسد ودم", "عشاء الرب", "سر الشكر", "εὐχαριστία", "eucharistia"],
     "تناول": ["تناول", "التناول", "افخارستيا", "القربان", "جسد ودم المسيح", "سر الشكر"],
     "توبة": ["توبة", "اعتراف", "نقاوة القلب", "رجوع", "دموع التوبة", "أب الاعتراف"],
@@ -286,6 +288,53 @@ def is_chunk_high_quality(text: str) -> bool:
     return True
 
 
+
+# Canonical Biblical Books Mapping for Scriptural Reference Parsing
+BIBLE_BOOKS_MAP = {
+    # العهد الجديد
+    "متى": "متى", "مرقس": "مرقس", "لوقا": "لوقا", "يوحنا": "يوحنا", "اعمال": "أعمال الرسل", "أعمال": "أعمال الرسل",
+    "رومية": "رومية", "غلاطية": "غلاطية", "افسس": "أفسس", "أفسس": "أفسس", "فيلبي": "فيلبي",
+    "كولوسي": "كولوسي", "عبرانيين": "عبرانيين", "يعقوب": "يعقوب", "بطرس": "بطرس", "يهوذا": "يهوذا",
+    "رؤيا": "الرؤيا", "الرؤيا": "الرؤيا", "تسالونيكي": "تسالونيكي", "تيموثاوس": "تيموثاوس", "تيطس": "تيطس", "فليمون": "فليمون",
+    # العهد القديم والأسفار القانونية
+    "تكوين": "تكوين", "خروج": "خروج", "لاويين": "لاويين", "عدد": "عدد", "تثنية": "تثنية", "يشوع": "يشوع",
+    "قضاة": "قضاة", "راعوث": "راعوث", "صموئيل": "صموئيل", "ملوك": "ملوك", "أخبار": "أخبار الأيام",
+    "مزامير": "المزامير", "مزمور": "المزامير", "امثال": "الأمثال", "أمثال": "الأمثال", "الجامعة": "الجامعة",
+    "نشيد": "نشيد الأنشاد", "اشعياء": "إشعياء", "إشعياء": "إشعياء", "ارميا": "إرمياء", "إرمياء": "إرمياء",
+    "حزقيال": "حزقيال", "دانيال": "دانيال", "طوبيا": "طوبيا", "يهوديت": "يهوديت", "المكابيين": "المكابيين", "سيراخ": "سيراخ",
+    "حكمة": "حكمة سليمان", "باروخ": "باروخ"
+}
+
+NUM_TO_ARABIC = {
+    1: "الأول", 2: "الثاني", 3: "الثالث", 4: "الرابع", 5: "الخامس",
+    6: "السادس", 7: "السابع", 8: "الثامن", 9: "التاسع", 10: "العاشر",
+    11: "الحادي عشر", 12: "الثاني عشر", 13: "الثالث عشر", 14: "الرابع عشر", 15: "الخامس عشر",
+    16: "السادس عشر", 17: "السابع عشر", 18: "الثامن عشر", 19: "التاسع عشر", 20: "العشرون",
+    21: "الحادي والعشرون", 22: "الثاني والعشرون", 23: "الثالث والعشرون", 24: "الرابع والعشرون", 25: "الخامس والعشرون"
+}
+
+def parse_biblical_query(q: str) -> Optional[Dict[str, Any]]:
+    """Parses queries mentioning biblical books with optional chapter and verse (e.g. رومية 8: 29 or يوحنا 3)."""
+    if not q:
+        return None
+    for b_key, b_std in BIBLE_BOOKS_MAP.items():
+        pattern = rf'\b{b_key}\b(?:\s+(?:إصحاح|اصحاح|الأصحاح|الاصحاح))?\s*(\d{{1,3}})(?:\s*[:\-]\s*(\d{{1,3}}))?'
+        m = re.search(pattern, q)
+        if m:
+            chapter = int(m.group(1))
+            verse = int(m.group(2)) if m.group(2) else None
+            ch_ar = NUM_TO_ARABIC.get(chapter, "")
+            return {
+                "matched": True,
+                "book": b_std,
+                "book_key": b_key,
+                "chapter": chapter,
+                "chapter_ar": ch_ar,
+                "verse": verse
+            }
+    return None
+
+
 class ChurchSearchEngine:
     """High-performance multi-tier search engine with theological thesaurus & dedicated volume priority."""
 
@@ -320,6 +369,33 @@ class ChurchSearchEngine:
         cur = conn.cursor()
         found_books: List[Dict[str, Any]] = []
         seen_shas = set()
+
+        # Tier 0 Priority: Dedicated Biblical Commentaries (e.g. شرح رسالة رومية, تفسير إنجيل يوحنا)
+        bible_ref = parse_biblical_query(query)
+        if bible_ref:
+            b_key = bible_ref["book_key"]
+            try:
+                cur.execute("""
+                    SELECT sha256, file_name, author, category, page_count
+                    FROM church_books
+                    WHERE (file_name LIKE ? OR file_name LIKE ?)
+                      AND is_duplicate_of IS NULL
+                    ORDER BY page_count DESC
+                    LIMIT ?
+                """, (f"%تفسير%{b_key}%", f"%شرح%{b_key}%", limit))
+                for b in cur.fetchall():
+                    if b["sha256"] not in seen_shas:
+                        seen_shas.add(b["sha256"])
+                        found_books.append({
+                            "sha256": b["sha256"],
+                            "file_name": b["file_name"],
+                            "clean_title": b["file_name"].replace(".pdf", ""),
+                            "author": b["author"] or "تفسير آبائي وشرح كنسي",
+                            "category": "تفاسير وشروح كتابية",
+                            "page_count": b["page_count"] or 1
+                        })
+            except Exception as e:
+                logger.debug(f"Biblical commentary dedicated volume search error: {e}")
 
         # Tier 1 Priority: Books matching BOTH detected Father AND Topic
         if detected_fathers and topic_stems:
@@ -430,11 +506,26 @@ class ChurchSearchEngine:
         anchor_clause = " OR ".join([f'"{t}"' for t in list(all_anchor_terms)[:10]])
 
         # Step 1: If dedicated books exist, search chunks from them WITH KEYWORD MATCH
-        dedicated_books = self.find_dedicated_books(query, limit=2)
-        if dedicated_books and anchor_clause:
-            scoped_anchor = f"chunk_text: ({anchor_clause})"
+        dedicated_books = self.find_dedicated_books(query, limit=3)
+        bible_ref = parse_biblical_query(query)
+        if dedicated_books:
             for book in dedicated_books:
                 b_sha = book["sha256"]
+                # If biblical query with chapter, build specialized chapter match expression
+                if bible_ref and bible_ref.get("chapter"):
+                    ch_num = bible_ref["chapter"]
+                    ch_ar = bible_ref.get("chapter_ar")
+                    ch_terms = [f'"اصحاح {ch_num}"', f'"أصحاح {ch_num}"', f'"{ch_num}:"']
+                    if ch_ar:
+                        ch_terms.extend([f'"الأصحاح {ch_ar}"', f'"الاصحاح {ch_ar}"'])
+                    if bible_ref.get("verse"):
+                        ch_terms.append(f'"{bible_ref["verse"]}"')
+                    book_fts_expr = f"chunk_text: ({' OR '.join(ch_terms)})"
+                elif anchor_clause:
+                    book_fts_expr = f"chunk_text: ({anchor_clause})"
+                else:
+                    continue
+
                 try:
                     cur.execute("""
                         SELECT sha256, book_title, page_number, chunk_index, source_reference, chunk_text, rank
@@ -442,7 +533,7 @@ class ChurchSearchEngine:
                         WHERE sha256 = ? AND church_chunks_fts MATCH ? AND page_number > 1
                         ORDER BY rank
                         LIMIT 2
-                    """, (b_sha, scoped_anchor))
+                    """, (b_sha, book_fts_expr))
                     for r in cur.fetchall():
                         ref = r["source_reference"]
                         if ref not in seen_refs and is_chunk_high_quality(r["chunk_text"]):

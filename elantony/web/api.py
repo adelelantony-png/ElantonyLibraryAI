@@ -105,6 +105,7 @@ class AskRequest(BaseModel):
     question: str
     limit: Optional[int] = 4
     depth_mode: Optional[str] = "academic"
+    topic_mode: Optional[str] = "auto"
 
 
 class ChatMessage(BaseModel):
@@ -1542,6 +1543,46 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             margin-bottom: 4px;
         }
 
+        
+        /* Topic Flow Controller (Manual vs Auto Session Branching) */
+        .topic-flow-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 6px;
+            margin-bottom: 8px;
+            padding: 0 4px;
+            flex-wrap: wrap;
+        }
+        .topic-flow-label {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-sub);
+            margin-left: 4px;
+        }
+        .topic-mode-pill {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            color: var(--text-sub);
+            padding: 3px 9px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.16s ease;
+            font-family: inherit;
+        }
+        .topic-mode-pill:hover {
+            border-color: var(--gold);
+            color: var(--text-main);
+        }
+        .topic-mode-pill.active {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #ffffff;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+        }
+
         /* External Authoritative Patristic Sources */
         .external-sources-pill-box {
             margin-top: 14px;
@@ -1732,6 +1773,12 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
 
         <!-- Input Area -->
         <div class="input-area">
+            <div class="topic-flow-toolbar">
+                <span class="topic-flow-label">مسار الحوار:</span>
+                <button type="button" class="topic-mode-pill active" id="btnModeAuto" onclick="setTopicMode('auto')" title="تصنيف ذكي: استكمال نفس المبحث إذا كان متصلاً أو فتح موضوع جديد إذا اختلف">⚡ تلقائي ذكي</button>
+                <button type="button" class="topic-mode-pill" id="btnModeContinue" onclick="setTopicMode('continue')" title="إجبار المنظومة على إدراج هذا السؤال كسؤال فرعي متسلسل (س1، س2، س3...) في نفس التبويب والمبحث الحالي">🔗 استكمال في نفس المبحث</button>
+                <button type="button" class="topic-mode-pill" id="btnModeNew" onclick="setTopicMode('new')" title="فتح تبويب ومبحث مستقل وجديد كلياً في القائمة الجانبية">➕ مبحث مستقل جديد</button>
+            </div>
             <div class="input-box-wrapper">
                 <textarea 
                     id="chatInput" 
@@ -2285,6 +2332,26 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             window.open('/api/sessions/' + sessionId + '/export?format=docx', '_blank');
         }
 
+                let currentTopicMode = 'auto';
+
+        function setTopicMode(mode) {
+            currentTopicMode = mode;
+            ['btnModeAuto', 'btnModeContinue', 'btnModeNew'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.classList.remove('active');
+            });
+            if (mode === 'auto') {
+                const el = document.getElementById('btnModeAuto');
+                if (el) el.classList.add('active');
+            } else if (mode === 'continue') {
+                const el = document.getElementById('btnModeContinue');
+                if (el) el.classList.add('active');
+            } else if (mode === 'new') {
+                const el = document.getElementById('btnModeNew');
+                if (el) el.classList.add('active');
+            }
+        }
+
         function sendPrompt(text) {
             chatInput.value = text;
             sendMessage();
@@ -2313,7 +2380,8 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                         messages: chatMessages,
                         session_id: currentSessionId,
                         user_id: currentUserId,
-                        depth_mode: currentDepthMode
+                        depth_mode: currentDepthMode,
+                        topic_mode: currentTopicMode
                     })
                 });
 
@@ -3472,21 +3540,33 @@ async def api_chat(req: ChatRequest):
     is_new_topic = False
     new_topic_title = None
 
+    topic_mode = getattr(req, "topic_mode", "auto") or "auto"
+
     if not session_id or session_id == "default":
         session_info = repo.get_or_create_active_session(user_id)
         session_id = session_info["id"]
     else:
         sess = repo.get_session(session_id)
         if sess:
-            existing_messages = repo.get_session_messages(session_id)
-            if existing_messages:
-                is_same, reason = check_topic_continuity(sess.get("title", ""), existing_messages, latest_msg)
-                if not is_same:
-                    new_topic_title = latest_msg.split("\n")[0][:45].strip()
-                    new_sess_id = repo.create_session(user_id=user_id, title=new_topic_title)
-                    logger.info(f"[TopicSwitch] Detected distinct topic ({reason}). Created new session {new_sess_id} for '{new_topic_title}'.")
-                    session_id = new_sess_id
-                    is_new_topic = True
+            if topic_mode == "new":
+                new_topic_title = latest_msg.split("\n")[0][:45].strip()
+                new_sess_id = repo.create_session(user_id=user_id, title=new_topic_title)
+                logger.info(f"[TopicSwitch] Manual User Choice (new). Created new session {new_sess_id} for '{new_topic_title}'.")
+                session_id = new_sess_id
+                is_new_topic = True
+            elif topic_mode == "continue":
+                is_new_topic = False
+                logger.info(f"[TopicSwitch] Manual User Choice (continue). Keeping in session {session_id}.")
+            else:
+                existing_messages = repo.get_session_messages(session_id)
+                if existing_messages:
+                    is_same, reason = check_topic_continuity(sess.get("title", ""), existing_messages, latest_msg)
+                    if not is_same:
+                        new_topic_title = latest_msg.split("\n")[0][:45].strip()
+                        new_sess_id = repo.create_session(user_id=user_id, title=new_topic_title)
+                        logger.info(f"[TopicSwitch] Detected distinct topic ({reason}). Created new session {new_sess_id} for '{new_topic_title}'.")
+                        session_id = new_sess_id
+                        is_new_topic = True
 
     # 1. Retrieve library context
     chunks = search_engine.search_fts5(latest_msg, limit=6)
