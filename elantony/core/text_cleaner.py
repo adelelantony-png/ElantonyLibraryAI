@@ -228,6 +228,14 @@ def clean_theological_text(text: str) -> str:
     # Rejoin common split phrases
     result = result.replace("الف لك", "الفلك").replace("أمري كا", "أمريكا").replace("سيبي ريا", "سيبيريا")
 
+    # 8. Strip standalone 1-4 letter Latin OCR fragments that contaminate Arabic books (e.g. Ges, dig, Und, oe, etc.)
+    arabic_char_count = len(re.findall(r'[؀-ۿ]', result))
+    if arabic_char_count > 40:
+        result = re.sub(r'(?<![a-zA-Z])[a-zA-Z]{1,4}(?![a-zA-Z])', ' ', result)
+        result = re.sub(r'[»«‹›]', ' ', result)
+        result = re.sub(r'\?\s*\.', ' ', result)
+        result = re.sub(r'\s+', ' ', result).strip()
+
     return result
 
 
@@ -248,3 +256,38 @@ def extract_coherent_sentences(text: str, max_length: int = 350) -> str:
     if last_space > 0:
         return truncated[:last_space].strip() + "..."
     return truncated + "..."
+
+
+def clean_leading_ocr_noise(text: str) -> str:
+    """Detects and removes leading OCR scanning garbage, isolated 1-2 letter fragments, and broken punct."""
+    if not text:
+        return ""
+    t = re.sub(r'^[^\w\sء-ي]+', '', text).strip()
+    words = t.split()
+    start_idx = 0
+    consecutive_coherent = 0
+    for i, w in enumerate(words):
+        clean_w = re.sub(r'[^\wء-ي]', '', w)
+        is_normal = (
+            len(clean_w) >= 3 and
+            not re.match(r'^(.)\1+$', clean_w) and
+            not any(p in w for p in ['!', '؟', '?', '#'])
+        )
+        if is_normal:
+            consecutive_coherent += 1
+            if consecutive_coherent >= 2:
+                start_idx = max(0, i - 1)
+                break
+        else:
+            consecutive_coherent = 0
+    if 0 < start_idx < (len(words) // 2):
+        t = " ".join(words[start_idx:])
+    return re.sub(r'^[^\w\sء-ي]+', '', t).strip()
+
+
+def clean_citation_excerpt(text: str, max_length: int = 320) -> str:
+    """Full-pipeline professional excerpt cleaner for UI citation cards."""
+    cleaned = clean_theological_text(text)
+    cleaned = clean_leading_ocr_noise(cleaned)
+    return extract_coherent_sentences(cleaned, max_length=max_length)
+

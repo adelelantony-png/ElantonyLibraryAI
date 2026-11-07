@@ -205,8 +205,18 @@ class DatabaseRepository:
             LIMIT ?
         """, (pattern, pattern, pattern, limit))
         rows = cur.fetchall()
+        sessions = [dict(r) for r in rows]
+        for s in sessions:
+            cur.execute("""
+                SELECT id, content FROM chat_messages
+                WHERE session_id = ? AND role = 'user'
+                ORDER BY id ASC
+            """, (s["id"],))
+            q_rows = cur.fetchall()
+            s["user_queries"] = [{"id": qr[0], "content": qr[1][:80]} for qr in q_rows]
+            s["questions_count"] = len(s["user_queries"])
         conn.close()
-        return [dict(r) for r in rows]
+        return sessions
 
     def get_categories_summary(self) -> List[Dict[str, Any]]:
         """Returns categories and book counts."""
@@ -698,8 +708,18 @@ class DatabaseRepository:
             LIMIT ?
         """, (str(user_id), limit))
         rows = cur.fetchall()
+        sessions = [dict(r) for r in rows]
+        for s in sessions:
+            cur.execute("""
+                SELECT id, content FROM chat_messages
+                WHERE session_id = ? AND role = 'user'
+                ORDER BY id ASC
+            """, (s["id"],))
+            q_rows = cur.fetchall()
+            s["user_queries"] = [{"id": qr[0], "content": qr[1][:80]} for qr in q_rows]
+            s["questions_count"] = len(s["user_queries"])
         conn.close()
-        return [dict(r) for r in rows]
+        return sessions
 
     def update_session_title(self, session_id: str, title: str) -> None:
         """Updates discussion session title and touches updated_at."""
@@ -938,6 +958,113 @@ class DatabaseRepository:
         conn.commit()
         conn.close()
         return {"status": "completed", "maintenance_actions": actions}
+
+    def register_or_touch_scholar(self, user_id: str, display_name: Optional[str] = None) -> None:
+        """Registers or updates a scholar profile and touch timestamp."""
+        conn = get_connection()
+        cur = conn.cursor()
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS scholar_profiles (
+                user_id TEXT PRIMARY KEY,
+                display_name TEXT DEFAULT 'باحث لاهوتي',
+                first_seen TIMESTAMP,
+                last_seen TIMESTAMP
+            )
+        """)
+        cur.execute("""
+            INSERT INTO scholar_profiles (user_id, display_name, first_seen, last_seen)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(user_id) DO UPDATE SET
+                display_name = COALESCE(?, display_name),
+                last_seen = ?
+        """, (str(user_id), display_name or 'باحث لاهوتي', now, now, display_name, now))
+        conn.commit()
+        conn.close()
+
+    def get_all_scholars_activity(self) -> Dict[str, Any]:
+        """
+        Super-view for Admin: returns complete activity telemetry for all scholars.
+        Lists all users, their questions, discussion topics, and timestamps.
+        """
+        conn = get_connection()
+        cur = conn.cursor()
+
+        # Ensure profiles table exists
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS scholar_profiles (
+                user_id TEXT PRIMARY KEY,
+                display_name TEXT DEFAULT 'باحث لاهوتي',
+                first_seen TIMESTAMP,
+                last_seen TIMESTAMP
+            )
+        """)
+
+        # 1. Scholars summary
+        cur.execute("""
+            SELECT 
+                s.user_id,
+                p.display_name,
+                COUNT(DISTINCT s.id) as session_count,
+                COUNT(m.id) as message_count,
+                MIN(s.created_at) as first_seen,
+                MAX(s.updated_at) as last_active
+            FROM chat_sessions s
+            LEFT JOIN chat_messages m ON s.id = m.session_id
+            LEFT JOIN scholar_profiles p ON s.user_id = p.user_id
+            GROUP BY s.user_id
+            ORDER BY last_active DESC
+        """)
+        rows = [dict(r) for r in cur.fetchall()]
+
+        scholars = []
+        total_questions = 0
+
+        for u in rows:
+            uid = u["user_id"]
+            # Fetch all user questions
+            cur.execute("""
+                SELECT m.content, m.created_at, s.title as session_title, s.id as session_id
+                FROM chat_messages m
+                JOIN chat_sessions s ON m.session_id = s.id
+                WHERE s.user_id = ? AND m.role = 'user'
+                ORDER BY m.created_at DESC
+            """, (uid,))
+            queries = [dict(q) for q in cur.fetchall()]
+            total_questions += len(queries)
+
+            scholars.append({
+                "user_id": uid,
+                "display_name": u.get("display_name") or "باحث لاهوتي",
+                "session_count": u["session_count"],
+                "message_count": u["message_count"],
+                "query_count": len(queries),
+                "first_seen": u["first_seen"],
+                "last_active": u["last_active"],
+                "recent_queries": queries[:10],
+                "all_queries_count": len(queries)
+            })
+
+        # 2. Chronological stream of recent global questions
+        cur.execute("""
+            SELECT m.content, m.created_at, s.user_id, s.title as session_title, p.display_name
+            FROM chat_messages m
+            JOIN chat_sessions s ON m.session_id = s.id
+            LEFT JOIN scholar_profiles p ON s.user_id = p.user_id
+            WHERE m.role = 'user'
+            ORDER BY m.created_at DESC
+            LIMIT 40
+        """)
+        global_stream = [dict(q) for q in cur.fetchall()]
+
+        conn.close()
+
+        return {
+            "total_scholars": len(scholars),
+            "total_questions": total_questions,
+            "scholars": scholars,
+            "live_stream": global_stream
+        }
 
 
 # Singleton repository instance

@@ -47,23 +47,59 @@ ARABIC_STOPWORDS: Set[str] = {
 
 # Core Ecclesiastical Theological Thesaurus
 THEOLOGICAL_THESAURUS: Dict[str, List[str]] = {
-    "طوفان": ["طوفان", "نوح", "الفلك", "فلك نوح", "سفر التكوين", "مياه الطوفان"],
-    "نوح": ["طوفان", "نوح", "الفلك", "فلك نوح", "سفر التكوين"],
-    "عالمي": ["عالمي", "شامل", "كل الأرض", "المسكونة", "الجبال الشامخة", "عمومية"],
-    "شامل": ["شامل", "عالمي", "كل الأرض", "المسكونة", "عمومية الطوفان"],
-    "تجسد": ["تجسد", "تأنس", "الكلمة", "تجسد الكلمة", "صار جسدا", "أثناسيوس", "ἐνανθρώπησις", "enanthropesis", "ⲁϥϭⲓⲥⲁⲣⲝ"],
+    # أحداث وآلام الصلب والفداء
+    "صلب": ["صلب", "الصلب", "المصلوب", "الصليب", "صليب", "الجلجثة", "الجمعة العظيمة", "آلام المسيح", "اسبوع الالام", "موت المسيح"],
+    "الصلب": ["الصلب", "صلب", "المصلوب", "الصليب", "صليب", "الجلجثة", "الجمعة العظيمة", "آلام المسيح", "اسبوع الالام", "موت المسيح"],
+    "صليب": ["صليب", "الصليب", "صلب", "الصلب", "المصلوب", "فداء", "كفارة", "جلجثة", "ذبيحة"],
+    "الصليب": ["الصليب", "صليب", "صلب", "الصلب", "المصلوب", "فداء", "كفارة", "جلجثة", "ذبيحة"],
+    
+    # الآيات الكونية والظواهر المرافقة للصلب
+    "زلزال": ["زلزال", "تزلزلت", "تزلزل", "الزلزال", "انشقاق الصخور", "انشقت الصخور", "تفتحت القبور", "الآيات الكونية"],
+    "شمس": ["الشمس", "شمس", "أظلمت", "اظلمت", "ظلمة", "كسوف", "غياب الشمس", "الساعة السادسة", "الساعة التاسعة"],
+    "الشمس": ["الشمس", "شمس", "أظلمت", "اظلمت", "ظلمة", "كسوف", "غياب الشمس", "الساعة السادسة", "الساعة التاسعة"],
+    "كسوف": ["كسوف", "خسوف", "ظلمة", "أظلمت", "الشمس", "غياب الشمس", "الساعة السادسة", "فليجون", "تعلوس"],
+    "ظلمة": ["ظلمة", "الظلمة", "أظلمت", "اظلمت", "الشمس", "كسوف", "غياب الشمس", "الساعة السادسة"],
+    "حجاب": ["حجاب", "حجاب الهيكل", "انشقاق الحجاب", "انشق حجاب"],
+
+    # الأسفار القانونية الثانية وقانونية الكتاب المقدس
+    "قانونية": ["قانونية", "الأسفار القانونية", "القانونية الثانية", "الاسفار القانونية", "قانونية الأسفار", "طوبيا", "يهوديت", "سيراخ", "المكابيين", "حكمة سليمان", "باروخ"],
+    "الاسفار": ["الأسفار", "الاسفار", "الأسفار القانونية", "الأسفار الإلهية"],
+    "اسفار": ["الأسفار", "الاسفار", "الأسفار القانونية"],
+    "طوبيا": ["طوبيا", "طوبيت", "سفر طوبيا"],
+    "يهوديت": ["يهوديت", "سفر يهوديت"],
+    "سيراخ": ["سيراخ", "يشوع بن سيراخ", "ابن سيراخ", "حكمة سيراخ"],
+    "المكابيين": ["المكابيين", "المكابيين الأول", "المكابيين الثاني", "مكابيين"],
+    "حكمة": ["حكمة سليمان", "سفر الحكمة"],
+    "باروخ": ["باروخ", "سفر باروخ"],
+
+    # التجسد الإلهي والتأنس
+    "تجسد": ["تجسد", "التجسد", "تأنس", "التأنس", "الكلمة", "تجسد الكلمة", "صار جسدا", "أثناسيوس", "ἐνανθρώπησις", "enanthropesis", "ⲁϥϭⲓⲥⲁⲣⲝ"],
+    "التجسد": ["التجسد", "تجسد", "تأنس", "التأنس", "الكلمة", "تجسد الكلمة", "صار جسدا"],
+    "تأله": ["تأله", "التأله", "شريك الطبيعة الإلهية", "الاتحاد بالله", "ثيؤسيس", "theosis", "شبه الله", "نعمة التبني"],
     "ثيؤطوكوس": ["ثيؤطوكوس", "ثيئوطوكوس", "والدة الإله", "Theotokos", "Θεοτόκος", "Ϯⲑⲉⲟⲧⲟⲕⲟⲥ"],
-    "افخارستيا": ["افخارستيا", "القربان", "التناول", "جسد ودم", "عشاء الرب", "εὐχαριστία", "eucharistia", "Ϯⲉⲩⲭⲁⲣⲓⲥⲧⲓⲁ"],
-    "فداء": ["فداء", "الصليب", "كفارة", "خلاص", "ذبيحة", "دم المسيح"],
-    "صليب": ["صليب", "الصليب", "فداء", "كفارة", "جلجثة", "ذبيحة"],
-    "معمودية": ["معمودية", "الغطاس", "ميلاد ثان", "الجرن", "التغطيس", "جرن المعمودية"],
-    "افخارستيا": ["افخارستيا", "القربان", "التناول", "جسد ودم", "عشاء الرب", "الأسرار المقدسة"],
-    "تناول": ["تناول", "افخارستيا", "القربان", "جسد ودم المسيح", "سر الشكر"],
+
+    # الفداء والقيامة
+    "فداء": ["فداء", "الفداء", "كفارة", "الكفارة", "خلاص", "الخلاص", "ذبيحة", "دم المسيح", "المصالحة"],
+    "الفداء": ["الفداء", "فداء", "كفارة", "خلاص", "ذبيحة", "دم المسيح"],
+    "قيامة": ["قيامة", "القيامة", "القبر الفارغ", "باكورة الراقدين", "انتصار على الموت", "قام من بين الاموات", "حياة أبدية"],
+    "القيامة": ["القيامة", "قيامة", "القبر الفارغ", "باكورة الراقدين", "انتصار على الموت", "قام من بين الاموات"],
+
+    # الثالوث القدوس واللاهوت النظري
+    "ثالوث": ["ثالوث", "الثالوث", "أقانيم", "الأقانيم", "الآب والابن", "الروح القدس", "جوهر واحد", "طبيعة واحدة", "هومواوسيوس"],
+    "الثالوث": ["الثالوث", "ثالوث", "أقانيم", "الأقانيم", "الآب والابن", "الروح القدس", "جوهر واحد", "طبيعة واحدة", "هومواوسيوس"],
+    "روح": ["الروح القدس", "المعزي", "روح الحق", "مواهب الروح", "ثمار الروح"],
+
+    # الأسرار الكنسية والعبادة
+    "معمودية": ["معمودية", "المعمودية", "الغطاس", "ميلاد ثان", "الجرن", "التغطيس", "جرن المعمودية"],
+    "افخارستيا": ["افخارستيا", "الإفخارستيا", "القربان", "التناول", "جسد ودم", "عشاء الرب", "سر الشكر", "εὐχαριστία", "eucharistia"],
+    "تناول": ["تناول", "التناول", "افخارستيا", "القربان", "جسد ودم المسيح", "سر الشكر"],
     "توبة": ["توبة", "اعتراف", "نقاوة القلب", "رجوع", "دموع التوبة", "أب الاعتراف"],
     "صلاة": ["صلاة", "سهر", "هدوء", "صلاة يسوع", "مزامير", "صلاة باكر", "الأجبية", "صلاة دائمة"],
     "صوم": ["صوم", "نسك", "انقطاع", "إماتة الجسد", "الصوم الكبير", "طهارة"],
-    "ثالوث": ["ثالوث", "أقانيم", "الآب والابن", "الروح القدس", "جوهر واحد", "طبيعة واحدة"],
-    "قيامة": ["قيامة", "القبر الفارغ", "باكورة الراقدين", "انتصار على الموت", "حياة أبدية"],
+
+    # قصص كتابية وتاريخية
+    "طوفان": ["طوفان", "الطوفان", "نوح", "الفلك", "فلك نوح", "سفر التكوين", "مياه الطوفان"],
+    "نوح": ["طوفان", "الطوفان", "نوح", "الفلك", "فلك نوح", "سفر التكوين"],
     "إقامة": ["إقامة", "اقامة", "أقام", "اقام", "يقيم", "الموتى", "الموتي", "الأموات", "الاموات", "لعازر"],
     "اقامة": ["إقامة", "اقامة", "أقام", "اقام", "يقيم", "الموتى", "الموتي", "الأموات", "الاموات", "لعازر"],
     "أموات": ["الموتى", "الموتي", "الأموات", "الاموات", "الميت", "ميت"],
@@ -74,8 +110,7 @@ THEOLOGICAL_THESAURUS: Dict[str, List[str]] = {
     "ايليا": ["إيليا", "ايليا", "إيليا النبي", "ايليا النبي", "ابن الأرملة", "ابن الارملة"],
     "لعازر": ["لعازر", "إقامة لعازر", "اقامة لعازر", "مريض بيت عنيا"],
     "يايرس": ["يايرس", "ابنة يايرس", "صبية قومي", "طليثا قومي"],
-    "نايين": ["نايين", "ابن أرملة نايين", "ابن ارملة نايين"],
-    "روح": ["الروح القدس", "المعزي", "روح الحق", "مواهب الروح", "ثمار الروح"]
+    "نايين": ["نايين", "ابن أرملة نايين", "ابن ارملة نايين"]
 }
 
 
@@ -103,7 +138,13 @@ CONVERSATIONAL_BOILERPLATE = {
     "مفهوم", "الفكر", "فكر", "الآبائي", "الابائي", "اقوال", "أقوال", "الموضوع", 
     "موضوع", "المراجع", "مراجع", "أرقام", "ارقام", "الصفحات", "صفحات", "اذكر", 
     "شرح", "تفسير", "رسولي", "الرسولي", "قديس", "القديس", "انبا", "الأنبا", "بابا", "البابا",
-    "حول", "هذا", "هذه", "أهم", "اهم", "وما", "ما", "كيف", "لماذا", "هل"
+    "حول", "هذا", "هذه", "ذلك", "تلك", "أهم", "اهم", "وما", "ما", "هو", "هي", "عن",
+    "هل", "كيف", "ماذا", "لماذا", "اين", "أين", "متى", "كم", "من", "في", "على", "إلى", "الي", "مع",
+    "هكذا", "وهكذا", "مثل", "كذلك", "اثبت", "يثبت", "اثبات", "أثبت", "تطابق", "يطابق", "مطابقة",
+    "الحدث", "حدث", "احداث", "أحداث", "العلم", "العلمي", "علميا", "علم", "حقيقة", "امر", "أمر",
+    "شأن", "نوع", "وجود", "بين", "ايضا", "أيضا", "اريد", "أريد", "ابحث", "أبحث", "اعطني", "أعطني",
+    "توضيح", "بيان", "رأي", "راي", "موقف", "نظرة", "بخصوص", "بشأن", "تعمق", "استخدام", "الثانية",
+    "عمود", "الدين", "عمود الدين", "الذهبي", "اللاهوتي", "الكبير", "المتوشح بالله"
 }
 
 
@@ -111,51 +152,110 @@ def extract_search_keywords(raw_query: str) -> List[str]:
     """Cleans query, strips punctuation and removes conversational stopwords and query directives."""
     clean = re.sub(r'[^\w\s]', ' ', raw_query).strip()
     tokens = [w.strip() for w in clean.split() if len(w.strip()) > 1]
-    keywords = [w for w in tokens if w not in ARABIC_STOPWORDS and w not in CONVERSATIONAL_BOILERPLATE]
-    return keywords if keywords else [w for w in tokens if w not in ARABIC_STOPWORDS]
+    
+    # Strip coordinating conjunction 'و' from names and topics (e.g. وكيرلس -> كيرلس, واثناسيوس -> اثناسيوس)
+    normalized_tokens = []
+    for w in tokens:
+        if w.startswith("و") and len(w) >= 4:
+            stem = w[1:]
+            # If stem is a known Church Father or thesaurus entry or common theological word
+            if any(stem in father_kws for father_kws in ChurchSourceClassifier.PATRISTIC_FATHERS.values()) or stem in THEOLOGICAL_THESAURUS or stem.startswith("ال"):
+                normalized_tokens.append(stem)
+                continue
+        normalized_tokens.append(w)
+
+    keywords = [w for w in normalized_tokens if w not in ARABIC_STOPWORDS and w not in CONVERSATIONAL_BOILERPLATE]
+    return keywords if keywords else [w for w in normalized_tokens if w not in ARABIC_STOPWORDS]
 
 
 def expand_theological_synonyms(keywords: List[str]) -> Tuple[List[str], List[str]]:
     """
     Expands query keywords into:
-    - Primary Topic Anchors (must match at least one in every chunk).
-    - Secondary Qualifiers (refines scope/aspect).
+    - Primary Topic Anchors: Deterministic, ordered core subject matter (must match at least one in every chunk).
+    - Secondary Qualifiers: Refines specific aspect (e.g. cosmic signs, history, arguments).
     """
-    anchors: Set[str] = set()
-    qualifiers: Set[str] = set()
-
-    anchor_keys = [
-        "طوفان", "نوح", "تجسد", "فداء", "صليب", "معمودية", "افخارستيا",
-        "ثالوث", "قيامة", "إقامة", "اقامة", "أموات", "اموات", "موتى", "موتي",
-        "إيليا", "ايليا", "لعازر", "صلاة", "صوم", "توبة"
+    PRIMARY_ANCHOR_ROOTS = [
+        "قانونية", "الاسفار", "اسفار", "طوبيا", "يهوديت", "سيراخ", "المكابيين", "حكمة", "باروخ",
+        "صلب", "الصلب", "صليب", "الصليب", "قيامة", "القيامة", "تجسد", "التجسد",
+        "تأله", "التأله", "فداء", "الفداء", "ثالوث", "الثالوث", "طوفان", "الطوفان",
+        "معمودية", "المعمودية", "افخارستيا", "الإفخارستيا", "تناول", "إقامة", "اقامة",
+        "أموات", "موتى", "لعازر", "يايرس", "نايين", "نوح", "إيليا"
     ]
+
+    anchors_ordered: List[str] = []
+    qualifiers_ordered: List[str] = []
+    seen_anchors: Set[str] = set()
+    seen_quals: Set[str] = set()
 
     for kw in keywords:
         clean_stem = kw.replace("ال", "", 1) if kw.startswith("ال") and len(kw) > 3 else kw
         matched = False
         for key, syns in THEOLOGICAL_THESAURUS.items():
-            if key in kw or key in clean_stem:
+            if key == kw or key == clean_stem or (len(key) >= 4 and key in kw):
                 matched = True
-                if key in anchor_keys:
-                    anchors.update(syns)
-                    anchors.add(kw)
+                if key in PRIMARY_ANCHOR_ROOTS:
+                    for s in syns:
+                        if s not in seen_anchors:
+                            seen_anchors.add(s)
+                            anchors_ordered.append(s)
+                    if kw not in seen_anchors:
+                        seen_anchors.add(kw)
+                        anchors_ordered.append(kw)
                 else:
-                    qualifiers.update(syns)
-                    qualifiers.add(kw)
+                    for s in syns:
+                        if s not in seen_quals:
+                            seen_quals.add(s)
+                            qualifiers_ordered.append(s)
+                    if kw not in seen_quals:
+                        seen_quals.add(kw)
+                        qualifiers_ordered.append(kw)
         if not matched:
-            if len(kw) >= 3:
-                qualifiers.add(kw)
+            if len(kw) >= 3 and kw not in CONVERSATIONAL_BOILERPLATE:
+                if any(root in kw for root in PRIMARY_ANCHOR_ROOTS):
+                    if kw not in seen_anchors:
+                        seen_anchors.add(kw)
+                        anchors_ordered.append(kw)
+                else:
+                    if kw not in seen_quals:
+                        seen_quals.add(kw)
+                        qualifiers_ordered.append(kw)
 
-    # If no recognized theological anchor, make all non-stopwords potential anchors
-    if not anchors:
-        anchors = set(keywords)
+    # If canonical topic is requested, ensure anchor is specific to the Deuterocanonical canon
+    if any(k in ["قانونية", "القانونية", "قانونيه", "القانونيه"] for k in keywords):
+        anchors_ordered = [a for a in anchors_ordered if a not in ["الأسفار", "الاسفار", "الأسفار الإلهية"]]
+        if not anchors_ordered or not any("قانون" in a for a in anchors_ordered):
+            anchors_ordered = ["قانونية", "الأسفار القانونية", "القانونية الثانية", "طوبيا", "يهوديت", "سيراخ", "المكابيين", "حكمة سليمان", "باروخ"] + anchors_ordered
 
-    return list(anchors), list(qualifiers)
+    # If no primary anchors found, promote qualifiers or keywords
+    if not anchors_ordered:
+        anchors_ordered = qualifiers_ordered[:6] if qualifiers_ordered else [k for k in keywords if len(k) >= 3][:6]
+
+    return anchors_ordered, qualifiers_ordered
 
 
 def is_chunk_high_quality(text: str) -> bool:
     """Verifies that a chunk contains meaningful Arabic theological text rather than OCR noise or URLs."""
     if not text or len(text.strip()) < 75:
+        return False
+
+    # Kashida / Tatweel spam (corrupted scanned decorative banners)
+    if text.count("ـ") > 5 or "ــــ" in text:
+        return False
+
+    # Plus sign corruption in text
+    if text.count("+") > 2:
+        return False
+
+    # Stretched harakat or tashkeel salad
+    if re.search(r'[ً-ٰٟـ]{4,}', text):
+        return False
+
+    # Normal Arabic words check
+    words = text.split()
+    if not words:
+        return False
+    clean_words = [w for w in words if re.fullmatch(r'[ء-ي]{3,}', w)]
+    if len(clean_words) / len(words) < 0.40:
         return False
 
     # Filter out Table of Contents / Index / Bibliography pages
@@ -330,8 +430,9 @@ class ChurchSearchEngine:
         anchor_clause = " OR ".join([f'"{t}"' for t in list(all_anchor_terms)[:10]])
 
         # Step 1: If dedicated books exist, search chunks from them WITH KEYWORD MATCH
-        dedicated_books = self.find_dedicated_books(query, limit=3)
+        dedicated_books = self.find_dedicated_books(query, limit=2)
         if dedicated_books and anchor_clause:
+            scoped_anchor = f"chunk_text: ({anchor_clause})"
             for book in dedicated_books:
                 b_sha = book["sha256"]
                 try:
@@ -340,8 +441,8 @@ class ChurchSearchEngine:
                         FROM church_chunks_fts
                         WHERE sha256 = ? AND church_chunks_fts MATCH ? AND page_number > 1
                         ORDER BY rank
-                        LIMIT 4
-                    """, (b_sha, anchor_clause))
+                        LIMIT 2
+                    """, (b_sha, scoped_anchor))
                     for r in cur.fetchall():
                         ref = r["source_reference"]
                         if ref not in seen_refs and is_chunk_high_quality(r["chunk_text"]):
@@ -352,13 +453,13 @@ class ChurchSearchEngine:
                 except Exception as e:
                     logger.debug(f"Scoped dedicated book chunk query error: {e}")
 
-        # Step 2: Boolean Anchor Intersection Across Entire Library
+                # Step 2: Boolean Anchor Intersection Across Entire Library
         if len(rows) < limit and anchor_clause:
             if all_qual_terms:
-                qual_clause = " OR ".join([f'"{q}"' for q in list(all_qual_terms)[:10]])
-                fts_expr = f"({anchor_clause}) AND ({qual_clause})"
+                qual_clause = " OR ".join([f'"{q}"' for q in list(all_qual_terms)[:8]])
+                fts_expr = f"chunk_text: (({anchor_clause}) AND ({qual_clause}))"
             else:
-                fts_expr = f"({anchor_clause})"
+                fts_expr = f"chunk_text: ({anchor_clause})" 
 
             try:
                 cur.execute("""
@@ -367,11 +468,20 @@ class ChurchSearchEngine:
                     WHERE church_chunks_fts MATCH ? AND page_number > 1
                     ORDER BY rank
                     LIMIT ?
-                """, (fts_expr, limit * 3))
+                """, (fts_expr, limit * 4))
                 candidate_rows = cur.fetchall()
                 for cr in candidate_rows:
                     ref = cr["source_reference"]
-                    if ref not in seen_refs and is_chunk_high_quality(cr["chunk_text"]):
+                    b_title = cr["book_title"].lower()
+                    c_text = cr["chunk_text"]
+                    
+                    # Anti-Orthogonal Topic Filter:
+                    # If query is about Crucifixion/Passion, do NOT accept pure Trinitarian treatises unless they discuss the Cross
+                    if any(t in query.lower() for t in ["صلب", "صليب", "الجمعة العظيمة", "الجلجثة"]):
+                        if ("الكنوز فى الثالوث" in b_title or "تثليث وتوحيد" in b_title or "الثالوث القدوس" in b_title) and not any(k in c_text for k in ["صلب", "الصليب", "صلبوا", "المصلوب", "الجلجثة", "الآلام"]):
+                            continue
+
+                    if ref not in seen_refs and is_chunk_high_quality(c_text):
                         seen_refs.add(ref)
                         rows.append(cr)
                         if len(rows) >= limit:
@@ -381,6 +491,7 @@ class ChurchSearchEngine:
 
         # Step 3: High-Relevance Fallback (Anchor only - Never naked generic words)
         if len(rows) < limit and anchor_clause:
+            scoped_fallback = f"chunk_text: ({anchor_clause})"
             try:
                 cur.execute("""
                     SELECT sha256, book_title, page_number, chunk_index, source_reference, chunk_text, rank
@@ -388,7 +499,7 @@ class ChurchSearchEngine:
                     WHERE church_chunks_fts MATCH ? AND page_number > 1
                     ORDER BY rank
                     LIMIT ?
-                """, (anchor_clause, limit * 2))
+                """, (scoped_fallback, limit * 2))
                 candidate_rows = cur.fetchall()
                 for cr in candidate_rows:
                     ref = cr["source_reference"]
@@ -455,8 +566,36 @@ class ChurchSearchEngine:
             if len(cleaned_text) < 40:
                 continue
 
+            # Strict Content Validation: Chunk must contain at least one anchor term in its text
+            if all_anchor_terms:
+                if not any(t in cleaned_text for t in all_anchor_terms):
+                    continue
+
             clean_title = r["book_title"].replace(".pdf", "")
             phys_page = int(r["page_number"])
+
+            # Author resolution fallback: Parse from title if DB says 'غير محدد'
+            resolved_author = b_meta["author"]
+            IGNORE_AUTHOR_TOKENS = {"تحميل", "للتحميل", "قراءة", "طبعة", "طبعة ثانية", "pdf", "نسخة", "مجانا", "جديد", "أونلاين"}
+            if not resolved_author or resolved_author in ["غير محدد", "غير معروف", "مجهول", "آباء ومعلمو الكنيسة"]:
+                for sep in [" - ", " – ", " — "]:
+                    if sep in clean_title:
+                        parts = [p.strip() for p in clean_title.split(sep)]
+                        # Find the first valid part from the end that is not a web download token
+                        for p in reversed(parts[1:]):
+                            if p.lower() not in IGNORE_AUTHOR_TOKENS and len(p) >= 3:
+                                resolved_author = p
+                                break
+                        if resolved_author and resolved_author not in IGNORE_AUTHOR_TOKENS:
+                            break
+            # If still invalid or in ignore tokens, check well-known church fathers in title
+            if not resolved_author or resolved_author in ["غير محدد", "غير معروف", "مجهول"] or resolved_author in IGNORE_AUTHOR_TOKENS:
+                for f_name, f_kws in ChurchSourceClassifier.PATRISTIC_FATHERS.items():
+                    if any(k in clean_title for k in f_kws):
+                        resolved_author = f_name
+                        break
+            if not resolved_author or resolved_author in ["غير محدد", "غير معروف", "مجهول"] or resolved_author in IGNORE_AUTHOR_TOKENS:
+                resolved_author = "آباء ومعلمو الكنيسة" 
             printed_page = ArabicOcrPostProcessor.extract_printed_page_number(r["chunk_text"], phys_page)
 
             # Authenticity Multiplier based on source hierarchy & patristic query awareness
@@ -496,7 +635,7 @@ class ChurchSearchEngine:
                 source_reference=ref_str,
                 chunk_text=cleaned_text,
                 rank=round(float(r["rank"]), 3) if r["rank"] is not None else 0.0,
-                author=b_meta["author"],
+                author=resolved_author,
                 source_types=b_meta["source_types"],
                 authenticity_tier=tier,
                 printed_page=printed_page,

@@ -6,12 +6,14 @@ Word (.docx) Export, Book Viewing, and Admin Management Endpoints.
 """
 
 import os
+import re
+import json
 import urllib.parse
 import asyncio
 from pathlib import Path
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Tuple, Set
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Query, HTTPException
+from fastapi import FastAPI, Query, HTTPException, Header
 from fastapi.responses import HTMLResponse, JSONResponse, Response, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -22,6 +24,7 @@ from elantony.database.repository import repo
 from elantony.search.search_engine import search_engine
 from elantony.ai.factory import get_ai_provider
 from elantony.telegram.bot_service import TelegramBotEngine
+from elantony.core.text_cleaner import clean_citation_excerpt
 
 # Global bot task reference
 bot_task: Optional[asyncio.Task] = None
@@ -138,8 +141,9 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
     <!-- Google Fonts: Amiri (نسخ آبائي مريح للقراءة المطولة) + Cairo (واجهات) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400;1,700&family=Cairo:wght@400;600;700;800;900&family=Noto+Sans+Coptic&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js">
+    <link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400;1,700&family=Cairo:wght@400;600;700;800;900&family=Noto+Sans+Coptic:wght@400;700&family=Noto+Serif:ital,wght@0,400;0,700;1,400&family=Gentium+Plus:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script>
         // Mouse Drag to Pan Zoomed Image
         window.addEventListener('DOMContentLoaded', () => {
             const container = document.getElementById('refImgScrollWrap');
@@ -148,7 +152,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             let startX, startY, scrollLeft, scrollTop;
 
             container.addEventListener('mousedown', (e) => {
-                if (ZOOM_LEVELS[currentZoomIndex] <= 100) return;
+                if (typeof currentZoomIndex !== 'undefined' && ZOOM_LEVELS[currentZoomIndex] <= 100) return;
                 isDown = true;
                 container.classList.add('grabbing');
                 startX = e.pageX - container.offsetLeft;
@@ -175,7 +179,6 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                 container.scrollTop = scrollTop - walkY;
             });
         });
-
     </script>
     <style>
         /* ========================================================
@@ -273,7 +276,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
         body {
             background: var(--bg-darker);
             color: var(--text-main);
-            font-family: 'Cairo', sans-serif;
+            font-family: 'Cairo', 'Noto Sans Coptic', 'Gentium Plus', 'Noto Serif', 'Segoe UI Historic', Arial, sans-serif;
             height: 100vh;
             display: flex;
             overflow: hidden;
@@ -367,6 +370,13 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             overflow: hidden;
             text-overflow: ellipsis;
             padding-left: 6px;
+            direction: rtl;
+            text-align: right;
+            unicode-bidi: isolate;
+        }
+        .chat-item-text bdi, .tab-text bdi {
+            unicode-bidi: isolate;
+            direction: rtl;
         }
         .chat-item-actions {
             display: flex;
@@ -457,7 +467,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             font-weight: 700;
             cursor: pointer;
             transition: 0.18s;
-            font-family: 'Cairo', sans-serif;
+            font-family: 'Cairo', 'Noto Sans Coptic', 'Gentium Plus', 'Noto Serif', 'Segoe UI Historic', Arial, sans-serif;
             display: inline-flex;
             align-items: center;
             gap: 4px;
@@ -490,7 +500,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             transition: 0.2s;
             border: 1px solid transparent;
             text-decoration: none;
-            font-family: 'Cairo', sans-serif;
+            font-family: 'Cairo', 'Noto Sans Coptic', 'Gentium Plus', 'Noto Serif', 'Segoe UI Historic', Arial, sans-serif;
         }
         .btn-compile { background: rgba(161, 98, 7, 0.14); border-color: var(--gold); color: var(--gold); }
         .btn-compile:hover { background: var(--gold); color: #FFF; }
@@ -572,7 +582,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             color: var(--text-user);
             border-top-left-radius: 4px;
             border: 1px solid var(--card-border);
-            font-family: 'Cairo', sans-serif;
+            font-family: 'Cairo', 'Noto Sans Coptic', 'Gentium Plus', 'Noto Serif', 'Segoe UI Historic', Arial, sans-serif;
             font-weight: 600;
         }
         .msg-row.ai .bubble {
@@ -587,7 +597,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
         .bubble h1, .bubble h2, .bubble h3, .bubble h4 {
             color: var(--accent);
             margin: 16px 0 8px 0;
-            font-family: 'Cairo', sans-serif;
+            font-family: 'Cairo', 'Noto Sans Coptic', 'Gentium Plus', 'Noto Serif', 'Segoe UI Historic', Arial, sans-serif;
             font-weight: 800;
         }
         .bubble h2 { font-size: 1.25em; border-bottom: 1px dashed var(--card-border); padding-bottom: 6px; }
@@ -642,7 +652,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             box-shadow: var(--shadow-sm);
         }
         .citation-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-        .citation-title { font-weight: 800; color: var(--accent); font-size: 14px; font-family: 'Cairo', sans-serif; }
+        .citation-title { font-weight: 800; color: var(--accent); font-size: 14px; font-family: 'Cairo', 'Noto Sans Coptic', 'Gentium Plus', 'Noto Serif', 'Segoe UI Historic', Arial, sans-serif; }
         .citation-badge { background: var(--accent-light); color: var(--accent); padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; white-space: nowrap; }
         .citation-meta { font-size: 12px; color: var(--text-sub); margin-top: 4px; }
         .citation-excerpt { color: var(--text-main); font-size: 13px; margin-top: 8px; border-right: 3px solid var(--gold); padding: 8px 12px; border-radius: 6px; background: var(--card-hover); line-height: 1.75; font-family: var(--font-reader); }
@@ -657,7 +667,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             align-items: center;
             gap: 4px;
             transition: 0.2s;
-            font-family: 'Cairo', sans-serif;
+            font-family: 'Cairo', 'Noto Sans Coptic', 'Gentium Plus', 'Noto Serif', 'Segoe UI Historic', Arial, sans-serif;
         }
         .btn-cite-fast { background: rgba(16, 185, 129, 0.16); border: 1px solid #10B981; color: #059669; font-weight: 800; cursor: pointer; }
         .btn-cite-fast:hover { background: #10B981; color: #FFF; transform: translateY(-1px); }
@@ -743,7 +753,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             border: none;
             color: var(--text-main);
             font-size: 15px;
-            font-family: 'Cairo', sans-serif;
+            font-family: 'Cairo', 'Noto Sans Coptic', 'Gentium Plus', 'Noto Serif', 'Segoe UI Historic', Arial, sans-serif;
             resize: none;
             outline: none;
             max-height: 180px;
@@ -837,7 +847,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             font-weight: 700;
             cursor: pointer;
             transition: 0.2s;
-            font-family: 'Cairo', sans-serif;
+            font-family: 'Cairo', 'Noto Sans Coptic', 'Gentium Plus', 'Noto Serif', 'Segoe UI Historic', Arial, sans-serif;
         }
         .btn-modal-act:hover { background: var(--accent); color: #FFF; }
         .btn-modal-docx {
@@ -864,9 +874,205 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             line-height: var(--line-height);
             font-family: var(--font-reader);
         }
-        .modal-body h1, .modal-body h2, .modal-body h3 { color: var(--accent); margin: 16px 0 8px 0; font-family: 'Cairo', sans-serif; }
+        .modal-body h1, .modal-body h2, .modal-body h3 { color: var(--accent); margin: 16px 0 8px 0; font-family: 'Cairo', 'Noto Sans Coptic', 'Gentium Plus', 'Noto Serif', 'Segoe UI Historic', Arial, sans-serif; }
         .modal-body strong { color: var(--gold); }
         .modal-body blockquote { border-right: 4px solid var(--quote-border); padding: 8px 14px; margin: 12px 0; background: var(--quote-bg); border-radius: 6px; }
+
+        /* Nested Sub-questions Tree & Badges */
+        .sess-count-badge {
+            font-size: 10px;
+            background: var(--accent-light);
+            color: var(--accent);
+            padding: 1px 7px;
+            border-radius: 10px;
+            font-weight: 700;
+            white-space: nowrap;
+            margin-right: 4px;
+            flex-shrink: 0;
+        }
+        .sess-subq-tree {
+            margin: 4px 6px 6px 14px;
+            padding-right: 10px;
+            border-right: 2px solid rgba(217, 119, 6, 0.3);
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .subq-tree-item {
+            font-size: 11px;
+            color: var(--text-sub);
+            padding: 3px 6px;
+            border-radius: 5px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            transition: 0.15s ease;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .subq-tree-item:hover {
+            background: var(--card-hover);
+            color: var(--accent);
+        }
+        .subq-num {
+            font-weight: 800;
+            color: var(--accent);
+            flex-shrink: 0;
+        }
+        .subq-text {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        /* Topic Sub-questions Pills Bar (Top of Chat) */
+        .topic-subq-bar {
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--card-border);
+            padding: 6px 18px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            overflow-x: auto;
+            font-size: 11.5px;
+            scrollbar-width: none;
+            z-index: 4;
+        }
+        .topic-subq-bar::-webkit-scrollbar { display: none; }
+        .subq-pill {
+            background: var(--bg-darker);
+            border: 1px solid var(--card-border);
+            color: var(--text-main);
+            padding: 3px 10px;
+            border-radius: 12px;
+            cursor: pointer;
+            white-space: nowrap;
+            font-weight: 600;
+            transition: 0.15s;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .subq-pill:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        /* Dynamic Topic Tabs Bar */
+        .chat-tabs-bar {
+            background: var(--bg-sidebar);
+            border-bottom: 1px solid var(--card-border);
+            padding: 6px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            overflow-x: auto;
+            z-index: 5;
+            transition: background 0.25s ease;
+        }
+        .chat-tabs-scroll {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            overflow-x: auto;
+            flex: 1;
+            scrollbar-width: none;
+        }
+        .chat-tabs-scroll::-webkit-scrollbar { display: none; }
+        .chat-tab-chip {
+            background: var(--bg-darker);
+            border: 1px solid var(--card-border);
+            color: var(--text-sub);
+            padding: 5px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            white-space: nowrap;
+            max-width: 240px;
+            transition: 0.18s ease;
+            font-family: 'Cairo', 'Noto Sans Coptic', 'Gentium Plus', 'Noto Serif', 'Segoe UI Historic', Arial, sans-serif;
+        }
+        .chat-tab-chip:hover {
+            background: var(--card-hover);
+            color: var(--text-main);
+        }
+        .chat-tab-chip.active {
+            background: var(--accent);
+            color: #FFF;
+            border-color: var(--accent);
+            box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+        }
+        .chat-tab-chip .tab-text {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .chat-tab-chip .tab-close-btn {
+            background: none;
+            border: none;
+            color: inherit;
+            opacity: 0.6;
+            font-size: 13px;
+            padding: 0 2px;
+            cursor: pointer;
+            line-height: 1;
+            border-radius: 3px;
+        }
+        .chat-tab-chip .tab-close-btn:hover {
+            opacity: 1;
+            background: rgba(0,0,0,0.15);
+        }
+        .btn-new-tab {
+            background: var(--accent-light);
+            border: 1px dashed var(--accent);
+            color: var(--accent);
+            padding: 5px 11px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            white-space: nowrap;
+            transition: 0.18s;
+            font-family: 'Cairo', 'Noto Sans Coptic', 'Gentium Plus', 'Noto Serif', 'Segoe UI Historic', Arial, sans-serif;
+        }
+        .btn-new-tab:hover {
+            background: var(--accent);
+            color: #FFF;
+            border-style: solid;
+        }
+        .topic-toast {
+            position: fixed;
+            top: 64px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--accent);
+            color: #FFF;
+            padding: 8px 18px;
+            border-radius: 20px;
+            font-size: 12.5px;
+            font-weight: 800;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            animation: fadeInDown 0.3s ease;
+            font-family: 'Cairo', 'Noto Sans Coptic', 'Gentium Plus', 'Noto Serif', 'Segoe UI Historic', Arial, sans-serif;
+        }
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translate(-50%, -10px); }
+            to { opacity: 1; transform: translate(-50%, 0); }
+        }
 
         /* Loading Dots */
         .typing-dots { display: inline-flex; gap: 4px; padding: 6px 0; }
@@ -875,7 +1081,136 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
         .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
         @keyframes blink { 0%, 100% { opacity: 0.2; } 50% { opacity: 1; } }
 
-        /* Enhanced Reference Viewer Modal */
+        
+        /* Scholar Profile Pill */
+        .scholar-profile-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: var(--card-hover);
+            border: 1px solid var(--card-border);
+            padding: 4px 11px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.2s;
+            color: var(--accent);
+        }
+        .scholar-profile-pill:hover {
+            background: var(--accent-light);
+            border-color: var(--accent);
+        }
+        .scholar-edit-icon { font-size: 11px; opacity: 0.7; }
+
+        /* Admin Console Modal & Buttons */
+        .btn-sidebar-admin {
+            width: 100%;
+            background: rgba(161, 98, 7, 0.12);
+            border: 1px dashed var(--gold);
+            color: var(--accent);
+            padding: 7px 10px;
+            border-radius: 8px;
+            font-size: 11.5px;
+            font-weight: 800;
+            cursor: pointer;
+            margin-top: 6px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: 0.2s;
+            font-family: 'Cairo', sans-serif;
+        }
+        .btn-sidebar-admin:hover {
+            background: var(--gold);
+            color: #FFF;
+        }
+        .admin-modal-card {
+            max-width: 960px !important;
+            width: 92vw !important;
+            max-height: 92vh !important;
+            border-radius: 16px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            background: var(--modal-bg);
+            border: 1px solid var(--card-border);
+            box-shadow: 0 25px 60px rgba(0,0,0,0.4);
+        }
+        .admin-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .admin-stat-card {
+            background: var(--bg-sidebar);
+            border: 1px solid var(--card-border);
+            border-radius: 10px;
+            padding: 14px 18px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .admin-stat-icon { font-size: 26px; }
+        .admin-stat-val { font-size: 22px; font-weight: 900; color: var(--accent); }
+        .admin-stat-lbl { font-size: 12px; color: var(--text-sub); }
+        
+        .admin-section-title {
+            font-size: 15px;
+            font-weight: 800;
+            color: var(--accent);
+            margin: 16px 0 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .scholar-card-item {
+            background: var(--bg-chat);
+            border: 1px solid var(--card-border);
+            border-radius: 10px;
+            padding: 12px 16px;
+            margin-bottom: 10px;
+            transition: 0.2s;
+        }
+        .scholar-card-item:hover { border-color: var(--gold); }
+        .scholar-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+        .scholar-card-name { font-weight: 800; font-size: 14px; color: var(--accent); }
+        .scholar-card-badge {
+            background: var(--accent-light);
+            color: var(--accent);
+            border: 1px solid var(--card-border);
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+        .scholar-queries-list {
+            margin-top: 8px;
+            padding-right: 14px;
+            border-right: 2px solid var(--card-border);
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .scholar-query-row {
+            font-size: 12.5px;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+        .scholar-query-time { font-size: 11px; color: var(--text-sub); flex-shrink: 0; }
+
+/* Enhanced Reference Viewer Modal */
         .ref-modal-card {
             max-width: 980px !important;
             width: 95vw !important;
@@ -896,7 +1231,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             align-items: center;
             justify-content: space-between;
             gap: 12px;
-            flex-wrap: wrap;
+            flex-wrap: nowrap;
         }
         .ref-modal-title-wrap {
             display: flex;
@@ -925,6 +1260,10 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             font-weight: 800;
             white-space: nowrap;
             flex-shrink: 0;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            direction: ltr;
         }
         .ref-badge-size {
             background: rgba(161, 98, 7, 0.12);
@@ -951,7 +1290,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             gap: 5px;
             transition: 0.2s;
             flex-shrink: 0;
-            font-family: 'Cairo', sans-serif;
+            font-family: 'Cairo', 'Noto Sans Coptic', 'Gentium Plus', 'Noto Serif', 'Segoe UI Historic', Arial, sans-serif;
         }
         .btn-modal-close-ref:hover {
             background: #EF4444;
@@ -959,14 +1298,23 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             border-color: #EF4444;
         }
         .ref-modal-toolbar {
-            padding: 8px 16px;
+            padding: 8px 14px;
             border-bottom: 1px solid var(--card-border);
             background: var(--bg-darker);
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 10px;
-            flex-wrap: wrap;
+            gap: 8px;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            scrollbar-width: thin;
+        }
+        .ref-modal-toolbar::-webkit-scrollbar {
+            height: 4px;
+        }
+        .ref-modal-toolbar::-webkit-scrollbar-thumb {
+            background: var(--card-border);
+            border-radius: 4px;
         }
         .ref-nav-group, .ref-mode-group, .ref-actions-group {
             display: inline-flex;
@@ -983,7 +1331,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             font-size: 12px;
             font-weight: 700;
             cursor: pointer;
-            font-family: 'Cairo', sans-serif;
+            font-family: 'Cairo', 'Noto Sans Coptic', 'Gentium Plus', 'Noto Serif', 'Segoe UI Historic', Arial, sans-serif;
             transition: 0.18s;
         }
         .btn-ref-nav:hover { background: var(--card-hover); border-color: var(--accent); }
@@ -1007,7 +1355,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             font-weight: 800;
             text-align: center;
             outline: none;
-            font-family: 'Cairo', sans-serif;
+            font-family: 'Cairo', 'Noto Sans Coptic', 'Gentium Plus', 'Noto Serif', 'Segoe UI Historic', Arial, sans-serif;
         }
         .btn-ref-go {
             background: var(--accent);
@@ -1018,7 +1366,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             font-size: 11px;
             font-weight: 700;
             cursor: pointer;
-            font-family: 'Cairo', sans-serif;
+            font-family: 'Cairo', 'Noto Sans Coptic', 'Gentium Plus', 'Noto Serif', 'Segoe UI Historic', Arial, sans-serif;
         }
         .btn-ref-go:hover { background: var(--accent-hover); }
         .ref-mode-wrap {
@@ -1039,7 +1387,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             font-size: 11.5px;
             font-weight: 700;
             cursor: pointer;
-            font-family: 'Cairo', sans-serif;
+            font-family: 'Cairo', 'Noto Sans Coptic', 'Gentium Plus', 'Noto Serif', 'Segoe UI Historic', Arial, sans-serif;
             transition: 0.18s;
         }
         .btn-ref-mode.active {
@@ -1058,7 +1406,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             display: inline-flex;
             align-items: center;
             gap: 4px;
-            font-family: 'Cairo', sans-serif;
+            font-family: 'Cairo', 'Noto Sans Coptic', 'Gentium Plus', 'Noto Serif', 'Segoe UI Historic', Arial, sans-serif;
             transition: 0.18s;
             cursor: pointer;
         }
@@ -1136,7 +1484,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             font-size: 11.5px;
             font-weight: 700;
             cursor: pointer;
-            font-family: 'Cairo', sans-serif;
+            font-family: 'Cairo', 'Noto Sans Coptic', 'Gentium Plus', 'Noto Serif', 'Segoe UI Historic', Arial, sans-serif;
             display: inline-flex;
             align-items: center;
             gap: 4px;
@@ -1231,7 +1579,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             align-items: center;
             gap: 4px;
             transition: 0.18s;
-            font-family: 'Cairo', sans-serif;
+            font-family: 'Cairo', 'Noto Sans Coptic', 'Gentium Plus', 'Noto Serif', 'Segoe UI Historic', Arial, sans-serif;
         }
         .ext-source-chip:hover {
             background: var(--card-hover);
@@ -1259,6 +1607,20 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                 ✈️
             </a>
         </div>
+        <!-- Scholar Profile / Isolation Space -->
+        <div class="scholar-profile-card" style="margin: 0 16px 10px; padding: 8px 12px; background: var(--bg-darker); border: 1px solid var(--card-border); border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; align-items: center; gap: 8px; overflow: hidden; cursor: pointer;" onclick="editScholarProfile()" title="انقر لتعديل اسمك أو صفتك البحثية">
+                <span style="font-size: 16px;">👤</span>
+                <div style="overflow: hidden;">
+                    <div id="scholarNameDisplay" style="font-size: 12px; font-weight: 700; color: var(--text-main); white-space: nowrap; text-overflow: ellipsis;">باحث لاهوتي</div>
+                    <div style="font-size: 10px; color: var(--text-sub);">ملف بحثي مستقل 🔒</div>
+                </div>
+            </div>
+            <button class="btn-admin-icon" onclick="openAdminConsole()" title="لوحة إشراف المدير العام (Admin PIN: 2026)" style="background: none; border: none; font-size: 16px; cursor: pointer; opacity: 0.7; padding: 2px;">
+                🛡️
+            </button>
+        </div>
+
         <button class="btn-new-chat" onclick="startNewChat()">
             <span>➕</span> بحث لاهوتي جديد
         </button>
@@ -1317,7 +1679,25 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                 <button class="btn-nav btn-docx-nav" onclick="downloadCurrentExport('docx')" title="تنزيل أطروحة البحث كاملة كملف Microsoft Word منسق">
                     <span>📄</span> Word
                 </button>
+                <button class="btn-nav btn-admin-nav" onclick="openAdminConsole()" title="لوحة إشراف المدير العام ومتابعة أبحاث كل المستخدمين (PIN: 2026)" style="background: rgba(217, 119, 6, 0.12); border-color: #d97706; color: #d97706; font-weight: 800;">
+                    <span>🛡️</span> الإشراف
+                </button>
             </div>
+        </div>
+
+        <!-- Dynamic Topic Tabs Bar (تبويبات الموضوعات الذكية التلقائية) -->
+        <div class="chat-tabs-bar" id="chatTabsBar">
+            <div class="chat-tabs-scroll" id="chatTabsList">
+                <!-- Dynamically populated from active sessions -->
+            </div>
+            <button class="btn-new-tab" onclick="startNewChat()" title="فتح موضوع لاهوتي جديد مستقل في تبويب جديد">
+                <span>➕</span> موضوع جديد
+            </button>
+        </div>
+
+        <!-- Topic Sub-questions Breadcrumb Navigator (فهرس الأسئلة المتسلسلة داخل نفس الموضوع) -->
+        <div class="topic-subq-bar" id="topicSubqBar" style="display: none;">
+            <!-- Dynamically populated from active discussion questions -->
         </div>
 
         <!-- Messages Area -->
@@ -1392,18 +1772,78 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
         </div>
     </div>
 
+    
+    <!-- Admin Scholar Telemetry & Activity Console Modal -->
+    <div class="modal-overlay" id="adminConsoleModal">
+        <div class="modal-card admin-modal-card">
+            <div class="ref-modal-header">
+                <div class="ref-modal-title-wrap">
+                    <span class="ref-icon">🔐</span>
+                    <span class="ref-book-name" style="color:var(--accent);">لوحة الإشراف المركزي ومتابعة الباحثين (Admin Console)</span>
+                    <span class="ref-badge-page">مشرف النظام</span>
+                </div>
+                <button class="btn-modal-close-ref" onclick="closeAdminConsole()">✕ إغلاق</button>
+            </div>
+            <div class="modal-body" style="padding: 20px; overflow-y: auto; background: var(--bg-chat);">
+                <!-- Metrics Summary Cards -->
+                <div class="admin-stats-grid">
+                    <div class="admin-stat-card">
+                        <span class="admin-stat-icon">👥</span>
+                        <div>
+                            <div class="admin-stat-val" id="adminTotalScholars">--</div>
+                            <div class="admin-stat-lbl">إجمالي الباحثين النشطين</div>
+                        </div>
+                    </div>
+                    <div class="admin-stat-card">
+                        <span class="admin-stat-icon">💬</span>
+                        <div>
+                            <div class="admin-stat-val" id="adminTotalQueries">--</div>
+                            <div class="admin-stat-lbl">إجمالي الأسئلة اللاهوتية</div>
+                        </div>
+                    </div>
+                    <div class="admin-stat-card">
+                        <span class="admin-stat-icon">📚</span>
+                        <div>
+                            <div class="admin-stat-val">7,200+</div>
+                            <div class="admin-stat-lbl">الكتب والآبائيات المفهرسة</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tabs: Per Scholar vs Live Stream -->
+                <div style="display:flex; gap:8px; margin-bottom:15px; border-bottom:1px solid var(--card-border); padding-bottom:8px;">
+                    <button id="btnAdminTabScholars" class="btn-ref-tool active" onclick="switchAdminSubTab('scholars')">👥 ملفات الباحثين وما بحثوا عنه</button>
+                    <button id="btnAdminTabStream" class="btn-ref-tool" onclick="switchAdminSubTab('stream')">⚡ البث الحي لجميع الأسئلة</button>
+                    <button class="btn-ref-tool" onclick="refreshAdminData()" style="margin-right:auto;">🔄 تحديث فوري</button>
+                </div>
+
+                <!-- Scholars List Container -->
+                <div id="adminScholarsContainer">
+                    <div style="text-align:center; padding:30px; color:var(--text-sub);">جاري استدعاء سجل نشاط الباحثين...</div>
+                </div>
+
+                <!-- Live Stream Container -->
+                <div id="adminStreamContainer" style="display:none;"></div>
+            </div>
+        </div>
+    </div>
+
+
     <!-- Instant Reference Viewer Modal (فتح واستعراض المراجع في أجزاء من الثانية) -->
     <div class="modal-overlay" id="refModal">
         <div class="modal-card ref-modal-card">
-            <!-- Modal Header Row 1: Title and Close -->
+            <!-- Modal Header Row 1: Title, Page Badge and Window Controls -->
             <div class="ref-modal-header">
                 <div class="ref-modal-title-wrap">
                     <span class="ref-icon">📖</span>
                     <span id="refBookName" class="ref-book-name" title="اسم المرجع">اسم المرجع</span>
-                    <span class="ref-badge-page">صـ <span id="refPageNum">1</span><span id="refPageTotalSpan" style="display: none;"> / <span id="refPageTotal">--</span></span></span>
+                    <span class="ref-badge-page"><span style="direction:rtl; font-weight:700;">صـ</span><span id="refPageNum" style="font-weight:800;">1</span><span id="refPageTotalSpan" style="display: none;"> / <span id="refPageTotal">--</span></span></span>
                     <span id="refSizeBadge" class="ref-badge-size"></span>
                 </div>
-                <button class="btn-modal-close-ref" onclick="closeRefModal()" title="إغلاق النافذة">✕ إغلاق</button>
+                <div style="display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0;">
+                    <button id="btnToggleFullscreen" class="btn-ref-tool" onclick="toggleFullscreen()" title="تكبير النافذة لملء الشاشة">⛶ ملء الشاشة</button>
+                    <button class="btn-modal-close-ref" onclick="closeRefModal()" title="إغلاق النافذة">✕ إغلاق</button>
+                </div>
             </div>
 
             <!-- Modal Header Row 2: Navigation & Action Toolbar -->
@@ -1434,17 +1874,18 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                     <button id="btnToggleFullscreen" class="btn-ref-tool" onclick="toggleFullscreen()" title="تكبير النافذة لملء الشاشة">⛶ ملء الشاشة</button>
                 </div>
 
-                <!-- View Mode Toggle (Image vs PDF) -->
+                <!-- View Mode Toggle (Image vs Single PDF vs Full Book) -->
                 <div class="ref-mode-wrap">
-                    <button class="btn-ref-mode active" id="btnModeImg" onclick="setRefViewMode('image')" title="عرض صورة الصفحة في أجزاء من الثانية">🖼️ صورة سريعة</button>
-                    <button class="btn-ref-mode" id="btnModePdf" onclick="setRefViewMode('pdf')" title="عرض صفحة الـ PDF المدمجة التفاعلية">📑 PDF تفاعلي</button>
+                    <button class="btn-ref-mode active" id="btnModeImg" onclick="setRefViewMode('image')" title="عرض صورة الصفحة الأصلية في أجزاء من الثانية مع التظليل والزوم">🖼️ صورة سريعة</button>
+                    <button class="btn-ref-mode" id="btnModePdf" onclick="setRefViewMode('pdf')" title="عرض صفحة الـ PDF المدمجة المستقلة والمظللة">📑 PDF الصفحة</button>
+                    <button class="btn-ref-mode" id="btnModeFull" onclick="setRefViewMode('full')" title="تصفح الكتاب كاملاً وقراءته تفاعلياً داخل هذه النافذة دون تنزيل">📖 تصفح الكتاب كاملاً</button>
                 </div>
 
                 <!-- Book Direct Actions -->
                 <div class="ref-actions-group">
                     <a id="refDirectPdfBtn" href="#" target="_blank" class="btn-ref-action" title="فتح صفحة المرجع كملف PDF مستقل (15-30 كيلوبايت)">📄 PDF الصفحة</a>
-                    <a id="refViewFullBtn" href="#" target="_blank" class="btn-ref-action" title="فتح الكتاب كاملاً في لسان جديد بالمتصفح">📖 فتح كامل بالمتصفح</a>
-                    <a id="refFullBookBtn" href="#" class="btn-ref-action btn-ref-download" title="تحميل ملف الكتاب كاملاً مباشرة على جهازك">💾 تحميل الكتاب</a>
+                    <a id="refViewFullBtn" href="#" target="_blank" class="btn-ref-action" title="فتح الكتاب كاملاً في لسان جديد مستقل بالمتصفح">↗ نافذة مستقلة</a>
+                    <a id="refFullBookBtn" href="#" class="btn-ref-action btn-ref-download" title="تحميل ملف الكتاب كاملاً مباشرة على جهازك">💾 تنزيل الكتاب</a>
                 </div>
             </div>
 
@@ -1474,6 +1915,17 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
     </div>
 
     <script>
+        // Scholar Identity & User Isolation
+        let currentUserId = localStorage.getItem('elantony_user_id');
+        let currentUserName = localStorage.getItem('elantony_user_name') || 'باحث لاهوتي';
+        if (!currentUserId) {
+            currentUserId = 'scholar_' + Math.random().toString(36).substring(2, 10);
+            localStorage.setItem('elantony_user_id', currentUserId);
+            localStorage.setItem('elantony_user_name', currentUserName);
+        }
+
+        let adminPinCache = sessionStorage.getItem('elantony_admin_pin') || '';
+
         let chatMessages = [];
         let currentSessionId = null;
         let currentDepthMode = "academic";
@@ -1537,9 +1989,15 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             }
         }
 
+                function escapeHtml(text) {
+            if (!text) return '';
+            const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+            return String(text).replace(/[&<>"']/g, function(m) { return map[m]; });
+        }
+
         async function loadSessions() {
             try {
-                const res = await fetch('/api/sessions?user_id=web');
+                const res = await fetch('/api/sessions?user_id=' + encodeURIComponent(currentUserId));
                 if (!res.ok) return;
                 const data = await res.json();
                 const list = document.getElementById('chatHistoryList');
@@ -1557,9 +2015,19 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                     item.className = 'chat-history-item' + (s.id === currentSessionId ? ' active' : '');
                     item.id = 'sess_' + s.id;
                     
+                    // Main Session Header Row
+                    const headerRow = document.createElement('div');
+                    headerRow.style.display = 'flex';
+                    headerRow.style.alignItems = 'center';
+                    headerRow.style.justifyContent = 'space-between';
+                    headerRow.style.width = '100%';
+
                     const textSpan = document.createElement('span');
                     textSpan.className = 'chat-item-text';
-                    textSpan.textContent = '💬 ' + (s.title || 'بحث لاهوتي');
+                    const safeSessTitle = escapeHtml(s.title || 'بحث لاهوتي');
+                    const qCount = s.questions_count || 1;
+                    const countBadge = `<span class="sess-count-badge">${qCount} ${qCount > 1 ? 'أسئلة' : 'سؤال'}</span>`;
+                    textSpan.innerHTML = `<span style="flex-shrink:0;">💬</span> <bdi dir="auto">${safeSessTitle}</bdi> ${countBadge}`;
                     textSpan.title = s.title || 'بحث لاهوتي';
                     textSpan.onclick = () => selectSession(s.id);
 
@@ -1581,10 +2049,62 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                     actionsDiv.appendChild(docxBtn);
                     actionsDiv.appendChild(delBtn);
 
-                    item.appendChild(textSpan);
-                    item.appendChild(actionsDiv);
+                    headerRow.appendChild(textSpan);
+                    headerRow.appendChild(actionsDiv);
+                    item.appendChild(headerRow);
+
+                    // Nested Sub-questions Tree (الأسئلة المتسلسلة جوة بعض في نفس الموضوع)
+                    if (s.user_queries && s.user_queries.length > 0) {
+                        const treeDiv = document.createElement('div');
+                        treeDiv.className = 'sess-subq-tree';
+                        s.user_queries.forEach((uq, uIdx) => {
+                            const qRow = document.createElement('div');
+                            qRow.className = 'subq-tree-item';
+                            qRow.title = uq.content;
+                            qRow.innerHTML = `<span class="subq-num">س${uIdx+1}:</span> <span class="subq-text">${escapeHtml(uq.content)}</span>`;
+                            qRow.onclick = (e) => {
+                                e.stopPropagation();
+                                selectSessionAndJump(s.id, uIdx + 1);
+                            };
+                            treeDiv.appendChild(qRow);
+                        });
+                        item.appendChild(treeDiv);
+                    }
+
                     list.appendChild(item);
                 });
+
+                // Populate Dynamic Tabs Bar
+                const tabsList = document.getElementById('chatTabsList');
+                if (tabsList) {
+                    tabsList.innerHTML = '';
+                    sessions.forEach(s => {
+                        const tab = document.createElement('div');
+                        tab.className = 'chat-tab-chip' + (s.id === currentSessionId ? ' active' : '');
+                        tab.id = 'tab_' + s.id;
+                        tab.onclick = () => selectSession(s.id);
+                        tab.title = s.title || 'بحث لاهوتي';
+
+                        const icon = document.createElement('span');
+                        icon.className = 'tab-icon';
+                        icon.textContent = '💬';
+
+                        const text = document.createElement('span');
+                        text.className = 'tab-text';
+                        text.innerHTML = '<bdi dir="auto">' + escapeHtml(s.title || 'بحث لاهوتي') + '</bdi>';
+
+                        const closeBtn = document.createElement('button');
+                        closeBtn.className = 'tab-close-btn';
+                        closeBtn.textContent = '✕';
+                        closeBtn.title = 'حذف هذا الموضوع';
+                        closeBtn.onclick = (e) => deleteSession(e, s.id);
+
+                        tab.appendChild(icon);
+                        tab.appendChild(text);
+                        tab.appendChild(closeBtn);
+                        tabsList.appendChild(tab);
+                    });
+                }
 
                 if (!currentSessionId && sessions.length > 0) {
                     await selectSession(sessions[0].id);
@@ -1597,8 +2117,14 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
         async function selectSession(sessionId) {
             currentSessionId = sessionId;
             document.querySelectorAll('.chat-history-item').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.chat-tab-chip').forEach(el => el.classList.remove('active'));
             const activeEl = document.getElementById('sess_' + sessionId);
             if (activeEl) activeEl.classList.add('active');
+            const activeTab = document.getElementById('tab_' + sessionId);
+            if (activeTab) {
+                activeTab.classList.add('active');
+                activeTab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+            }
 
             try {
                 const res = await fetch('/api/sessions/' + sessionId);
@@ -1609,21 +2135,46 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                 chatMessages = [];
                 messagesContainer.innerHTML = '';
 
+                userMsgCounter = 0;
                 if (messages.length === 0) {
                     messagesContainer.appendChild(heroScreen);
                     heroScreen.style.display = 'block';
+                    const subqBar = document.getElementById('topicSubqBar');
+                    if (subqBar) subqBar.style.display = 'none';
                 } else {
                     if (heroScreen) heroScreen.style.display = 'none';
                     let assistantTurn = 0;
+                    const userQueries = [];
                     messages.forEach(m => {
                         chatMessages.push({ role: m.role, content: m.content });
                         let turnNum = null;
                         if (m.role === 'assistant') {
                             assistantTurn++;
                             turnNum = assistantTurn;
+                        } else if (m.role === 'user') {
+                            userQueries.push(m.content);
                         }
                         appendMessageBubble(m.role, m.content, m.citations || [], turnNum);
                     });
+
+                    // Render Sub-questions Navigation Bar at top of chat
+                    const subqBar = document.getElementById('topicSubqBar');
+                    if (subqBar) {
+                        if (userQueries.length > 1) {
+                            subqBar.style.display = 'flex';
+                            subqBar.innerHTML = `<span style="font-weight:700; color:var(--accent); flex-shrink:0;">📍 أسئلة هذا المبحث (${userQueries.length}):</span>`;
+                            userQueries.forEach((qText, qIdx) => {
+                                const pill = document.createElement('div');
+                                pill.className = 'subq-pill';
+                                pill.title = qText;
+                                pill.innerHTML = `<span>س${qIdx+1}:</span> <span>${escapeHtml(qText.substring(0, 32))}${qText.length > 32 ? '...' : ''}</span>`;
+                                pill.onclick = () => jumpToQuestion(qIdx + 1);
+                                subqBar.appendChild(pill);
+                            });
+                        } else {
+                            subqBar.style.display = 'none';
+                        }
+                    }
                 }
                 scrollToBottom();
             } catch (err) {
@@ -1631,12 +2182,71 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             }
         }
 
+        
+        function showTopicToast(message) {
+            let toast = document.getElementById('topicToast');
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.id = 'topicToast';
+                toast.className = 'topic-toast';
+                document.body.appendChild(toast);
+            }
+            toast.textContent = message;
+            toast.style.display = 'flex';
+            setTimeout(() => {
+                toast.style.display = 'none';
+            }, 4000);
+        }
+
+        
+        function updateTopicSubqBar() {
+            const subqBar = document.getElementById('topicSubqBar');
+            if (!subqBar) return;
+            const userQueries = [];
+            chatMessages.forEach(m => {
+                if (m.role === 'user') userQueries.push(m.content);
+            });
+            if (userQueries.length > 1) {
+                subqBar.style.display = 'flex';
+                subqBar.innerHTML = `<span style="font-weight:700; color:var(--accent); flex-shrink:0;">📍 أسئلة هذا المبحث (${userQueries.length}):</span>`;
+                userQueries.forEach((qText, qIdx) => {
+                    const pill = document.createElement('div');
+                    pill.className = 'subq-pill';
+                    pill.title = qText;
+                    pill.innerHTML = `<span>س${qIdx+1}:</span> <span>${escapeHtml(qText.substring(0, 32))}${qText.length > 32 ? '...' : ''}</span>`;
+                    pill.onclick = () => jumpToQuestion(qIdx + 1);
+                    subqBar.appendChild(pill);
+                });
+            } else {
+                subqBar.style.display = 'none';
+            }
+        }
+
+        function jumpToQuestion(qIndex) {
+            const el = document.getElementById('user_msg_' + qIndex);
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                el.style.transition = 'box-shadow 0.3s ease';
+                el.style.boxShadow = '0 0 0 3px var(--accent)';
+                setTimeout(() => { el.style.boxShadow = 'none'; }, 2000);
+            }
+        }
+
+        async function selectSessionAndJump(sessionId, qIndex) {
+            if (currentSessionId !== sessionId) {
+                await selectSession(sessionId);
+            }
+            setTimeout(() => {
+                jumpToQuestion(qIndex);
+            }, 150);
+        }
+
         async function startNewChat() {
             try {
                 const res = await fetch('/api/sessions', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ title: 'بحث لاهوتي جديد', user_id: 'web' })
+                    body: JSON.stringify({ title: 'بحث لاهوتي جديد', user_id: currentUserId })
                 });
                 if (res.ok) {
                     const data = await res.json();
@@ -1702,7 +2312,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                     body: JSON.stringify({
                         messages: chatMessages,
                         session_id: currentSessionId,
-                        user_id: 'web',
+                        user_id: currentUserId,
                         depth_mode: currentDepthMode
                     })
                 });
@@ -1717,12 +2327,22 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                 const aiResponse = data.response;
                 const citations = data.citations || [];
                 const turnNumber = data.turn_number || null;
-                if (data.session_id) currentSessionId = data.session_id;
+                const isNewTopic = data.is_new_topic || false;
 
-                chatMessages.push({ role: 'assistant', content: aiResponse });
-                appendMessageBubble('assistant', aiResponse, citations, turnNumber);
-                
-                loadSessions();
+                if (isNewTopic && data.session_id !== currentSessionId) {
+                    currentSessionId = data.session_id;
+                    showTopicToast("✨ تم فتح تبويب وموضوع جديد تلقائياً: «" + (data.topic_title || "موضوع جديد") + "»");
+                    chatMessages = [{ role: 'user', content: text }, { role: 'assistant', content: aiResponse }];
+                    messagesContainer.innerHTML = '';
+                    appendMessageBubble('user', text);
+                    appendMessageBubble('assistant', aiResponse, citations, 1);
+                    await loadSessions();
+                } else {
+                    if (data.session_id) currentSessionId = data.session_id;
+                    chatMessages.push({ role: 'assistant', content: aiResponse });
+                    appendMessageBubble('assistant', aiResponse, citations, turnNumber);
+                    await loadSessions();
+                }
 
             } catch (err) {
                 removeLoadingBubble(loadingId);
@@ -1734,9 +2354,14 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             }
         }
 
+        let userMsgCounter = 0;
         function appendMessageBubble(role, content, citations = [], turnNumber = null) {
             const row = document.createElement('div');
             row.className = `msg-row ${role === 'user' ? 'user' : 'ai'}`;
+            if (role === 'user') {
+                userMsgCounter++;
+                row.id = 'user_msg_' + userMsgCounter;
+            }
 
             const avatar = document.createElement('div');
             avatar.className = `msg-avatar ${role === 'user' ? 'user' : 'ai'}`;
@@ -1807,7 +2432,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                             <span class="citation-badge">مرتبة التوثيق ${c.authenticity_tier || 3}</span>
                         </div>
                         <div class="citation-meta">
-                            ✍️ ${c.author || 'آباء الكنيسة'} | 📄 ${pLabel}
+                            ✍️ ${(!c.author || c.author === 'غير محدد' || c.author === 'غير معروف') ? 'آباء ومعلمو الكنيسة' : c.author} | 📄 ${pLabel}
                         </div>
                         <div class="citation-excerpt">❝ ${c.excerpt} ❞</div>
                         ${actionsHtml}
@@ -1815,21 +2440,8 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                     citeList.appendChild(item);
                 });
 
-                const extBox = document.createElement('div');
-                extBox.className = 'external-sources-pill-box';
-                extBox.innerHTML = `
-                    <div class="ext-label">🌐 أمهات المراجع والآبائيات الكنسية الدولية المعتمدة:</div>
-                    <div class="ext-chips-row">
-                        <a href="https://www.ccel.org/fathers" target="_blank" class="ext-source-chip" title="موسوعة آباء الكنيسة قبل نيقية وما بعد نيقية (38 مجلداً - فيليب شاف)">📚 Nicene & Post-Nicene Fathers (CCEL)</a>
-                        <a href="https://www.newadvent.org/fathers/" target="_blank" class="ext-source-chip" title="موسوعة New Advent الآبائية الشاملة باليونانية والإنجليزية">🏛️ New Advent Fathers</a>
-                        <a href="https://patristica.net/migne/" target="_blank" class="ext-source-chip" title="باترولوجيا ميني اليونانية (161 مجلداً للآباء الشرقيين)">📜 Patrologia Graeca (Migne PG)</a>
-                        <a href="https://katameros.bible/" target="_blank" class="ext-source-chip" title="القطمارس والسنكسار الكنسي الليتورجي المعتمد">⛪ قطمارس وسنكسار الكنيسة</a>
-                        <a href="https://st-takla.org/books" target="_blank" class="ext-source-chip" title="مكتبة وتراث الكنيسة القبطية الأرثوذكسية">📖 تراث الكنيسة القبطية</a>
-                    </div>
-                `;
                 citeSection.appendChild(citeHeader);
                 citeSection.appendChild(citeList);
-                citeSection.appendChild(extBox);
                 contentDiv.appendChild(citeSection);
             }
 
@@ -2008,17 +2620,18 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             activeRefViewMode = mode;
             const btnImg = document.getElementById('btnModeImg');
             const btnPdf = document.getElementById('btnModePdf');
+            const btnFull = document.getElementById('btnModeFull');
             const imgContainer = document.getElementById('refImgContainer');
             const pdfContainer = document.getElementById('refPdfContainer');
             
+            if (btnImg) btnImg.classList.toggle('active', mode === 'image');
+            if (btnPdf) btnPdf.classList.toggle('active', mode === 'pdf');
+            if (btnFull) btnFull.classList.toggle('active', mode === 'full');
+
             if (mode === 'image') {
-                if (btnImg) btnImg.classList.add('active');
-                if (btnPdf) btnPdf.classList.remove('active');
                 if (imgContainer) imgContainer.style.display = 'block';
                 if (pdfContainer) pdfContainer.style.display = 'none';
             } else {
-                if (btnImg) btnImg.classList.remove('active');
-                if (btnPdf) btnPdf.classList.add('active');
                 if (imgContainer) imgContainer.style.display = 'none';
                 if (pdfContainer) pdfContainer.style.display = 'block';
             }
@@ -2055,9 +2668,12 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                     loading.innerHTML = '<div style="color: var(--accent); padding: 20px;">ℹ️ هذه الصفحة متوفرة كـ PDF خفيف أو النص مفهرس.<br><a href="/api/books/' + activeRefSha + '/pages/' + activeRefPage + '/view' + hlParamPdf + '" target="_blank" style="color:var(--gold); font-weight:bold; display:inline-block; margin-top:10px;">📄 انقر هنا لفتح صفحة الـ PDF مباشرة (15KB)</a></div>';
                 };
                 img.src = `/api/books/${activeRefSha}/pages/${activeRefPage}/image?t=` + Date.now() + hlParam;
-            } else {
+            } else if (activeRefViewMode === 'pdf') {
                 loading.style.display = 'none';
                 iframe.src = `/api/books/${activeRefSha}/pages/${activeRefPage}/view${hlParamPdf}`;
+            } else if (activeRefViewMode === 'full') {
+                loading.style.display = 'none';
+                iframe.src = `/api/books/${activeRefSha}/view#page=${activeRefPage}`;
             }
         }
 
@@ -2113,6 +2729,172 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             window.open('/api/sessions/' + currentSessionId + '/export?format=' + fmt, '_blank');
         }
 
+        
+        // Scholar Profile & Admin Telemetry Console Functions
+        function initScholarProfileUI() {
+            const disp = document.getElementById('scholarNameDisplay');
+            if (disp) disp.textContent = currentUserName;
+            
+            // Sync with backend profile table
+            fetch('/api/scholar/profile', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: currentUserId, display_name: currentUserName })
+            }).catch(e => console.warn(e));
+        }
+
+        async function editScholarProfile() {
+            const newName = prompt("أدخل اسمك أو صفتك (سيظهر في ملف بحثك الشخصي):", currentUserName);
+            if (newName && newName.trim()) {
+                currentUserName = newName.trim();
+                localStorage.setItem('elantony_user_name', currentUserName);
+                const disp = document.getElementById('scholarNameDisplay');
+                if (disp) disp.textContent = currentUserName;
+
+                await fetch('/api/scholar/profile', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: currentUserId, display_name: currentUserName })
+                });
+                showTopicToast("✨ تم تحديث اسم ملفك الشخصي: «" + currentUserName + "»");
+            }
+        }
+
+        let adminCachedData = null;
+
+        async function openAdminConsole() {
+            if (!adminPinCache) {
+                const pin = prompt("🔐 أدخل الرمز السري للإشراف العام (Admin PIN):");
+                if (!pin) return;
+                adminPinCache = pin.trim();
+                sessionStorage.setItem('elantony_admin_pin', adminPinCache);
+            }
+
+            const modal = document.getElementById('adminConsoleModal');
+            if (modal) modal.classList.add('open');
+            await refreshAdminData();
+        }
+
+        function closeAdminConsole() {
+            const modal = document.getElementById('adminConsoleModal');
+            if (modal) modal.classList.remove('open');
+        }
+
+        async function refreshAdminData() {
+            try {
+                const res = await fetch('/api/admin/scholars_activity?pin=' + encodeURIComponent(adminPinCache));
+                if (!res.ok) {
+                    sessionStorage.removeItem('elantony_admin_pin');
+                    adminPinCache = '';
+                    alert("⛔ رمز الإشراف غير صحيح أو تم رفض الصلاحية.");
+                    closeAdminConsole();
+                    return;
+                }
+                adminCachedData = await res.json();
+                renderAdminDashboard(adminCachedData);
+            } catch (err) {
+                console.error("Admin fetch error:", err);
+            }
+        }
+
+        function renderAdminDashboard(data) {
+            document.getElementById('adminTotalScholars').textContent = data.total_scholars || 0;
+            document.getElementById('adminTotalQueries').textContent = data.total_questions || 0;
+
+            // Render Scholars
+            const container = document.getElementById('adminScholarsContainer');
+            if (!container) return;
+            container.innerHTML = '';
+
+            if (!data.scholars || data.scholars.length === 0) {
+                container.innerHTML = '<div style="text-align:center; padding:30px; color:var(--text-sub);">لا يوجد مستخدمون حتى الآن.</div>';
+            } else {
+                data.scholars.forEach(s => {
+                    const card = document.createElement('div');
+                    card.className = 'scholar-card-item';
+                    
+                    let queriesHtml = '';
+                    if (s.recent_queries && s.recent_queries.length > 0) {
+                        queriesHtml = '<div class="scholar-queries-list">';
+                        s.recent_queries.forEach(q => {
+                            queriesHtml += `
+                                <div class="scholar-query-row">
+                                    <span>❓ <bdi dir="auto">${escapeHtml(q.content)}</bdi></span>
+                                    <span class="scholar-query-time">${q.created_at || ''}</span>
+                                </div>
+                            `;
+                        });
+                        queriesHtml += '</div>';
+                    } else {
+                        queriesHtml = '<div style="font-size:12px; color:var(--text-sub); margin-top:6px;">لم يطرح أسئلة بعد في الجلسات الحالية.</div>';
+                    }
+
+                    card.innerHTML = `
+                        <div class="scholar-card-header">
+                            <div>
+                                <span class="scholar-card-name">👤 ${escapeHtml(s.display_name)}</span>
+                                <span style="font-size:11px; color:var(--text-sub); margin-right:8px;">(${s.user_id})</span>
+                            </div>
+                            <div>
+                                <span class="scholar-card-badge">💬 ${s.query_count} أسئلة</span>
+                                <span class="scholar-card-badge" style="margin-right:5px;">📁 ${s.session_count} أبحاث</span>
+                                <button class="btn-ref-tool" onclick="inspectScholarSessions('${s.user_id}')" style="margin-right:8px; padding:3px 8px; font-size:11px;" title="فتح وعرض سجل أبحاث هذا الباحث">👁️ معاينة أبحاثه</button>
+                            </div>
+                        </div>
+                        <div style="font-size:11px; color:var(--text-sub);">آخر نشاط: ${s.last_active || 'غير محدد'}</div>
+                        ${queriesHtml}
+                    `;
+                    container.appendChild(card);
+                });
+            }
+
+            // Render Live Stream
+            const streamBox = document.getElementById('adminStreamContainer');
+            if (streamBox && data.live_stream) {
+                streamBox.innerHTML = '';
+                data.live_stream.forEach(item => {
+                    const row = document.createElement('div');
+                    row.className = 'scholar-card-item';
+                    row.innerHTML = `
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                            <span style="font-weight:700; color:var(--accent);">👤 ${escapeHtml(item.display_name || item.user_id)}</span>
+                            <span style="font-size:11px; color:var(--text-sub);">${item.created_at}</span>
+                        </div>
+                        <div style="font-size:13px; font-weight:600;"><bdi dir="auto">💬 ${escapeHtml(item.content)}</bdi></div>
+                        <div style="font-size:11px; color:var(--gold); margin-top:3px;">الموضوع: ${escapeHtml(item.session_title || 'عام')}</div>
+                    `;
+                    streamBox.appendChild(row);
+                });
+            }
+        }
+
+        function switchAdminSubTab(tab) {
+            const btnS = document.getElementById('btnAdminTabScholars');
+            const btnL = document.getElementById('btnAdminTabStream');
+            const boxS = document.getElementById('adminScholarsContainer');
+            const boxL = document.getElementById('adminStreamContainer');
+            if (tab === 'scholars') {
+                if (btnS) btnS.classList.add('active');
+                if (btnL) btnL.classList.remove('active');
+                if (boxS) boxS.style.display = 'block';
+                if (boxL) boxL.style.display = 'none';
+            } else {
+                if (btnS) btnS.classList.remove('active');
+                if (btnL) btnL.classList.add('active');
+                if (boxS) boxS.style.display = 'none';
+                if (boxL) boxL.style.display = 'block';
+            }
+        }
+
+        async function inspectScholarSessions(targetUid) {
+            if (!confirm("هل تريد استعراض واجهة المحادثات والتبويبات الخاصة بهذا الباحث؟")) return;
+            currentUserId = targetUid;
+            closeAdminConsole();
+            await loadSessions();
+            showTopicToast("👁️ يتم الآن استعراض أبحاث ومناقشات الباحث: " + targetUid);
+        }
+
+
         window.onload = () => {
             // Restore saved theme
             const savedTheme = localStorage.getItem('elantony_theme') || 'sepia';
@@ -2136,6 +2918,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                 if (label) label.textContent = FONT_LABELS[currentFontSizeIndex];
             }
 
+            initScholarProfileUI();
             loadSessions();
             chatInput.focus();
         };
@@ -2294,39 +3077,89 @@ def apply_highlights_to_page(page, highlight_text: Optional[str] = None):
     """
     Finds and applies golden yellow highlight annotations to page for keywords in highlight_text.
     Supports Arabic, Coptic, and Greek terms safely without mutating original documents on disk.
+    Resilient against zero-width rects, OCR text layout, and pure image scanned pages.
     """
     if not highlight_text or not highlight_text.strip():
         return 0
     try:
         from elantony.search.search_engine import ARABIC_STOPWORDS
         import re
+        import fitz
+
         raw_words = re.findall(r'[\w\u0621-\u064A\u0370-\u03FF\u2C80-\u2CFF]+', highlight_text)
-        terms = [w for w in raw_words if len(w) >= 3 and w not in ARABIC_STOPWORDS][:12]
+        terms = [w for w in raw_words if len(w) >= 3 and w not in ARABIC_STOPWORDS][:14]
+        if not terms:
+            return 0
         
         highlighted_count = 0
-        # Try phrase pairs first
-        for i in range(len(terms) - 1):
-            phrase = f"{terms[i]} {terms[i+1]}"
-            rects = page.search_for(phrase)
-            for r in rects:
-                annot = page.add_highlight_annot(r)
-                annot.set_colors(stroke=(1.0, 0.82, 0.15)) # Warm Patristic Gold
-                annot.update()
-                highlighted_count += 1
-            if highlighted_count >= 12:
-                break
-                
-        # If few phrase matches, highlight individual key theological terms
-        if highlighted_count < 3:
-            for t in terms:
-                rects = page.search_for(t)
-                for r in rects[:4]:
-                    annot = page.add_highlight_annot(r)
-                    annot.set_colors(stroke=(1.0, 0.84, 0.20)) # Gold Highlight
+        
+        def safe_add_annot(rect, color=(1.0, 0.82, 0.15)):
+            nonlocal highlighted_count
+            if rect.width >= 2.0 and rect.height >= 2.0 and not rect.is_empty and not rect.is_infinite:
+                try:
+                    annot = page.add_highlight_annot(rect)
+                    annot.set_colors(stroke=color) # Warm Patristic Gold
                     annot.update()
                     highlighted_count += 1
+                    return True
+                except Exception:
+                    pass
+            return False
+
+        # Check if page has digital text or is a scanned image
+        page_text = page.get_text()
+        tp = None
+        if len(page_text.strip()) < 15:
+            candidate_dirs = [
+                r"D:\Prog\ArchiveMasterFinal\tessdata",
+                r"D:\Prog\ArchiveMasterFinal\tesseract\tessdata",
+                os.path.join(str(settings.base_dir), "tessdata")
+            ]
+            tessdata_dir = next((p for p in candidate_dirs if os.path.exists(p)), None)
+            if tessdata_dir:
+                try:
+                    tp = page.get_textpage_ocr(language='ara+eng', tessdata=tessdata_dir, dpi=140)
+                except Exception:
+                    tp = None
+
+        # 1. Search for phrase pairs
+        for i in range(len(terms) - 1):
+            phrase = f"{terms[i]} {terms[i+1]}"
+            rects = page.search_for(phrase, textpage=tp) if tp else page.search_for(phrase)
+            for r in rects:
+                safe_add_annot(r)
+            if highlighted_count >= 10:
+                break
+                
+        # 2. Search for individual terms
+        if highlighted_count < 4:
+            for t in terms:
+                rects = page.search_for(t, textpage=tp) if tp else page.search_for(t)
+                for r in rects[:4]:
+                    safe_add_annot(r)
+                if 'ـ' in t:
+                    norm_rects = page.search_for(t.replace('ـ', ''), textpage=tp) if tp else page.search_for(t.replace('ـ', ''))
+                    for r in norm_rects[:3]:
+                        safe_add_annot(r)
                 if highlighted_count >= 16:
                     break
+
+        # 3. Fallback: Page words bbox matching
+        if highlighted_count < 3:
+            page_words = page.get_text("words", textpage=tp) if tp else page.get_text("words")
+            if page_words:
+                norm_terms = {t.replace('ـ', '').strip('.,;:!?()[]{}«»"\'') for t in terms}
+                for w in page_words:
+                    w_text = w[4].replace('ـ', '').strip('.,;:!?()[]{}«»"\'')
+                    if len(w_text) >= 3:
+                        for nt in norm_terms:
+                            if nt == w_text or (len(w_text) >= 4 and (nt in w_text or w_text in nt)):
+                                bbox = fitz.Rect(w[0], w[1], w[2], w[3])
+                                safe_add_annot(bbox)
+                                break
+                    if highlighted_count >= 20:
+                        break
+
         return highlighted_count
     except Exception as e:
         logger.warning(f"Error applying highlights: {e}")
@@ -2386,7 +3219,7 @@ async def get_book_page_image(sha256: str, page_number: int, highlight: Optional
         page = doc.load_page(page_idx)
         if highlight:
             apply_highlights_to_page(page, highlight)
-        pix = page.get_pixmap(dpi=140)
+        pix = page.get_pixmap(dpi=140, annots=True)
         jpg_bytes = pix.tobytes("jpg")
         return Response(
             content=jpg_bytes,
@@ -2500,10 +3333,129 @@ async def api_audio_tts(req: TTSRequest):
     )
 
 
+def check_topic_continuity(prev_title: str, prev_messages: List[Dict[str, Any]], new_query: str) -> Tuple[bool, str]:
+    """
+    Determines whether new_query continues the current theological topic (same discussion or sub-question branch)
+    or represents a completely new subject that deserves a separate tab/session.
+    
+    Uses Theological Domain Categorization and compares against user queries only (excluding AI essays)
+    to ensure topics like 'إقامة الموتى' vs 'صلب المسيح' vs 'طوفان نوح' are cleanly separated into tabs.
+    """
+    if not prev_messages:
+        return True, "first_turn"
+
+    q_norm = new_query.strip().lower()
+
+    # 1. Sub-question and Follow-up prefixes
+    FOLLOWUP_PREFIXES = [
+        "وضح اكثر", "وضح أكثر", "اشرح لي اكثر", "اشرح لي أكثر", "ماذا عن", "وماذا عن",
+        "لا اقصد", "لا أقصد", "اقصد", "أقصد", "بمعنى اخر", "بمعنى آخر", "هل هذا يعني",
+        "هل تقصد", "ولكن كيف", "لكن كيف", "طب و", "طب بالنسبه", "وما الدليل", "ما الدليل",
+        "عايز اعرف", "أريد أن أعرف", "هل ينطبق", "وبالنسبة لـ", "وبالنسبه ل", "ما رأيك في"
+    ]
+    for p in FOLLOWUP_PREFIXES:
+        if q_norm.startswith(p) or f" {p} " in q_norm:
+            return True, f"followup_prefix:{p}"
+
+    # 2. Referential Pronouns
+    PRONOUNS = [" هذا ", " هذه ", " ذلك ", " تلك ", " هؤلاء ", " عنه ", " عنها ", " فيه ", " فيها ", " منه ", " منها ", " به ", " بها ", " له ", " لها "]
+    padded_q = f" {q_norm} "
+    for pron in PRONOUNS:
+        if pron in padded_q:
+            return True, f"referential_pronoun:{pron.strip()}"
+
+    # 3. Canonical Theological Domain Categorization
+    THEOLOGICAL_DOMAINS = {
+        "CRUCIFIXION_PASSION": {
+            "صلب", "الصلب", "المصلوب", "الصليب", "صليب", "الجلجثة", "الجمعة العظيمة", "آلام المسيح", "اسبوع الالام", "أسبوع الآلام",
+            "بيلاطس", "باراباس", "قيافا", "حنانيا", "المحاكمة", "اللص اليمين", "طريق الالام", "الدفن", "القبر",
+            "زلزال", "تزلزلت", "الشمس", "أظلمت", "ظلمة", "كسوف", "انشقاق", "انشق", "حجاب الهيكل", "الصخور", "تفتحت القبور", "الآيات الكونية"
+        },
+        "RESURRECTION_MIRACLES": {
+            "إقامة", "اقامة", "أقام", "اقام", "يقيم", "الموتى", "الموتي", "الأموات", "الاموات",
+            "لعازر", "يايرس", "طليثا قومي", "نايين", "أرملة نايين", "معجزات", "معجزة", "إيليا", "اليشع"
+        },
+        "CHRIST_RESURRECTION": {
+            "قيامة", "القيامة", "قام", "الباكورة", "القبر الفارغ", "أحد القيامة", "الظهورات", "توما", "المجدلية", "عمواس"
+        },
+        "INCARNATION_CHRISTOLOGY": {
+            "تجسد", "التجسد", "الكلمة المتجسد", "التأنس", "تأنس", "صار جسدا", "سر التجسد", "عمانوئيل",
+            "طبيعة المسيح", "ميافيزيس", "كيرلس", "أثناسيوس", "نسطور", "أفسس", "خلقيدونية"
+        },
+        "THEOSIS": {
+            "تأله", "التأله", "شريك الطبيعة الإلهية", "الاتحاد بالله", "theosis", "ثيؤسيس", "نعمة التبني"
+        },
+        "TRINITY": {
+            "ثالوث", "الثالوث", "الأقانيم", "أقنوم", "الآب والابن", "الروح القدس", "الجوهر الإلهي", "هومواوسيوس", "الولادة الأزلية", "الانبثاق"
+        },
+        "SACRAMENTS": {
+            "أسرار", "اسرار", "معمودية", "المعمودية", "إفخارستيا", "افخارستيا", "القربان", "التناول", "ميرون", "الميرون", "اعتراف", "توبة", "كهنوت"
+        },
+                "CANON_SCRIPTURE": {
+            "قانونية", "القانونية", "الاسفار", "الأسفار", "طوبيا", "يهوديت", "سيراخ", "يشوع بن سيراخ",
+            "المكابيين", "حكمة سليمان", "باروخ", "تتمة دانيال", "تتمة استير", "صلاة منسى", "العهد القديم"
+        },
+        "CREATION_FLOOD": {
+            "طوفان", "الطوفان", "نوح", "فلك نوح", "الخلق", "الخليقة", "آدم وحواء", "السقوط", "تكوين", "سفر التكوين"
+        }
+    }
+
+    GENERIC_NOISE = {
+        'مفهوم', 'فكر', 'اقوال', 'أقوال', 'الموضوع', 'موضوع', 'المراجع', 'مراجع', 'شرح', 'تفسير',
+        'قديس', 'القديس', 'انبا', 'الأنبا', 'بابا', 'البابا', 'حول', 'هذا', 'هذه', 'ذلك', 'تلك',
+        'ما', 'هو', 'هي', 'عن', 'هل', 'كيف', 'ماذا', 'لماذا', 'اين', 'أين', 'متى', 'كم', 'من', 'في',
+        'على', 'إلى', 'الي', 'مع', 'هكذا', 'وهكذا', 'مثل', 'كذلك', 'اثبت', 'يثبت', 'اثبات', 'أثبت',
+        'تطابق', 'يطابق', 'مطابقة', 'الحدث', 'حدث', 'احداث', 'أحداث', 'العلم', 'العلمي', 'علميا', 'علم',
+        'حقيقة', 'امر', 'أمر', 'شأن', 'نوع', 'وجود', 'بين', 'ايضا', 'أيضا', 'اريد', 'أريد', 'ابحث',
+        'أبحث', 'اعطني', 'أعطني', 'توضيح', 'بيان', 'رأي', 'راي', 'موقف', 'نظرة', 'بخصوص', 'بشأن',
+        'المسيح', 'السيد', 'الله', 'الرب', 'الإله', 'العهد', 'القديم', 'الجديد', 'الكتاب', 'المقدس'
+    }
+
+    def detect_domains(text: str) -> Set[str]:
+        text_clean = re.sub(r'[^\w\s]', ' ', text).lower()
+        words = set(text_clean.split())
+        matched = set()
+        for domain, kws in THEOLOGICAL_DOMAINS.items():
+            for kw in kws:
+                kw_clean = kw.lower()
+                if kw_clean in words or f" {kw_clean} " in f" {text_clean} ":
+                    matched.add(domain)
+                    break
+        return matched
+
+    # 4. Compare only user questions and thread title (Never AI encyclopedic essays)
+    prev_user_queries = [m.get("content", "") for m in prev_messages if m.get("role") == "user"]
+    prev_context = " ".join([prev_title or ""] + prev_user_queries)
+
+    prev_domains = detect_domains(prev_context)
+    new_domains = detect_domains(new_query)
+
+    if prev_domains and new_domains:
+        common = prev_domains.intersection(new_domains)
+        if common:
+            return True, f"domain_affinity:{common}"
+        else:
+            return False, f"distinct_domain:{new_domains}_vs_{prev_domains}"
+
+    # 5. Fallback: substantive keyword overlap on user text only
+    prev_clean = re.sub(r'[^\w\s]', ' ', prev_context).lower()
+    prev_words = {w for w in prev_clean.split() if len(w) >= 3 and w not in GENERIC_NOISE}
+    
+    new_clean = re.sub(r'[^\w\s]', ' ', new_query).lower()
+    new_words = {w for w in new_clean.split() if len(w) >= 3 and w not in GENERIC_NOISE}
+
+    overlap = prev_words.intersection(new_words)
+    if len(overlap) >= 1:
+        return True, f"user_keyword_overlap:{overlap}"
+
+    return False, "distinct_theological_topic"
+
+
 @app.post("/api/chat")
 async def api_chat(req: ChatRequest):
     """
     Multi-turn Conversational AI Endpoint.
+    Supports intelligent auto-session splitting for distinct theological topics.
     Maintains dialogue history while anchoring answers strictly in library citations.
     Supports theological depth modes: 'academic', 'pastoral', 'apologetic'.
     Saves conversation to persistent database session.
@@ -2517,9 +3469,24 @@ async def api_chat(req: ChatRequest):
 
     user_id = req.user_id or "web"
     session_id = req.session_id
+    is_new_topic = False
+    new_topic_title = None
+
     if not session_id or session_id == "default":
         session_info = repo.get_or_create_active_session(user_id)
         session_id = session_info["id"]
+    else:
+        sess = repo.get_session(session_id)
+        if sess:
+            existing_messages = repo.get_session_messages(session_id)
+            if existing_messages:
+                is_same, reason = check_topic_continuity(sess.get("title", ""), existing_messages, latest_msg)
+                if not is_same:
+                    new_topic_title = latest_msg.split("\n")[0][:45].strip()
+                    new_sess_id = repo.create_session(user_id=user_id, title=new_topic_title)
+                    logger.info(f"[TopicSwitch] Detected distinct topic ({reason}). Created new session {new_sess_id} for '{new_topic_title}'.")
+                    session_id = new_sess_id
+                    is_new_topic = True
 
     # 1. Retrieve library context
     chunks = search_engine.search_fts5(latest_msg, limit=6)
@@ -2527,7 +3494,10 @@ async def api_chat(req: ChatRequest):
     depth_mode = req.depth_mode or "academic"
 
     # 2. Conversational reasoning with past dialogue turns
-    raw_history = [{"role": m.role, "content": m.content} for m in req.messages]
+    if is_new_topic:
+        raw_history = [{"role": "user", "content": latest_msg}]
+    else:
+        raw_history = [{"role": m.role, "content": m.content} for m in req.messages]
     if hasattr(ai_provider, "generate_chat_response"):
         answer = ai_provider.generate_chat_response(raw_history, chunks, depth_mode=depth_mode)
     else:
@@ -2542,6 +3512,21 @@ async def api_chat(req: ChatRequest):
         size_mb = round(f_size / (1024 * 1024), 1) if f_size else 0
         size_str = f"{size_mb} MB" if size_mb >= 1 else (f"{round(f_size / 1024)} KB" if f_size else "")
 
+        # Author fallback resolution
+        resolved_author = c.author
+        if not resolved_author or resolved_author in ["غير محدد", "غير معروف", "مجهول"]:
+            clean_t = (c.book_title or "").replace(".pdf", "")
+            for sep in [" - ", " – ", " — "]:
+                if sep in clean_t:
+                    parts = [p.strip() for p in clean_t.split(sep)]
+                    if len(parts) >= 2:
+                        resolved_author = parts[-1]
+                        break
+        if not resolved_author or resolved_author in ["غير محدد", "غير معروف", "مجهول"]:
+            resolved_author = "آباء ومعلمو الكنيسة"
+
+        cleaned_excerpt = clean_citation_excerpt(c.chunk_text, 320)
+
         citations.append({
             "book_title": c.book_title,
             "page_number": c.page_number,
@@ -2549,16 +3534,16 @@ async def api_chat(req: ChatRequest):
             "page_count": p_count or 1,
             "file_size_formatted": size_str,
             "source_reference": c.source_reference,
-            "author": c.author,
+            "author": resolved_author,
             "source_types": c.source_types,
             "authenticity_tier": c.authenticity_tier,
             "relevance_score": c.relevance_score,
             "sha256": c.sha256,
-            "excerpt": c.chunk_text[:300]
+            "excerpt": cleaned_excerpt
         })
 
     # Turn number in discussion
-    turn_number = (len(raw_history) // 2) + 1
+    turn_number = 1 if is_new_topic else ((len(raw_history) // 2) + 1)
 
     # 4. Save to persistent discussion session
     try:
@@ -2573,12 +3558,54 @@ async def api_chat(req: ChatRequest):
     except Exception as save_err:
         logger.warning(f"Error saving chat message to session {session_id}: {save_err}")
 
+    current_sess_info = repo.get_session(session_id)
+    resolved_title = current_sess_info.get("title") if current_sess_info else (new_topic_title or "بحث لاهوتي")
+
     return {
         "response": answer,
         "citations": citations,
         "session_id": session_id,
+        "is_new_topic": is_new_topic,
+        "topic_title": resolved_title,
         "turn_number": turn_number
     }
+
+
+
+class ScholarProfileRequest(BaseModel):
+    user_id: str
+    display_name: Optional[str] = "باحث لاهوتي"
+
+
+@app.post("/api/scholar/profile")
+async def update_scholar_profile(req: ScholarProfileRequest):
+    """Registers or updates scholar display name and touch timestamp."""
+    repo.register_or_touch_scholar(req.user_id, req.display_name)
+    return {"status": "ok", "user_id": req.user_id, "display_name": req.display_name}
+
+
+@app.get("/api/admin/scholars_activity")
+async def get_scholars_activity(pin: Optional[str] = Query(None), x_admin_pin: Optional[str] = Header(None)):
+    """
+    Master Admin Super-View: Lists all distinct scholars, their questions,
+    discussions, and global activity. Protected by admin PIN (default: 2026).
+    """
+    admin_pin = os.getenv("ADMIN_PORTAL_PIN", "2026").strip()
+    provided = pin or x_admin_pin or ""
+    if provided != admin_pin:
+        raise HTTPException(status_code=403, detail="رمز الإشراف غير صحيح. مصرح للأدمن فقط.")
+    return repo.get_all_scholars_activity()
+
+
+@app.get("/api/admin/scholars/{target_user_id}/sessions")
+async def get_scholar_sessions_admin(target_user_id: str, pin: Optional[str] = Query(None), x_admin_pin: Optional[str] = Header(None)):
+    """Allows Admin to inspect any specific scholar's discussion threads."""
+    admin_pin = os.getenv("ADMIN_PORTAL_PIN", "2026").strip()
+    provided = pin or x_admin_pin or ""
+    if provided != admin_pin:
+        raise HTTPException(status_code=403, detail="رمز الإشراف غير صحيح. مصرح للأدمن فقط.")
+    sessions = repo.list_user_sessions(user_id=target_user_id, limit=50)
+    return {"user_id": target_user_id, "sessions": sessions}
 
 
 @app.get("/api/v1/admin/dashboard")
