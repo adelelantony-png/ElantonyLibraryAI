@@ -121,6 +121,7 @@ class ChatRequest(BaseModel):
     session_id: Optional[str] = None
     user_id: Optional[str] = "web"
     depth_mode: Optional[str] = "academic"
+    topic_mode: Optional[str] = "continue"
 
 
 class TTSRequest(BaseModel):
@@ -671,6 +672,21 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             transition: 0.2s;
             font-family: 'Cairo', 'Noto Sans Coptic', 'Gentium Plus', 'Noto Serif', 'Segoe UI Historic', Arial, sans-serif;
         }
+        .btn-cite-primary {
+            background: linear-gradient(135deg, #B8860B 0%, #D4AF37 100%);
+            border: 1px solid #B8860B;
+            color: #FFFFFF !important;
+            font-weight: 800;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(184, 134, 11, 0.25);
+            padding: 6px 14px;
+            font-size: 12.5px;
+        }
+        .btn-cite-primary:hover {
+            filter: brightness(1.1);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 10px rgba(184, 134, 11, 0.35);
+        }
         .btn-cite-fast { background: rgba(16, 185, 129, 0.16); border: 1px solid #10B981; color: #059669; font-weight: 800; cursor: pointer; }
         .btn-cite-fast:hover { background: #10B981; color: #FFF; transform: translateY(-1px); }
         .btn-cite-view { background: var(--accent-light); border: 1px solid var(--accent); color: var(--accent); }
@@ -701,10 +717,15 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
         .hero p { color: var(--text-sub); font-size: 15px; max-width: 640px; margin: 0 auto 26px auto; line-height: 1.75; }
         .prompt-cards {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
-            gap: 14px;
-            max-width: 860px;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+            max-width: 820px;
             margin: 0 auto;
+        }
+        @media (max-width: 680px) {
+            .prompt-cards {
+                grid-template-columns: 1fr;
+            }
         }
         .prompt-card {
             background: var(--bg-bubble-ai);
@@ -1886,9 +1907,9 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
         <div class="input-area">
             <div class="topic-flow-toolbar">
                 <span class="topic-flow-label">مسار الحوار:</span>
-                <button type="button" class="topic-mode-pill active" id="btnModeAuto" onclick="setTopicMode('auto')" title="تصنيف ذكي: استكمال نفس المبحث إذا كان متصلاً أو فتح موضوع جديد إذا اختلف">⚡ تلقائي ذكي</button>
-                <button type="button" class="topic-mode-pill" id="btnModeContinue" onclick="setTopicMode('continue')" title="إجبار المنظومة على إدراج هذا السؤال كسؤال فرعي متسلسل (س1، س2، س3...) في نفس التبويب والمبحث الحالي">🔗 استكمال في نفس المبحث</button>
-                <button type="button" class="topic-mode-pill" id="btnModeNew" onclick="setTopicMode('new')" title="فتح تبويب ومبحث مستقل وجديد كلياً في القائمة الجانبية">➕ مبحث مستقل جديد</button>
+                <button type="button" class="topic-mode-pill active" id="btnModeContinue" onclick="setTopicMode('continue')" title="إدراج هذا السؤال كسؤال متسلسل في نفس موضوع وبحث التبويب الحالي (افتراضي)">🔗 استكمال في نفس المبحث</button>
+                <button type="button" class="topic-mode-pill" id="btnModeNew" onclick="setTopicMode('new')" title="فتح تبويب ومبحث مستقل وجديد كلياً في القائمة الجانبية">➕ فتح بحث مستقل جديد</button>
+                <button type="button" class="topic-mode-pill" id="btnModeAuto" onclick="setTopicMode('auto')" title="تصنيف ذكي: استكمال نفس المبحث إذا كان متصلاً أو فتح موضوع جديد إذا اختلف">⚡ ذكي تلقائي</button>
             </div>
             <div class="input-box-wrapper">
                 <textarea 
@@ -2443,7 +2464,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             window.open('/api/sessions/' + sessionId + '/export?format=docx', '_blank');
         }
 
-                let currentTopicMode = 'auto';
+                let currentTopicMode = 'continue';
 
         function setTopicMode(mode) {
             currentTopicMode = mode;
@@ -2466,6 +2487,22 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
         function sendPrompt(text) {
             chatInput.value = text;
             sendMessage();
+        }
+
+        
+        function retryLastQuestion() {
+            if (chatMessages && chatMessages.length > 0) {
+                const lastUserIdx = chatMessages.findLastIndex ? chatMessages.findLastIndex(m => m.role === 'user') : -1;
+                if (lastUserIdx !== -1) {
+                    const lastText = chatMessages[lastUserIdx].content;
+                    const input = document.getElementById('chatInput');
+                    if (input) input.value = lastText;
+                    // remove last assistant error row
+                    const rows = document.querySelectorAll('.msg-row');
+                    if (rows.length > 0) rows[rows.length - 1].remove();
+                    sendMessage();
+                }
+            }
         }
 
         async function sendMessage() {
@@ -2533,6 +2570,22 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             }
         }
 
+        
+        function resolveCitationAuthor(c) {
+            let a = (c.author || '').trim();
+            if (a && a !== 'غير محدد' && a !== 'غير معروف' && a !== 'مجهول') return a;
+            let t = (c.book_title || '').replace(/\.pdf$/i, '').trim();
+            for (const sep of [' - ', ' – ', ' — ', ' _ ']) {
+                if (t.includes(sep)) {
+                    const parts = t.split(sep).map(p => p.trim()).filter(Boolean);
+                    if (parts.length >= 2 && parts[parts.length - 1].length >= 3 && isNaN(parts[parts.length - 1])) {
+                        return parts[parts.length - 1];
+                    }
+                }
+            }
+            return 'آباء ومعلمو الكنيسة';
+        }
+
         let userMsgCounter = 0;
         function appendMessageBubble(role, content, citations = [], turnNumber = null) {
             const row = document.createElement('div');
@@ -2587,19 +2640,17 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                         const safeTitle = encodeURIComponent(c.book_title || 'مرجع كنسي');
                         const safeExcerpt = encodeURIComponent(c.excerpt ? c.excerpt.slice(0, 200) : '');
                         const sizeBadge = c.file_size_formatted ? ` (${c.file_size_formatted})` : '';
+                        const resolvedAuthor = resolveCitationAuthor(c);
                         actionsHtml = `
-                            <div class="citation-actions">
-                                <button onclick="openInstantPageModal('${c.sha256}', ${c.page_number}, '${safeTitle}', '${safeExcerpt}')" class="btn-cite-act btn-cite-fast" title="معاينة الصفحة وتصفح الكتاب مع هاي لايت وزوم فوراً">
-                                    ⚡ معاينة وتظليل (صـ ${c.page_number})
+                            <div class="citation-actions" style="flex-wrap: wrap; gap: 8px;">
+                                <button onclick="openInstantPageModal('${c.sha256}', ${c.page_number}, '${safeTitle}', '${safeExcerpt}')" class="btn-cite-act btn-cite-primary" title="قراءة وتصفح الكتاب مباشرة في القارئ السريع مع التظليل الذهبي">
+                                    📖 قراءة وتصفح الكتاب (صـ ${c.page_number})
                                 </button>
                                 <button onclick="openSynopticSplitView('${c.sha256}', ${c.page_number}, '${safeTitle}', '${safeExcerpt}')" class="btn-cite-act btn-cite-split" title="مقارنة متزامنة مع شاهد آخر جنباً إلى جنب">
                                     ⚖️ مقارنة متزامنة
                                 </button>
-                                <a href="/api/books/${c.sha256}/pages/${c.page_number}/view?highlight=${safeExcerpt}" target="_blank" class="btn-cite-act btn-cite-view" title="فتح صفحة المرجع كـ PDF مستقل مظلل (15-30 كيلوبايت)">
+                                <a href="/api/books/${c.sha256}/pages/${c.page_number}/view?highlight=${safeExcerpt}" target="_blank" class="btn-cite-act btn-cite-view" title="فتح صفحة المرجع كـ PDF مستقل مظلل (15KB)">
                                     📄 PDF الصفحة (15KB)
-                                </a>
-                                <a href="/api/books/${c.sha256}/view#page=${c.page_number}" target="_blank" class="btn-cite-act btn-cite-view" title="تصفح الكتاب كاملاً في نافذة المتصفح">
-                                    📖 تصفح كامل
                                 </a>
                                 <a href="/api/books/${c.sha256}/download" target="_blank" class="btn-cite-act btn-cite-dl" title="تنزيل ملف الكتاب كاملاً على جهازك">
                                     💾 تنزيل الكتاب${sizeBadge}
@@ -2617,7 +2668,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                             </div>
                         </div>
                         <div class="citation-meta">
-                            ✍️ ${(!c.author || c.author === 'غير محدد' || c.author === 'غير معروف') ? 'آباء ومعلمو الكنيسة' : c.author} | 📄 ${pLabel}
+                            ✍️ ${resolveCitationAuthor(c)} | 📄 ${pLabel}
                         </div>
                         <div class="citation-excerpt">❝ ${c.excerpt} ❞</div>
                         ${actionsHtml}
@@ -3934,6 +3985,7 @@ async def get_book_page_image(sha256: str, page_number: int, highlight: Optional
     if not file_path or not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="ملف الكتاب غير متوفر على القرص")
 
+    doc = None
     try:
         import fitz
         doc = fitz.open(file_path)
@@ -3951,6 +4003,12 @@ async def get_book_page_image(sha256: str, page_number: int, highlight: Optional
     except Exception as e:
         logger.error(f"Error rendering page image for {sha256} p.{page_number}: {e}")
         raise HTTPException(status_code=500, detail="تعذر استخراج صورة الصفحة")
+    finally:
+        if doc:
+            try:
+                doc.close()
+            except Exception:
+                pass
 
 
 @app.get("/api/books/{sha256}/info")
@@ -3988,7 +4046,7 @@ async def get_book_info(sha256: str):
     }
 
 
-@app.get("/api/books/{sha256}/view")
+@app.api_route("/api/books/{sha256}/view", methods=["GET", "HEAD"])
 async def view_book_file(sha256: str):
     """Streams full book PDF for in-browser viewing (inline)."""
     book = repo.get_book_by_sha(sha256)
@@ -4012,7 +4070,7 @@ async def view_book_file(sha256: str):
     )
 
 
-@app.get("/api/books/{sha256}/download")
+@app.api_route("/api/books/{sha256}/download", methods=["GET", "HEAD"])
 async def download_book_file(sha256: str):
     """Directly triggers native file download on the client device (attachment)."""
     book = repo.get_book_by_sha(sha256)
@@ -4194,7 +4252,7 @@ async def api_chat(req: ChatRequest):
     is_new_topic = False
     new_topic_title = None
 
-    topic_mode = getattr(req, "topic_mode", "auto") or "auto"
+    topic_mode = getattr(req, "topic_mode", "continue") or "continue"
 
     if not session_id or session_id == "default":
         session_info = repo.get_or_create_active_session(user_id)

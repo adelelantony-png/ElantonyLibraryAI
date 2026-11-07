@@ -158,6 +158,16 @@ class DatabaseRepository:
         """)
         cur.execute("CREATE INDEX IF NOT EXISTS idx_chat_messages_session ON chat_messages(session_id)")
 
+        # 7. Scholar Profiles (Persistent user metadata)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS scholar_profiles (
+                user_id TEXT PRIMARY KEY,
+                display_name TEXT DEFAULT 'باحث لاهوتي',
+                first_seen TIMESTAMP,
+                last_seen TIMESTAMP
+            )
+        """)
+
         conn.commit()
         conn.close()
 
@@ -960,27 +970,30 @@ class DatabaseRepository:
         return {"status": "completed", "maintenance_actions": actions}
 
     def register_or_touch_scholar(self, user_id: str, display_name: Optional[str] = None) -> None:
-        """Registers or updates a scholar profile and touch timestamp."""
-        conn = get_connection()
-        cur = conn.cursor()
+        """Registers or updates a scholar profile and touch timestamp with lock retry."""
+        import time
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS scholar_profiles (
-                user_id TEXT PRIMARY KEY,
-                display_name TEXT DEFAULT 'باحث لاهوتي',
-                first_seen TIMESTAMP,
-                last_seen TIMESTAMP
-            )
-        """)
-        cur.execute("""
-            INSERT INTO scholar_profiles (user_id, display_name, first_seen, last_seen)
-            VALUES (?, ?, ?, ?)
-            ON CONFLICT(user_id) DO UPDATE SET
-                display_name = COALESCE(?, display_name),
-                last_seen = ?
-        """, (str(user_id), display_name or 'باحث لاهوتي', now, now, display_name, now))
-        conn.commit()
-        conn.close()
+        for attempt in range(4):
+            try:
+                conn = get_connection()
+                cur = conn.cursor()
+                cur.execute("""
+                    INSERT INTO scholar_profiles (user_id, display_name, first_seen, last_seen)
+                    VALUES (?, ?, ?, ?)
+                    ON CONFLICT(user_id) DO UPDATE SET
+                        display_name = COALESCE(?, display_name),
+                        last_seen = ?
+                """, (str(user_id), display_name or 'باحث لاهوتي', now, now, display_name, now))
+                conn.commit()
+                conn.close()
+                return
+            except sqlite3.OperationalError as e:
+                if 'locked' in str(e).lower() and attempt < 3:
+                    time.sleep(0.15 * (attempt + 1))
+                    continue
+                logger.warning(f"Error touching scholar profile: {e}")
+                return
+
 
     def get_all_scholars_activity(self) -> Dict[str, Any]:
         """
@@ -990,15 +1003,7 @@ class DatabaseRepository:
         conn = get_connection()
         cur = conn.cursor()
 
-        # Ensure profiles table exists
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS scholar_profiles (
-                user_id TEXT PRIMARY KEY,
-                display_name TEXT DEFAULT 'باحث لاهوتي',
-                first_seen TIMESTAMP,
-                last_seen TIMESTAMP
-            )
-        """)
+        # Profiles table verified in init_schema
 
         # 1. Scholars summary
         cur.execute("""

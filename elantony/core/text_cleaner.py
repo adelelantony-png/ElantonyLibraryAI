@@ -286,54 +286,48 @@ def is_theologically_substantive(text: str) -> bool:
 
 
 def clean_leading_ocr_noise(text: str) -> str:
-    """Detects and removes leading OCR scanning garbage, isolated 1-2 letter fragments, and broken punct."""
+    """Detects and removes leading OCR scanning garbage, footnote markers, and broken punct."""
     if not text:
         return ""
 
     # 1. Strip directionality and invisible unicode noise
-    t = re.sub(r'[‎‏​-‍‪-‮﻿�]', '', text)
+    t = re.sub(r'[\u200E\u200F\u200B-\u200D\u202A-\u202E\uFEFF\uFFFD]', '', text)
 
-    # 2. Fix punctuation and digits corrupted INSIDE Arabic words (e.g. نفس!ر -> نفسر)
-    t = re.sub(r'([ء-ي])[\!؟\?\#\$\%\^\&\*\_0-9\-]+([ء-ي])', r'', t)
+    # 2. Strip footnote bracket numbers like (1), [2], {3}
+    t = re.sub(r'[\(\[\{][0-9]{1,3}[\)\]\}]', ' ', t)
 
-    # 3. Strip standalone 1-6 letter Latin OCR fragments that contaminate scanned Arabic pages
+    # 3. Fix punctuation and symbols stuck INSIDE Arabic words (e.g. نفس!ر -> نفسر)
+    t = re.sub(r'([\u0621-\u064A])[\!\u061F\?\#\$\%\^\&\*\_\-]+([\u0621-\u064A])', r'\1\2', t)
+
+    # 4. Strip standalone 1-6 letter Latin OCR fragments (e.g. dlg, Und, Ges, oe)
     t = re.sub(r'(?<![a-zA-Z])[a-zA-Z]{1,6}(?![a-zA-Z])', ' ', t)
 
-    # 4. Strip guillemets, stray symbols, and bracket garbage
-    t = re.sub(r'[»«‹›\[\]\(\)\<\>]', ' ', t)
+    # 5. Strip guillemets and stray quote noise
+    t = re.sub(r'[\u00AB\u00BB\u2039\u203A\[\]\<\>\{\}]', ' ', t)
 
-    # 5. Fix repetitive adjacent words (e.g. الله الله -> الله, ااا -> empty)
-    t = re.sub(r'([ء-ي]{2,})\s+', r'', t)
-    t = re.sub(r'([ء-ي]){2,}', ' ', t)
+    # 6. Fix repetitive adjacent words (e.g. الله الله -> الله)
+    t = re.sub(r'(?<![\u0621-\u064A])([\u0621-\u064A]{2,})\s+\1(?![\u0621-\u064A])', r'\1', t)
 
-    # 6. Remove leading isolated 1-2 letter non-words with punctuation (e.g. 1 لقا ب! أ! بم لال! "ش!نا!؟ -6-)
-    t = re.sub(r'^(?:[0-9ء-يa-zA-Z]{1,2}[\!؟\?\.\,\:\;\-"\s]+){1,6}', '', t).strip()
+    # 7. Common OCR typos in classical Church texts
+    TYPO_CORRECTIONS = {
+        "\u0634\u0633\u0639\u0628": "\u0634\u0639\u0628",          # شسعب -> شعب
+        "\u0627\u0643\u0627\u0628": "\u0623\u0643\u0627\u0628",          # اكاب -> أكاب
+        "\u0627\u0645\u0644\u0642\u062f\u0633": "\u0627\u0644\u0642\u062f\u0633",  # املقدس -> المقدس
+        "\u0627\u0645\u0644\u0633\u064a\u062d": "\u0627\u0644\u0645\u0633\u064a\u062d",  # املسيح -> المسيح
+        "\u0627\u0647\u0644\u0644": "\u0627\u0644\u0644\u0647",          # اهلل -> الله
+        "\u0644\u0644\u0627": "\u0627\u0644\u0644\u0647",                  # للا -> الله
+        "\u0627\u0644\u0643\u0644\u064a\u0633\u0629": "\u0627\u0644\u0643\u0646\u064a\u0633\u0629",  # الكليسة -> الكنيسة
+        "\u0627\u062d\u0644\u0642\u064a\u0642\u0629": "\u0627\u0644\u062d\u0642\u064a\u0642\u0629",  # احلقيقة -> الحقيقة
+        "\u0627\u062d\u0644\u064a\u0627\u0629": "\u0627\u0644\u062d\u064a\u0627\u0629",          # احلياة -> الحياة
+    }
+    for bad_w, good_w in TYPO_CORRECTIONS.items():
+        t = re.sub(r'(?<![\u0621-\u064A])' + bad_w + r'(?![\u0621-\u064A])', good_w, t)
 
-    # 7. Locate first fluent Arabic clause (scan up to 25 words)
-    words = t.split()
-    start_idx = 0
-    for i in range(min(25, max(0, len(words) - 2))):
-        w = words[i]
-        # Skip isolated broken characters or single letters
-        if len(w) < 2:
-            continue
-        # Skip repetitive or known noisy tokens
-        if re.match(r'^(.)+$', w) or w in ["محفم", "للهلان", "قالله"]:
-            continue
-        # If words start with legitimate Arabic word
-        if re.fullmatch(r'[ء-ي]{3,}', w):
-            prefix_len = len(" ".join(words[:i]))
-            if prefix_len < 50:
-                start_idx = i
-                break
-            else:
-                start_idx = 0
-                break
+    # 8. Strip lone stray non-Arabic symbols at start of string
+    t = re.sub(r'^[\.\,\-\:\;\!\u061F\?\_\*\#\%\^\&\s]+', '', t).strip()
 
-    if start_idx > 0:
-        t = " ".join(words[start_idx:])
-
-    t = re.sub(r'^[^\wء-ي]+', '', t).strip()
+    # 9. Clean excessive spaces
+    t = re.sub(r'\s+', ' ', t).strip()
     return t
 
 
@@ -341,4 +335,5 @@ def clean_citation_excerpt(text: str, max_length: int = 320) -> str:
     """Full-pipeline professional excerpt cleaner for UI citation cards."""
     cleaned = clean_theological_text(text)
     cleaned = clean_leading_ocr_noise(cleaned)
+    cleaned = re.sub(r'^[\.\,\-\:\;\!\u061F\s]+', '', cleaned).strip()
     return extract_coherent_sentences(cleaned, max_length=max_length)

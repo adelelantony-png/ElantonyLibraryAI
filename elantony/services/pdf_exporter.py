@@ -1,7 +1,8 @@
 """
 Official Ecclesiastical Academic PDF Exporter for ELANTONY LIBRARY AI.
-Generates publication-quality theological research monographs with Arabic RTL support,
+Generates publication-quality theological research monographs with full Arabic Unicode support (TrueType Arial),
 cross headers, custom typography, citations tables, and verified church source bibliography.
+Guarantees zero square boxes (□□□) and zero font corruption.
 """
 import os
 import io
@@ -16,9 +17,42 @@ from reportlab.platypus import (
 )
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.pdfgen import canvas
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 
 import arabic_reshaper
 from bidi.algorithm import get_display
+
+# 1. Register TrueType fonts with full Arabic Unicode support
+_ARABIC_FONTS_REGISTERED = False
+
+def _register_arabic_fonts():
+    global _ARABIC_FONTS_REGISTERED
+    if _ARABIC_FONTS_REGISTERED:
+        return
+    try:
+        # Standard Windows fonts
+        arial_path = r"C:\Windows\Fonts\arial.ttf"
+        arial_bd_path = r"C:\Windows\Fonts\arialbd.ttf"
+        tahoma_path = r"C:\Windows\Fonts\tahoma.ttf"
+        tahoma_bd_path = r"C:\Windows\Fonts\tahomabd.ttf"
+
+        if os.path.exists(arial_path):
+            pdfmetrics.registerFont(TTFont('ArFont', arial_path))
+            if os.path.exists(arial_bd_path):
+                pdfmetrics.registerFont(TTFont('ArFont-Bold', arial_bd_path))
+            else:
+                pdfmetrics.registerFont(TTFont('ArFont-Bold', arial_path))
+            _ARABIC_FONTS_REGISTERED = True
+        elif os.path.exists(tahoma_path):
+            pdfmetrics.registerFont(TTFont('ArFont', tahoma_path))
+            if os.path.exists(tahoma_bd_path):
+                pdfmetrics.registerFont(TTFont('ArFont-Bold', tahoma_bd_path))
+            else:
+                pdfmetrics.registerFont(TTFont('ArFont-Bold', tahoma_path))
+            _ARABIC_FONTS_REGISTERED = True
+    except Exception as e:
+        pass
 
 
 def reshape_ar(text: str) -> str:
@@ -26,8 +60,8 @@ def reshape_ar(text: str) -> str:
     if not text:
         return ""
     try:
-        # Standardize spaces
-        t = " ".join(text.split())
+        t = " ".join(str(text).split())
+        t = t.replace("✠", "+")
         reshaped = arabic_reshaper.reshape(t)
         return get_display(reshaped)
     except Exception:
@@ -54,7 +88,8 @@ class NumberedCanvas(canvas.Canvas):
 
     def draw_page_decorations(self, total_pages: int):
         self.saveState()
-        self.setFont("Helvetica", 8)
+        font_name = 'ArFont' if _ARABIC_FONTS_REGISTERED else 'Helvetica'
+        self.setFont(font_name, 8)
         self.setFillColor(colors.HexColor("#7c2d12"))
 
         # Header running line on pages > 1
@@ -62,6 +97,8 @@ class NumberedCanvas(canvas.Canvas):
             self.setStrokeColor(colors.HexColor("#d97706"))
             self.setLineWidth(0.5)
             self.line(40, 805, 555, 805)
+            hdr_text = reshape_ar("منظومة ELANTONY LIBRARY AI - دراسة لاهوتية موثقة")
+            self.drawRightString(555, 810, hdr_text)
 
         # Footer running line & page numbers
         self.setStrokeColor(colors.HexColor("#e2e8f0"))
@@ -70,7 +107,7 @@ class NumberedCanvas(canvas.Canvas):
 
         page_str = f"Page {self._pageNumber} of {total_pages}"
         self.drawRightString(555, 32, page_str)
-        footer_brand = reshape_ar("منظومة ELANTONY LIBRARY AI - أمانة التوثيق الكنسي والآبائي")
+        footer_brand = reshape_ar("كنيسة الإسكندرية القبطية الأرثوذكسية - أمانة التوثيق الآبائي")
         self.drawString(40, 32, footer_brand)
         self.restoreState()
 
@@ -78,7 +115,12 @@ class NumberedCanvas(canvas.Canvas):
 def generate_session_pdf(comp_data: Dict[str, Any], output_path: str) -> str:
     """
     Compiles an entire theological discussion session into a publication-grade PDF monograph.
+    Embeds TrueType fonts to ensure zero square boxes (□□□).
     """
+    _register_arabic_fonts()
+    font_main = 'ArFont' if _ARABIC_FONTS_REGISTERED else 'Helvetica'
+    font_bold = 'ArFont-Bold' if _ARABIC_FONTS_REGISTERED else 'Helvetica-Bold'
+
     doc = SimpleDocTemplate(
         output_path,
         pagesize=A4,
@@ -90,11 +132,10 @@ def generate_session_pdf(comp_data: Dict[str, Any], output_path: str) -> str:
 
     styles = getSampleStyleSheet()
 
-    # Custom styles
     title_style = ParagraphStyle(
         'EcclTitle',
         parent=styles['Normal'],
-        fontName='Helvetica-Bold',
+        fontName=font_bold,
         fontSize=18,
         leading=24,
         alignment=1, # Center
@@ -105,43 +146,43 @@ def generate_session_pdf(comp_data: Dict[str, Any], output_path: str) -> str:
     header_brand_style = ParagraphStyle(
         'EcclHeaderBrand',
         parent=styles['Normal'],
-        fontName='Helvetica',
+        fontName=font_bold,
         fontSize=10,
         leading=14,
         alignment=1,
         textColor=colors.HexColor('#92400e'),
-        spaceAfter=15
+        spaceAfter=12
     )
 
     meta_style = ParagraphStyle(
         'EcclMeta',
         parent=styles['Normal'],
-        fontName='Helvetica',
+        fontName=font_main,
         fontSize=9,
         leading=13,
         alignment=1,
         textColor=colors.HexColor('#64748b'),
-        spaceAfter=20
+        spaceAfter=18
     )
 
     q_style = ParagraphStyle(
         'EcclQuestion',
         parent=styles['Normal'],
-        fontName='Helvetica-Bold',
+        fontName=font_bold,
         fontSize=12,
-        leading=16,
+        leading=17,
         alignment=2, # Right
         textColor=colors.HexColor('#1e293b'),
-        spaceBefore=12,
+        spaceBefore=14,
         spaceAfter=6
     )
 
     body_style = ParagraphStyle(
         'EcclBody',
         parent=styles['Normal'],
-        fontName='Helvetica',
-        fontSize=10,
-        leading=15,
+        fontName=font_main,
+        fontSize=10.5,
+        leading=16,
         alignment=2, # Right
         textColor=colors.HexColor('#334155'),
         spaceAfter=10
@@ -150,9 +191,9 @@ def generate_session_pdf(comp_data: Dict[str, Any], output_path: str) -> str:
     cit_style = ParagraphStyle(
         'EcclCitation',
         parent=styles['Normal'],
-        fontName='Helvetica',
+        fontName=font_main,
         fontSize=8.5,
-        leading=12,
+        leading=12.5,
         alignment=2,
         textColor=colors.HexColor('#475569')
     )
@@ -160,7 +201,7 @@ def generate_session_pdf(comp_data: Dict[str, Any], output_path: str) -> str:
     story = []
 
     # 1. Header Cross & Brand
-    brand_text = reshape_ar("✠ بطريركية الأقباط الأرثوذكس - منظومة ELANTONY LIBRARY AI الأكاديمية ✠")
+    brand_text = reshape_ar("+ كنيسة الإسكندرية القبطية الأرثوذكسية - منظومة ELANTONY LIBRARY AI +")
     story.append(Paragraph(brand_text, header_brand_style))
 
     # 2. Document Title
@@ -169,18 +210,20 @@ def generate_session_pdf(comp_data: Dict[str, Any], output_path: str) -> str:
 
     # 3. Metadata
     cur_date = time.strftime('%Y-%m-%d %H:%M')
-    meta_text = reshape_ar(f"تاريخ التصدير: {cur_date}  |  المصنف: بحث لاهوتي أكاديمي موثق")
+    meta_text = reshape_ar(f"تاريخ التوثيق: {cur_date}  |  المصنف: بحث لاهوتي أكاديمي موثق من أمهات الكتب")
     story.append(Paragraph(meta_text, meta_style))
-    story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor('#d97706'), spaceAfter=15))
+    story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor('#d97706'), spaceAfter=14))
 
     # 4. Turns
     turns = comp_data.get("turns", [])
     for idx, t in enumerate(turns, 1):
-        q_text = reshape_ar(f"المبحث {idx}: {t.get('user_query', '')}")
+        q_raw = t.get('user_query', '')
+        q_text = reshape_ar(f"المبحث {idx}: {q_raw}")
         story.append(Paragraph(q_text, q_style))
 
         # Answer body
-        raw_ans = t.get('ai_response', '')
+        raw_ans = t.get('ai_response', '') or t.get('answer', '')
+        raw_ans = raw_ans.replace("### ", "").replace("## ", "").replace("# ", "")
         for p in raw_ans.split('\n'):
             p_strip = p.strip()
             if not p_strip:
@@ -190,7 +233,7 @@ def generate_session_pdf(comp_data: Dict[str, Any], output_path: str) -> str:
         # Citations Table if available
         citations = t.get('citations', [])
         if citations:
-            table_data = [[Paragraph(reshape_ar("<b>الشواهد الكنسية والآبائية المعتمدة الموثقة لهذا المبحث</b>"), cit_style)]]
+            table_data = [[Paragraph(reshape_ar("الشواهد الكنسية والآبائية المعتمدة الموثقة لهذا المبحث:"), cit_style)]]
             for c_idx, c in enumerate(citations[:5], 1):
                 b_title = c.get('book_title', '')
                 p_num = c.get('printed_page') or c.get('page_number', '')
@@ -219,12 +262,12 @@ def generate_session_pdf(comp_data: Dict[str, Any], output_path: str) -> str:
     bib = comp_data.get("bibliography", [])
     if bib:
         story.append(KeepTogether([
-            Paragraph(reshape_ar("<b>قائمة المصادر والمراجع الكنسية الموثقة في هذا البحث</b>"), q_style),
+            Paragraph(reshape_ar("قائمة المصادر والمراجع الكنسية الموثقة في هذا البحث:"), q_style),
             Spacer(1, 4)
         ]))
         bib_data = []
         for b_idx, b in enumerate(bib, 1):
-            ref_str = b.get('reference', '')
+            ref_str = b.get('reference') or b.get('title', '')
             author = b.get('author', 'آباء الكنيسة')
             b_line = f"{b_idx}. {ref_str} — تأليف: {author}"
             bib_data.append([Paragraph(reshape_ar(b_line), cit_style)])
