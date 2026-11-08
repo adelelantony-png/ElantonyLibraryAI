@@ -2210,18 +2210,28 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
 
         async function loadSessions() {
             try {
-                const res = await fetch('/api/sessions?user_id=' + encodeURIComponent(currentUserId));
-                if (!res.ok) {
-                    showTopicToast("⚠️ تعذر العثور على جلسة البحث المطلوبة");
-                    return;
+                // 1. Check if a shared session is requested via URL (?session=... or ?share=...)
+                const urlParams = new URLSearchParams(window.location.search);
+                const sharedSessId = urlParams.get('session') || urlParams.get('share');
+                const sharedTurn = urlParams.get('turn');
+
+                if (sharedSessId && (!currentSessionId || currentSessionId !== sharedSessId)) {
+                    await selectSession(sharedSessId);
+                    if (sharedTurn) {
+                        setTimeout(() => jumpToQuestion(parseInt(sharedTurn, 10)), 700);
+                    }
                 }
+
+                // 2. Fetch the user's personal session history
+                const res = await fetch('/api/sessions?user_id=' + encodeURIComponent(currentUserId));
+                if (!res.ok) return;
                 const data = await res.json();
                 const list = document.getElementById('chatHistoryList');
                 if (!list) return;
                 list.innerHTML = '';
                 const sessions = data.sessions || [];
 
-                if (sessions.length === 0) {
+                if (sessions.length === 0 && !sharedSessId && !currentSessionId) {
                     await startNewChat();
                     return;
                 }
@@ -2322,18 +2332,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                     });
                 }
 
-                // Check if a shared session is requested via URL (?session=... or ?share=...)
-                const urlParams = new URLSearchParams(window.location.search);
-                const sharedSessId = urlParams.get('session') || urlParams.get('share');
-                const sharedTurn = urlParams.get('turn');
-
-                if (sharedSessId) {
-                    await selectSession(sharedSessId);
-                    if (sharedTurn) {
-                        setTimeout(() => jumpToQuestion(parseInt(sharedTurn, 10)), 700);
-                    }
-                    showTopicToast("📖 تم فتح البحث المشترك بنجاح. يمكنك قراءة الأسئلة وفحص جميع المراجع والكتب.");
-                } else if (!currentSessionId && sessions.length > 0) {
+                if (!currentSessionId && sessions.length > 0) {
                     await selectSession(sessions[0].id);
                 }
             } catch (err) {
@@ -3109,12 +3108,12 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             const url = input ? input.value : window.location.href;
             const titleEl = document.getElementById('shareModalSubject');
             const title = titleEl ? titleEl.textContent : 'بحث لاهوتي موثق';
-            const text = encodeURIComponent("✠ بحث لاهوتي موثق من مكتبة القديس أنطونيوس:
-«" + title + "»
+            const msg = `✠ بحث لاهوتي موثق من مكتبة القديس أنطونيوس:
+«${title}»
 
 📖 افتح البحث وتصفح المراجع الأصلية والصفحات الموثقة عبر الرابط:
-" + url);
-            window.open('https://api.whatsapp.com/send?text=' + text, '_blank');
+${url}`;
+            window.open('https://api.whatsapp.com/send?text=' + encodeURIComponent(msg), '_blank');
         }
 
         function shareViaTelegram() {
@@ -3774,12 +3773,12 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                 alert('الكشكول فارغ.');
                 return;
             }
-            let text = "✠ كشكول الباحث ومفضلة الشواهد الكنسية ✠\n\n";
+            let text = `✠ كشكول الباحث ومفضلة الشواهد الكنسية ✠\n\n`;
             scholarNotebookItems.forEach((it, idx) => {
                 text += `[${idx+1}] ${it.book_title} صـ ${it.printed_page || it.page_number} (المؤلف: ${it.author})\n`;
                 text += `النص: ❝ ${it.excerpt} ❞\n`;
                 if (it.notes) text += `الهامش: ${it.notes}\n`;
-                text += "---------------------------------------\n\n";
+                text += `---------------------------------------\n\n`;
             });
             const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
             const link = document.createElement('a');
