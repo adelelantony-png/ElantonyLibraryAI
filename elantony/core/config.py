@@ -50,6 +50,7 @@ class Settings(BaseModel):
     ai_provider: str = Field(default_factory=lambda: os.getenv("AI_PROVIDER", "rule_based").lower())
     gemini_api_key: Optional[str] = Field(default_factory=lambda: os.getenv("GEMINI_API_KEY") or None)
     ollama_base_url: str = Field(default_factory=lambda: os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"))
+    public_base_url: str = Field(default_factory=lambda: os.getenv("PUBLIC_BASE_URL", "https://enhanced-eur-nutten-aggregate.trycloudflare.com"))
 
     # Paths
     base_dir: Path = BASE_DIR

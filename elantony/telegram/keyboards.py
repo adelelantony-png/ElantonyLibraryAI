@@ -8,6 +8,7 @@ All callback_data payloads strictly respect Telegram's 64-byte hard limit.
 
 import urllib.parse
 from typing import List, Dict, Any, Optional
+from elantony.core.config import settings
 
 
 def get_main_menu_reply_keyboard() -> Dict[str, Any]:
@@ -414,7 +415,7 @@ def get_encyclopedias_inline_keyboard(books: List[Dict[str, Any]]) -> Dict[str, 
 def get_reference_card_keyboard(sha256: str, page_number: int, idx: int) -> List[List[Dict[str, str]]]:
     """Interactive Action Buttons for each verified citation card."""
     sref = str(sha256)[:16]
-    web_page_url = f"https://respectively-ministries-planet-tribes.trycloudflare.com/api/books/{sha256}/pages/{page_number}/view"
+    web_page_url = f"{settings.public_base_url}/api/books/{sha256}/pages/{page_number}/view"
     return [
         [
             {"text": f"📖 فتح الصفحة ({page_number})", "callback_data": f"page:{sref}:{page_number}"},

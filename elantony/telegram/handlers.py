@@ -1061,7 +1061,7 @@ class TelegramHandlerService:
                 {"text": "📑 تجميع البحث كاملاً (ملف Word + شات)", "callback_data": "session:compile"}
             ],
             [
-                {"text": "🔗 فتح ومشاركة البحث على المتصفح", "url": f"https://respectively-ministries-planet-tribes.trycloudflare.com/?session={session_id}"}
+                {"text": "🔗 فتح ومشاركة البحث على المتصفح", "url": f"{settings.public_base_url}/?session={session_id}"}
             ],
             [
                 {"text": "🔄 بدء بحث جديد", "callback_data": "session:new"},
