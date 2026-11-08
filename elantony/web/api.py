@@ -694,6 +694,37 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
         .btn-cite-dl { background: var(--card-hover); border: 1px solid var(--card-border); color: var(--text-main); }
         .btn-cite-dl:hover { background: var(--card-border); }
 
+        /* Message Action Buttons Bar */
+        .msg-actions-bar {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+            padding-top: 8px;
+            border-top: 1px dashed var(--card-border);
+        }
+        .btn-msg-act {
+            background: var(--bg-darker);
+            border: 1px solid var(--card-border);
+            border-radius: 6px;
+            padding: 4px 10px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-sub);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-family: 'Cairo', 'Noto Sans Coptic', 'Gentium Plus', 'Noto Serif', 'Segoe UI Historic', Arial, sans-serif;
+        }
+        .btn-msg-act:hover {
+            background: var(--card-hover);
+            color: var(--accent);
+            border-color: var(--accent);
+        }
+
         /* Hero / Empty State */
         .hero {
             text-align: center;
@@ -1840,6 +1871,9 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                 <button class="btn-nav btn-compile" onclick="openCompilationModal()" title="تجميع أسئلة وإجابات البحث مع الفهرس والمراجع">
                     <span>📑</span> تجميع البحث
                 </button>
+                <button class="btn-nav btn-share-nav" onclick="openShareModal()" title="مشاركة رابط هذا البحث والمراجع مع أي شخص لفتحه وتصفحه" style="background: rgba(16, 185, 129, 0.14); border-color: #10b981; color: #047857; font-weight: 700;">
+                    <span>🔗</span> مشاركة البحث
+                </button>
                 <button class="btn-nav btn-docx-nav" onclick="downloadCurrentExport('docx')" title="تنزيل أطروحة البحث كاملة كملف Microsoft Word منسق">
                     <span>📄</span> Word
                 </button>
@@ -2177,7 +2211,10 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
         async function loadSessions() {
             try {
                 const res = await fetch('/api/sessions?user_id=' + encodeURIComponent(currentUserId));
-                if (!res.ok) return;
+                if (!res.ok) {
+                    showTopicToast("⚠️ تعذر العثور على جلسة البحث المطلوبة");
+                    return;
+                }
                 const data = await res.json();
                 const list = document.getElementById('chatHistoryList');
                 if (!list) return;
@@ -2285,7 +2322,18 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                     });
                 }
 
-                if (!currentSessionId && sessions.length > 0) {
+                // Check if a shared session is requested via URL (?session=... or ?share=...)
+                const urlParams = new URLSearchParams(window.location.search);
+                const sharedSessId = urlParams.get('session') || urlParams.get('share');
+                const sharedTurn = urlParams.get('turn');
+
+                if (sharedSessId) {
+                    await selectSession(sharedSessId);
+                    if (sharedTurn) {
+                        setTimeout(() => jumpToQuestion(parseInt(sharedTurn, 10)), 700);
+                    }
+                    showTopicToast("📖 تم فتح البحث المشترك بنجاح. يمكنك قراءة الأسئلة وفحص جميع المراجع والكتب.");
+                } else if (!currentSessionId && sessions.length > 0) {
                     await selectSession(sessions[0].id);
                 }
             } catch (err) {
@@ -2295,6 +2343,9 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
 
         async function selectSession(sessionId) {
             currentSessionId = sessionId;
+            if (window.history && window.history.replaceState) {
+                window.history.replaceState(null, '', window.location.pathname + '?session=' + encodeURIComponent(sessionId));
+            }
             document.querySelectorAll('.chat-history-item').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.chat-tab-chip').forEach(el => el.classList.remove('active'));
             const activeEl = document.getElementById('sess_' + sessionId);
@@ -2307,9 +2358,26 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
 
             try {
                 const res = await fetch('/api/sessions/' + sessionId);
-                if (!res.ok) return;
+                if (!res.ok) {
+                    showTopicToast("⚠️ تعذر العثور على جلسة البحث المطلوبة");
+                    return;
+                }
                 const data = await res.json();
+                const sessionInfo = data.session || { id: sessionId, title: 'بحث تمت مشاركته' };
                 const messages = data.messages || [];
+
+                // If not in tabs bar, add dynamic tab for this shared session!
+                if (!document.getElementById('tab_' + sessionId)) {
+                    const tabsList = document.getElementById('chatTabsList');
+                    if (tabsList) {
+                        const tab = document.createElement('div');
+                        tab.className = 'chat-tab-chip active';
+                        tab.id = 'tab_' + sessionId;
+                        tab.innerHTML = `<span class="tab-icon">🔗</span><span class="tab-text"><bdi dir="auto">${escapeHtml(sessionInfo.title || 'بحث تمت مشاركته')}</bdi></span>`;
+                        tab.onclick = () => selectSession(sessionId);
+                        tabsList.prepend(tab);
+                    }
+                }
 
                 chatMessages = [];
                 messagesContainer.innerHTML = '';
@@ -2695,6 +2763,23 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                 contentDiv.appendChild(citeSection);
             }
 
+            if (role === 'assistant') {
+                const turnActions = document.createElement('div');
+                turnActions.className = 'msg-actions-bar';
+                turnActions.innerHTML = `
+                    <button class="btn-msg-act" onclick="openShareModal(${turnNumber || 'null'})" title="مشاركة رابط هذا المبحث والمراجع للتحقق منها">
+                        <span>🔗</span> مشاركة هذا المحور
+                    </button>
+                    <button class="btn-msg-act" onclick="copyTurnMarkdown(this)" title="نسخ نص الإجابة كاملاً">
+                        <span>📋</span> نسخ النص
+                    </button>
+                    <button class="btn-msg-act" onclick="openCompilationModal()" title="تجميع هذا البحث مع سائر المحاور في أطروحة واحدة">
+                        <span>📑</span> تجميع الأطروحة
+                    </button>
+                `;
+                contentDiv.appendChild(turnActions);
+            }
+
             row.appendChild(avatar);
             row.appendChild(contentDiv);
             messagesContainer.appendChild(row);
@@ -2979,6 +3064,81 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             window.open('/api/sessions/' + currentSessionId + '/export?format=' + fmt, '_blank');
         }
 
+        function openShareModal(turnNumber = null) {
+            if (!currentSessionId) {
+                alert("يرجى اختيار أو بدء بحث أولاً لمشاركته.");
+                return;
+            }
+            const activeTab = document.getElementById('tab_' + currentSessionId);
+            const title = activeTab ? activeTab.querySelector('.tab-text').textContent.trim() : 'بحث لاهوتي موثق';
+            
+            let url = window.location.origin + '/?session=' + encodeURIComponent(currentSessionId);
+            if (turnNumber) {
+                url += '&turn=' + turnNumber;
+            }
+            
+            const titleEl = document.getElementById('shareModalSubject');
+            if (titleEl) titleEl.textContent = title;
+
+            const input = document.getElementById('shareUrlInput');
+            if (input) input.value = url;
+            
+            const modal = document.getElementById('shareModal');
+            if (modal) modal.classList.add('open');
+        }
+
+        function closeShareModal() {
+            const modal = document.getElementById('shareModal');
+            if (modal) modal.classList.remove('open');
+        }
+
+        function copyShareUrl() {
+            const input = document.getElementById('shareUrlInput');
+            if (!input || !input.value) return;
+            navigator.clipboard.writeText(input.value).then(() => {
+                showTopicToast("✅ تم نسخ رابط مشاركة البحث والمراجع إلى الحافظة!");
+            }).catch(() => {
+                input.select();
+                document.execCommand('copy');
+                showTopicToast("✅ تم نسخ الرابط!");
+            });
+        }
+
+        function shareViaWhatsApp() {
+            const input = document.getElementById('shareUrlInput');
+            const url = input ? input.value : window.location.href;
+            const titleEl = document.getElementById('shareModalSubject');
+            const title = titleEl ? titleEl.textContent : 'بحث لاهوتي موثق';
+            const text = encodeURIComponent("✠ بحث لاهوتي موثق من مكتبة القديس أنطونيوس:
+«" + title + "»
+
+📖 افتح البحث وتصفح المراجع الأصلية والصفحات الموثقة عبر الرابط:
+" + url);
+            window.open('https://api.whatsapp.com/send?text=' + text, '_blank');
+        }
+
+        function shareViaTelegram() {
+            const input = document.getElementById('shareUrlInput');
+            const url = input ? input.value : window.location.href;
+            const titleEl = document.getElementById('shareModalSubject');
+            const title = titleEl ? titleEl.textContent : 'بحث لاهوتي موثق';
+            const text = encodeURIComponent("✠ بحث لاهوتي موثق بالشواهد والصفحات: «" + title + "»");
+            window.open('https://t.me/share/url?url=' + encodeURIComponent(url) + '&text=' + text, '_blank');
+        }
+
+        function copyTurnMarkdown(btn) {
+            const contentDiv = btn.closest('.msg-content');
+            if (!contentDiv) return;
+            const bubble = contentDiv.querySelector('.bubble');
+            if (!bubble) return;
+            const textToCopy = bubble.innerText || bubble.textContent;
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                showTopicToast("✅ تم نسخ نص الإجابة إلى الحافظة!");
+            }).catch(() => {
+                showTopicToast("⚠️ تعذر النسخ المباشر.");
+            });
+        }
+
         
         // Scholar Profile & Admin Telemetry Console Functions
         function initScholarProfileUI() {
@@ -3173,6 +3333,52 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             chatInput.focus();
         };
     </script>
+
+    <!-- Research Share Modal (نافذة مشاركة البحث والتحقق من المراجع) -->
+    <div class="modal-overlay" id="shareModal">
+        <div class="modal-card" style="max-width: 620px;">
+            <div class="ref-modal-header">
+                <div class="ref-modal-title-wrap">
+                    <span class="ref-icon">🔗</span>
+                    <span class="ref-book-name" style="color:var(--accent);">مشاركة البحث اللاهوتي الموثق</span>
+                    <span class="ref-badge-page">Verified Patristic Link</span>
+                </div>
+                <button class="btn-modal-close-ref" onclick="closeShareModal()">✕ إغلاق</button>
+            </div>
+            <div class="modal-body" style="padding: 22px; background: var(--bg-chat);">
+                <div style="font-size: 14.5px; font-weight: 700; color: var(--accent); margin-bottom: 8px;" id="shareModalSubject">
+                    بحث لاهوتي موثق
+                </div>
+                <div style="font-size: 13.5px; color: var(--text-sub); line-height: 1.8; margin-bottom: 16px;">
+                    يمكنك إرسال هذا الرابط إلى أي شخص ليتمكن فوراً (دون الحاجة لتسجيل دخول أو برامج إضافية) من:
+                    <ul style="margin: 8px 0 0 16px; padding: 0; list-style-type: '✓ ';">
+                        <li>قراءة صلب الدراسة اللاهوتية وفهرس الأسئلة المتفرعة.</li>
+                        <li>الاطلاع على جميع الشواهد الآبائية والكنسية المعتمدة.</li>
+                        <li><strong>فتح وقراءة الصفحات الأصلية للكتب والمخطوطات</strong> مع التظليل الذهبي لموضع الاقتباس في القارئ السريع.</li>
+                        <li>تنزيل أطروحة البحث كاملة بصيغة <b>Microsoft Word</b> أو <b>PDF</b>.</li>
+                    </ul>
+                </div>
+
+                <label style="display:block; font-size: 12px; font-weight:700; color:var(--text-sub); margin-bottom: 6px;">رابط فتح ومراجعة هذا البحث:</label>
+                <div style="display: flex; gap: 8px; margin-bottom: 18px;">
+                    <input type="text" id="shareUrlInput" readonly style="flex:1; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--card-border); background: var(--input-bg); color: var(--text-main); font-family: monospace; font-size: 13px;" onclick="this.select()">
+                    <button class="btn-primary" onclick="copyShareUrl()" style="white-space: nowrap; padding: 0 18px; font-weight: 700; background: var(--accent); color: white; border: none; border-radius: 8px; cursor: pointer;">📋 نسخ الرابط</button>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
+                    <button onclick="shareViaWhatsApp()" class="btn-cite-act" style="background: #25D366; color: white !important; border: none; font-weight: 700; padding: 10px; justify-content: center; border-radius: 8px; cursor: pointer;">
+                        📱 واتساب
+                    </button>
+                    <button onclick="shareViaTelegram()" class="btn-cite-act" style="background: #0088cc; color: white !important; border: none; font-weight: 700; padding: 10px; justify-content: center; border-radius: 8px; cursor: pointer;">
+                        ✈️ تليجرام
+                    </button>
+                    <button onclick="downloadCurrentExport('docx')" class="btn-cite-act" style="background: var(--bg-bubble-user); color: var(--text-main); border: 1px solid var(--card-border); font-weight: 700; padding: 10px; justify-content: center; border-radius: 8px; cursor: pointer;">
+                        📄 تحميل Word
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- 1. Web Drag & Drop Book Uploader Modal -->
     <div class="modal-overlay" id="uploadBookModal">

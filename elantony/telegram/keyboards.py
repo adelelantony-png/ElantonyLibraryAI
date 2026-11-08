@@ -414,13 +414,14 @@ def get_encyclopedias_inline_keyboard(books: List[Dict[str, Any]]) -> Dict[str, 
 def get_reference_card_keyboard(sha256: str, page_number: int, idx: int) -> List[List[Dict[str, str]]]:
     """Interactive Action Buttons for each verified citation card."""
     sref = str(sha256)[:16]
+    web_page_url = f"https://respectively-ministries-planet-tribes.trycloudflare.com/api/books/{sha256}/pages/{page_number}/view"
     return [
         [
             {"text": f"📖 فتح الصفحة ({page_number})", "callback_data": f"page:{sref}:{page_number}"},
             {"text": "📚 فتح الكتاب", "callback_data": f"binfo:{sref}"}
         ],
         [
-            {"text": "🔍 شواهد مشابهة", "callback_data": f"rel:{sref}:{page_number}"},
+            {"text": "🌐 فحص وتصفح المرجع (ويب)", "url": web_page_url},
             {"text": "⭐ حفظ المرجع", "callback_data": f"bm:{sref}:{page_number}"}
         ]
     ]

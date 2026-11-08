@@ -1025,6 +1025,7 @@ class TelegramHandlerService:
                 "author": c.author,
                 "source_types": c.source_types,
                 "authenticity_tier": c.authenticity_tier,
+                "sha256": c.sha256,
                 "excerpt": c.chunk_text[:300]
             })
 
@@ -1051,13 +1052,16 @@ class TelegramHandlerService:
         # 2. Send Top 3 Verified Reference Cards with Interactive Action Buttons
         for idx, c in enumerate(chunks[:3], 1):
             card_text = format_reference_card(c, idx)
-            card_kb = get_reference_card_keyboard(c.sha256[:16], c.page_number, idx)
+            card_kb = get_reference_card_keyboard(c.sha256, c.page_number, idx)
             await self.send_message(client, chat_id, card_text, reply_markup={"inline_keyboard": card_kb})
 
         # 3. Send Discussion Action Bar: [تجميع البحث كاملاً] & [Word] & [بحث جديد]
         session_actions_kb = [
             [
                 {"text": "📑 تجميع البحث كاملاً (ملف Word + شات)", "callback_data": "session:compile"}
+            ],
+            [
+                {"text": "🔗 فتح ومشاركة البحث على المتصفح", "url": f"https://respectively-ministries-planet-tribes.trycloudflare.com/?session={session_id}"}
             ],
             [
                 {"text": "🔄 بدء بحث جديد", "callback_data": "session:new"},
@@ -1705,7 +1709,7 @@ class TelegramHandlerService:
 
             for idx, c in enumerate(chunks[:3], 1):
                 card_text = format_reference_card(c, idx)
-                card_kb = get_reference_card_keyboard(c.sha256[:16], c.page_number, idx)
+                card_kb = get_reference_card_keyboard(c.sha256, c.page_number, idx)
                 await self.send_message(client, chat_id, card_text, reply_markup={"inline_keyboard": card_kb})
 
             filter_markup = get_source_filter_keyboard(filter_code)
