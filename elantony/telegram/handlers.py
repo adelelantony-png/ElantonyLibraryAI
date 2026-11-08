@@ -7,6 +7,7 @@ All callback_data payloads strictly respect Telegram's 64-byte hard limit.
 """
 
 import os
+import asyncio
 import random
 import urllib.parse
 from pathlib import Path
@@ -663,7 +664,7 @@ class TelegramHandlerService:
             return
 
         # 3. Main Command Routing (/start, /menu, /help, etc.)
-        if text in [
+        if cmd in ["/start", "/menu", "/help"] or text in [
             "/start", "/menu", "/help",
             "🔙 القائمة الرئيسية", "القائمة الرئيسية",
             "🔙 العودة للقائمة الرئيسية", "العودة للقائمة الرئيسية",
@@ -676,7 +677,7 @@ class TelegramHandlerService:
             return
 
         # 3.1 Handle Multi-turn Research Compilation Command
-        if text in [
+        if cmd in ["/compile", "/export", "/word"] or text in [
             "/compile", "📑 تجميع البحث", "تجميع البحث", "تجميع الموضوع",
             "اجمع الموضوع", "اجمع لي الموضوع", "تجميع المناقشة", "لخص المناقشة",
             "تجميع", "تجميع الأسئلة"
@@ -685,7 +686,7 @@ class TelegramHandlerService:
             return
 
         # 3.2 Handle New Research Discussion Session Command
-        if text in [
+        if cmd in ["/new", "/session_new"] or text in [
             "/new", "🔄 بحث جديد", "بحث جديد", "محادثة جديدة", "جلسة جديدة"
         ] or text.startswith("/new"):
             new_id = repo.create_session(str(user_id))
@@ -709,7 +710,7 @@ class TelegramHandlerService:
             return
 
         # 3.3 Handle Past Research History Command
-        if text in ["/history", "📑 أبحاثي السابقة", "أبحاثي السابقة"]:
+        if cmd in ["/history", "/sessions"] or text in ["/history", "📑 أبحاثي السابقة", "أبحاثي السابقة"]:
             sessions = repo.list_user_sessions(str(user_id), limit=10)
             if not sessions:
                 await self.send_message(
@@ -731,8 +732,8 @@ class TelegramHandlerService:
             )
             return
 
-                # 3.4 Handle Depth & Reasoning Mode Selector
-        if text in ["/depth", "⚙️ عمق الإجابة", "عمق الإجابة", "نمط الإجابة"]:
+        # 3.4 Handle Depth & Reasoning Mode Selector
+        if cmd in ["/depth", "/mode"] or text in ["/depth", "⚙️ عمق الإجابة", "عمق الإجابة", "نمط الإجابة"]:
             curr_mode = _user_states.get(user_id, {}).get("depth_mode", "academic")
             from elantony.telegram.keyboards import get_depth_selection_inline_keyboard
             depth_msg = (
@@ -746,34 +747,62 @@ class TelegramHandlerService:
             return
 
         # 4. Handle Master Menu Section 1: 🤖 المساعد الذكي
-        if text in ["🤖 المساعد الذكي", "/ask"]:
-            _user_states[user_id] = {"mode": "ask_ai"}
-            msg = (
-                "🤖 *المساعد اللاهوتي والكنسي الذكي:*\n\n"
-                "تفضل بكتابة سؤالك اللاهوتي أو الروحي (مثال: `ما هو هدف التجسد؟` أو `كيف أنتصر على الأفكار؟`)، "
-                "وسأبحث لك في بطون أمهات الكتب وأجيبك مع توثيق اسم المرجع ورقم الصفحة بدقة."
-            )
-            await self.send_message(client, chat_id, msg, reply_markup=get_back_to_main_inline_keyboard())
-            return
+        if cmd in ["/ask", "/question"] or text in ["🤖 المساعد الذكي", "/ask"]:
+            query_arg = text[len(first_token):].strip() if cmd in ["/ask", "/question"] else ""
+            if query_arg:
+                text = query_arg  # Route directly into FTS5 RAG below
+            else:
+                _user_states[user_id] = {"mode": "ask_ai"}
+                msg = (
+                    "🤖 *المساعد اللاهوتي والكنسي الذكي:*\n\n"
+                    "تفضل بكتابة سؤالك اللاهوتي أو الروحي (مثال: `ما هو هدف التجسد؟` أو `كيف أنتصر على الأفكار؟`)، "
+                    "وسأبحث لك في بطون أمهات الكتب وأجيبك مع توثيق اسم المرجع ورقم الصفحة بدقة."
+                )
+                await self.send_message(client, chat_id, msg, reply_markup=get_back_to_main_inline_keyboard())
+                return
 
         # 4.1 Handle Master Menu: 📑 فهرس المكتبة الشامل
-        if text in ["📑 فهرس المكتبة الشامل", "فهرس المكتبة الشامل", "فهرس المكتبة", "الفهرس", "/catalog"]:
+        if cmd in ["/catalog", "/index", "/library"] or text in ["📑 فهرس المكتبة الشامل", "فهرس المكتبة الشامل", "فهرس المكتبة", "الفهرس", "/catalog"]:
             _user_states.pop(user_id, None)
             await self.send_catalog_hub(client, chat_id)
             return
 
         # 5. Handle Master Menu Section 2: 📚 البحث في المكتبة
-        if text in ["📚 البحث في المكتبة", "/search"]:
-            _user_states[user_id] = {"mode": "search_book"}
-            msg = (
-                "📚 *البحث في أسماء وعناوين الكتب:*\n\n"
-                "اضغط على أي كتاب أدناه لتنزيله أو تصفحه فوراً، أو اكتب اسم أي كتاب باليد:"
-            )
-            await self.send_message(client, chat_id, msg, reply_markup=get_quick_books_inline_keyboard())
-            return
+        if cmd in ["/search", "/find"] or text in ["📚 البحث في المكتبة", "/search"]:
+            query_arg = text[len(first_token):].strip() if cmd in ["/search", "/find"] else ""
+            if query_arg:
+                books = repo.search_books_by_title_or_author(query_arg, limit=6)
+                if not books:
+                    await self.send_message(
+                        client, chat_id,
+                        f"⚠️ لم يتم العثور على كتب تطابق: «{query_arg}».",
+                        reply_markup=get_quick_books_inline_keyboard()
+                    )
+                    return
+                keyboard = []
+                for b in books:
+                    clean_name = b["file_name"].replace(".pdf", "")
+                    if len(clean_name) > 34:
+                        clean_name = clean_name[:34] + "..."
+                    keyboard.append([{"text": f"📖 {clean_name}", "callback_data": f"binfo:{b['sha256'][:16]}"}])
+                keyboard.append([{"text": "🔙 القائمة الرئيسية", "callback_data": "nav:main"}])
+                await self.send_message(
+                    client, chat_id,
+                    f"📚 *الكتب المطابقة لـ «{query_arg}» (اضغط على اسم الكتاب لفتحه):*",
+                    reply_markup={"inline_keyboard": keyboard}
+                )
+                return
+            else:
+                _user_states[user_id] = {"mode": "search_book"}
+                msg = (
+                    "📚 *البحث في أسماء وعناوين الكتب:*\n\n"
+                    "اضغط على أي كتاب أدناه لتنزيله أو تصفحه فوراً، أو اكتب اسم أي كتاب باليد:"
+                )
+                await self.send_message(client, chat_id, msg, reply_markup=get_quick_books_inline_keyboard())
+                return
 
         # 6. Handle Master Menu Section 3: 📖 اسأل كتابًا
-        if text == "📖 اسأل كتابًا":
+        if cmd in ["/ask_book", "/book"] or text == "📖 اسأل كتابًا":
             _user_states[user_id] = {"mode": "ask_book_select"}
             msg = (
                 "📖 *خاصية «اسأل كتابًا» (Book-Scoped Q&A):*\n\n"
@@ -783,7 +812,7 @@ class TelegramHandlerService:
             return
 
         # 7. Handle Master Menu Section 4: ⛪ أقوال الآباء
-        if text in ["⛪ أقوال الآباء", "/fathers"]:
+        if cmd in ["/fathers", "/patrology"] or text in ["⛪ أقوال الآباء", "/fathers"]:
             msg = (
                 "⛪ *درر من أقوال الآباء القديسين:*\n\n"
                 "اختر الموضوع الروحي الذي تريد الاستنارة بأقوال الآباء فيه:"
@@ -792,19 +821,19 @@ class TelegramHandlerService:
             return
 
         # 8. Handle Master Menu Section 5: 🔍 البحث حسب المؤلف
-        if text in ["🔍 البحث حسب المؤلف", "/authors"]:
+        if cmd in ["/authors", "/writers"] or text in ["🔍 البحث حسب المؤلف", "/authors"]:
             msg = "🔍 *اختر أحد آباء ومعلمي الكنيسة لعرض كتبه ومؤلفاته المسجلة:*"
             await self.send_message(client, chat_id, msg, reply_markup=get_authors_inline_keyboard())
             return
 
         # 9. Handle Master Menu Section 6: 📂 تصفح التصنيفات
-        if text in ["📂 تصفح التصنيفات", "/categories"]:
+        if cmd in ["/categories", "/topics", "/sections"] or text in ["📂 تصفح التصنيفات", "/categories"]:
             msg = "📂 *أقسام وتصنيفات المكتبة الكنسية:*\nاختر القسم المطلوب لتصفح محتوياته:"
             await self.send_message(client, chat_id, msg, reply_markup=get_categories_inline_keyboard())
             return
 
         # 10. Handle Master Menu Section 7: 📑 أبحاثي المحفوظة
-        if text in ["📑 أبحاثي المحفوظة", "/bookmarks"]:
+        if cmd in ["/bookmarks", "/favs", "/saved"] or text in ["📑 أبحاثي المحفوظة", "/bookmarks"]:
             bookmarks = repo.get_user_bookmarks(user_id, limit=5)
             if not bookmarks:
                 await self.send_message(
@@ -830,7 +859,7 @@ class TelegramHandlerService:
             return
 
         # 11. Handle Master Menu Section 8: ⚙️ الإعدادات أو الإحصائيات
-        if text in ["⚙️ الإعدادات", "/stats"]:
+        if cmd in ["/stats", "/info", "/status"] or text in ["⚙️ الإعدادات", "/stats"]:
             stats = repo.get_library_stats()
             role_title = "👑 مدير النظام (Admin)" if is_user_admin(user_id) else "👤 باحث مصرح له"
             ai_name = get_ai_provider().provider_name.upper()
@@ -935,6 +964,7 @@ class TelegramHandlerService:
             return
 
         # Default Flow: Instant Semantic RAG Search across whole library with Source-Aware Ranking
+        active_filter = user_ctx.get("active_filter") if user_ctx else None
         chunks = search_engine.search_fts5(text, limit=6, filter_source_type=active_filter)
         dedicated_books = search_engine.find_dedicated_books(text, limit=3)
         repo.log_search(user_id, text, len(chunks))

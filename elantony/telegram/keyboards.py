@@ -448,7 +448,13 @@ def format_reference_card(chunk: Any, idx: int) -> str:
     """Formats the standardized professional Church Reference Card."""
     clean_title = chunk.file_name.replace(".pdf", "")
     author = getattr(chunk, "author", None) or "آباء ومعلمو الكنيسة"
-    source_type = getattr(chunk, "source_types", None) or "PRIMARY_PATRISTIC"
+    raw_source_type = getattr(chunk, "source_types", None)
+    if isinstance(raw_source_type, list):
+        source_type = raw_source_type[0] if raw_source_type else "THEOLOGICAL_STUDIES"
+    elif isinstance(raw_source_type, str):
+        source_type = raw_source_type
+    else:
+        source_type = "PRIMARY_PATRISTIC"
 
     type_map = {
         "PRIMARY_PATRISTIC": "📜 مصادر آبائية أصلية",
@@ -458,7 +464,7 @@ def format_reference_card(chunk: Any, idx: int) -> str:
         "HISTORICAL_SOURCES": "🏛️ مصادر تاريخية وتراثية",
         "NEEDS_REVIEW": "🔍 قيد المراجعة التوثيقية"
     }
-    friendly_type = type_map.get(source_type, source_type)
+    friendly_type = type_map.get(source_type, str(source_type))
 
     printed_p = getattr(chunk, "printed_page", None)
     if printed_p and printed_p > 0:
