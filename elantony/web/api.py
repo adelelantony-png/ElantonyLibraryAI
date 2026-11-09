@@ -3959,7 +3959,7 @@ async def api_ask(req: AskRequest):
     if not q:
         raise HTTPException(status_code=400, detail="Empty question")
 
-    chunks = search_engine.search_fts5(q, limit=req.limit or 4)
+    chunks = search_engine.search_fts5(q, limit=req.limit or 10)
     ai_provider = get_ai_provider()
     depth_mode = req.depth_mode or "academic"
     answer = ai_provider.generate_answer(q, chunks, depth_mode=depth_mode)
@@ -4504,7 +4504,7 @@ async def api_chat(req: ChatRequest):
                         is_new_topic = True
 
     # 1. Retrieve library context
-    chunks = search_engine.search_fts5(latest_msg, limit=6)
+    chunks = search_engine.search_fts5(latest_msg, limit=12)
     ai_provider = get_ai_provider()
     depth_mode = req.depth_mode or "academic"
 

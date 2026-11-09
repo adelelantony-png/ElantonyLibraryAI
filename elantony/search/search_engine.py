@@ -357,6 +357,50 @@ def parse_biblical_query(q: str) -> Optional[Dict[str, Any]]:
     return None
 
 
+def decompose_multifacet_query(query: str) -> List[str]:
+    """
+    Decomposes a compound/multi-faceted theological research question into targeted semantic facets
+    to guarantee comprehensive coverage across patristic centuries, liturgical usage, councils, etc.
+    """
+    q_norm = query.strip()
+    if len(q_norm) < 20:
+        return []
+
+    facets: List[str] = []
+    keywords = extract_search_keywords(q_norm)
+    anchors, _ = expand_theological_synonyms(keywords)
+    primary_anchor = anchors[0] if anchors else (" ".join(keywords[:2]) if keywords else "")
+
+    if not primary_anchor:
+        return []
+
+    # 1. Patristic / Century Dimension
+    if any(k in q_norm for k in ["اباء", "آباء", "القرون", "القرن الاول", "القرن الثاني", "القرن الثالث", "القرن الرابع"]):
+        facets.append(f"{primary_anchor} آباء أثناسيوس أوريجانوس إكليمنضس")
+
+    # 2. Liturgical / Prayer Dimension
+    if any(k in q_norm for k in ["صلوات", "صلواتها", "ليتورجيا", "طقس", "تسبيحة", "أجبية", "خولاجي", "عبادة"]):
+        facets.append(f"{primary_anchor} صلوات ليتورجيا الكنيسة اقتباسات")
+
+    # 3. Biblical / Scripture Dimension
+    if any(k in q_norm for k in ["الكتاب المقدس", "العهد الجديد", "العهد القديم", "اقتباس", "شواهد", "ايات"]):
+        facets.append(f"{primary_anchor} العهد الجديد اقتباسات شواهد")
+
+    # 4. Councils / Canon Dimension
+    if any(k in q_norm for k in ["مجمع", "مجامع", "قوانين", "نيقية", "قرطاجنة", "هيبو", "لاودكية", "قانونية"]):
+        facets.append(f"{primary_anchor} مجامع الكنيسة نيقية قرطاجنة")
+
+    # 5. Compound clauses with "و" or "مع" if no specific ecclesiastical facet caught above
+    if len(facets) < 2 and (" و " in q_norm or " مع " in q_norm):
+        sub_clauses = re.split(r"\s+(?:و|مع|كذلك|بالإضافة إلى)\s+", q_norm)
+        for sc in sub_clauses:
+            sc_clean = sc.strip()
+            if len(sc_clean) >= 8:
+                facets.append(f"{primary_anchor} {sc_clean}")
+
+    return list(dict.fromkeys(facets))[:4]
+
+
 class ChurchSearchEngine:
     """High-performance multi-tier search engine with theological thesaurus & dedicated volume priority."""
 
@@ -503,9 +547,50 @@ class ChurchSearchEngine:
     def search_fts5(
         self,
         query: str,
-        limit: int = 8,
+        limit: int = 12,
         filter_source_type: Optional[str] = None
     ) -> List[ChunkEntity]:
+        """
+        Executes Advanced Hybrid & Source-Aware Retrieval across indexed chunks.
+        Supports multi-facet query decomposition to guarantee complete coverage
+        of compound research questions across multiple centuries, councils, and liturgical usage.
+        """
+        # Multi-Facet Decomposition Check (prevent infinite recursion)
+        is_subquery = getattr(self, "_in_facet_search", False)
+        if not is_subquery:
+            facets = decompose_multifacet_query(query)
+            if len(facets) >= 2:
+                try:
+                    self._in_facet_search = True
+                    merged_chunks: List[ChunkEntity] = []
+                    seen_refs_facet: Set[str] = set()
+
+                    # 1. Search primary query
+                    primary_results = self.search_fts5(query, limit=max(4, limit // 2), filter_source_type=filter_source_type)
+                    for pc in primary_results:
+                        if pc.source_reference not in seen_refs_facet:
+                            seen_refs_facet.add(pc.source_reference)
+                            merged_chunks.append(pc)
+
+                    # 2. Search each targeted facet
+                    per_facet_limit = max(2, (limit - len(merged_chunks)) // len(facets) + 1)
+                    for f_q in facets:
+                        facet_results = self.search_fts5(f_q, limit=per_facet_limit, filter_source_type=filter_source_type)
+                        for fc in facet_results:
+                            if fc.source_reference not in seen_refs_facet:
+                                seen_refs_facet.add(fc.source_reference)
+                                merged_chunks.append(fc)
+                            if len(merged_chunks) >= limit:
+                                break
+                        if len(merged_chunks) >= limit:
+                            break
+
+                    if merged_chunks:
+                        # Sort by authenticity tier (Tier 1 & 2 first)
+                        merged_chunks.sort(key=lambda x: (x.authenticity_tier or 3, -(x.relevance_score or 0)))
+                        return merged_chunks[:limit]
+                finally:
+                    self._in_facet_search = False
         """
         Executes Advanced Hybrid & Source-Aware Retrieval across indexed chunks.
         Applies Patristic Authority Weighting (Tier 1-5), metadata filtering,

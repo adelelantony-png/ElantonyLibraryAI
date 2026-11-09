@@ -16,7 +16,10 @@ files_to_sync = [
     r"elantony\search\search_engine.py",
     r"elantony\database\repository.py",
     r"elantony\services\docx_exporter.py",
-    r"elantony\web\api.py"
+    r"elantony\telegram\handlers.py",
+    r"elantony\web\api.py",
+    r"services\permanent_assistant\tunnel_watchdog.py",
+    r"services\permanent_assistant\daemon.py"
 ]
 
 for rel_p in files_to_sync:

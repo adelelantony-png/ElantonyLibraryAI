@@ -965,7 +965,7 @@ class TelegramHandlerService:
 
         # Default Flow: Instant Semantic RAG Search across whole library with Source-Aware Ranking
         active_filter = user_ctx.get("active_filter") if user_ctx else None
-        chunks = search_engine.search_fts5(text, limit=6, filter_source_type=active_filter)
+        chunks = search_engine.search_fts5(text, limit=10, filter_source_type=active_filter)
         dedicated_books = search_engine.find_dedicated_books(text, limit=3)
         repo.log_search(user_id, text, len(chunks))
 

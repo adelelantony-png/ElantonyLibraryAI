@@ -32,6 +32,7 @@ from elantony.core.config import settings
 from elantony.core.logging import logger
 from elantony.telegram.bot_service import TelegramBotEngine
 from services.permanent_assistant.watcher import LibraryLiveWatcher, DEFAULT_WATCH_PATH
+from services.permanent_assistant.tunnel_watchdog import CloudflareTunnelWatchdog
 
 # Windows API to prevent sleep
 ES_CONTINUOUS = 0x80000000
@@ -64,6 +65,7 @@ class PermanentAssistantDaemon:
             watch_directory=DEFAULT_WATCH_PATH,
             on_book_ingested=self._on_book_ingested
         )
+        self.tunnel_watchdog = CloudflareTunnelWatchdog(check_interval_sec=45)
         self._running = True
 
     def _on_book_ingested(self, book_info: dict):
@@ -84,6 +86,7 @@ class PermanentAssistantDaemon:
         print(f" 🤖 معرف البوت الرسمي : @ElantonyLibrarybot")
         print(f" 👁️ مسار المراقبة الحي : {DEFAULT_WATCH_PATH}")
         print(f" ⚡ خط الفهرسة التلقائي: نشط وجاهز لاستقبال أي كتاب جديد")
+        print(" 🌐 مراقب النفق السحابي: حماية تلقائية ضد السقوط 24/7 (Auto-Healer)")
         print("=" * 68)
 
         # 1. Start live folder watcher in background thread
@@ -93,7 +96,11 @@ class PermanentAssistantDaemon:
         else:
             print(" ⚠️ تنبيه: مسار المكتبة غير متاح حالياً، سيستمر المساعد في إعادة المحاولة.")
 
-        # 2. Run Telegram Bot in async event loop with auto-reconnect
+        # 2. Start Cloudflare Tunnel Auto-Healer task
+        watchdog_task = asyncio.create_task(self.tunnel_watchdog.run())
+        print(" ✓ تم تشغيل مراقب النفق السحابي الذكي (يراقب استقرار الموقع ويعيد تشغيله آلياً)")
+
+        # 3. Run Telegram Bot in async event loop with auto-reconnect
         try:
             await self.bot_engine.run()
         except asyncio.CancelledError:
@@ -101,11 +108,13 @@ class PermanentAssistantDaemon:
         except Exception as e:
             logger.error(f"Telegram bot worker encountered error: {e}")
         finally:
+            watchdog_task.cancel()
             self.stop()
 
     def stop(self):
         self._running = False
         self.watcher.stop()
+        self.tunnel_watchdog.stop()
         self.bot_engine.stop()
         restore_windows_sleep()
         logger.info("Permanent Assistant Daemon shutdown complete.")
