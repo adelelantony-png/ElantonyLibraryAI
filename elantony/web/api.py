@@ -2766,14 +2766,17 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                 const turnActions = document.createElement('div');
                 turnActions.className = 'msg-actions-bar';
                 turnActions.innerHTML = `
-                    <button class="btn-msg-act" onclick="openShareModal(${turnNumber || 'null'})" title="مشاركة رابط هذا المبحث والمراجع للتحقق منها">
-                        <span>🔗</span> مشاركة هذا المحور
-                    </button>
-                    <button class="btn-msg-act" onclick="copyTurnMarkdown(this)" title="نسخ نص الإجابة كاملاً">
+                    <button class="btn-msg-act" onclick="copyTurnMarkdown(this)" title="نسخ نص هذا المبحث كاملاً">
                         <span>📋</span> نسخ النص
                     </button>
-                    <button class="btn-msg-act" onclick="openCompilationModal()" title="تجميع هذا البحث مع سائر المحاور في أطروحة واحدة">
+                    <button class="btn-msg-act" onclick="exportSingleTurnDocx(${turnNumber || 1})" title="تصدير هذا المبحث تحديداً كملف Word مستقل">
+                        <span>📄</span> تصدير Word للمبحث
+                    </button>
+                    <button class="btn-msg-act" onclick="openCompilationModal()" title="تجميع هذا البحث مع سائر المحاور في أطروحة كاملة وتصديرها">
                         <span>📑</span> تجميع الأطروحة
+                    </button>
+                    <button class="btn-msg-act" onclick="openShareModal(${turnNumber || 'null'})" title="مشاركة رابط هذا المبحث والمراجع للتحقق منها">
+                        <span>🔗</span> مشاركة
                     </button>
                 `;
                 contentDiv.appendChild(turnActions);
@@ -3123,6 +3126,14 @@ ${url}`;
             const title = titleEl ? titleEl.textContent : 'بحث لاهوتي موثق';
             const text = encodeURIComponent("✠ بحث لاهوتي موثق بالشواهد والصفحات: «" + title + "»");
             window.open('https://t.me/share/url?url=' + encodeURIComponent(url) + '&text=' + text, '_blank');
+        }
+
+                function exportSingleTurnDocx(turnIdx) {
+            if (!currentSessionId) {
+                alert("يرجى اختيار جلسة بحث أولاً.");
+                return;
+            }
+            window.open('/api/sessions/' + currentSessionId + '/turns/' + (turnIdx || 1) + '/export?format=docx', '_blank');
         }
 
         function copyTurnMarkdown(btn) {
@@ -4062,6 +4073,68 @@ async def export_discussion_session(session_id: str, format: str = "markdown"):
         content=content.encode("utf-8"),
         media_type=media_type,
         headers={"Content-Disposition": f"attachment; filename*=UTF-8''{filename}"}
+    )
+
+
+
+@app.get("/api/sessions/{session_id}/turns/{turn_idx}/export")
+async def export_single_turn(session_id: str, turn_idx: int, format: str = "docx"):
+    """
+    Exports a single discussion turn/axis as an independent, beautifully formatted research paper (.docx).
+    """
+    res = repo.compile_session(session_id)
+    if "error" in res:
+        raise HTTPException(status_code=404, detail=res["error"])
+
+    turns = res.get("turns", [])
+    if not turns or turn_idx < 1 or turn_idx > len(turns):
+        raise HTTPException(status_code=404, detail="المبحث المطلوب غير موجود")
+
+    target_turn = turns[turn_idx - 1]
+    turn_citations = target_turn.get("citations", [])
+
+    # Filter bibliography specifically for this turn
+    turn_biblio = []
+    seen_books = set()
+    for c in turn_citations:
+        b_title = (c.get("book_title") or "مرجع كنسي").replace(".pdf", "")
+        if b_title not in seen_books:
+            seen_books.add(b_title)
+            p_val = c.get("printed_page") or c.get("page_number")
+            turn_biblio.append({
+                "title": b_title,
+                "author": c.get("author", "آباء الكنيسة"),
+                "pages_cited": f"صـ {p_val}" if p_val else "كامل المرجع",
+                "tier": c.get("authenticity_tier", 3)
+            })
+
+    single_comp = {
+        "title": target_turn.get("question", f"المبحث {turn_idx}"),
+        "turns": [target_turn],
+        "bibliography": turn_biblio,
+        "turns_count": 1
+    }
+
+    if format == "docx":
+        from elantony.services.docx_exporter import generate_session_docx
+        doc_dir = settings.base_dir / "data" / "compiled_researches"
+        doc_dir.mkdir(parents=True, exist_ok=True)
+        docx_path = doc_dir / f"turn_{session_id}_{turn_idx}.docx"
+        generate_session_docx(single_comp, str(docx_path))
+        with open(docx_path, "rb") as f:
+            docx_bytes = f.read()
+        return Response(
+            content=docx_bytes,
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            headers={"Content-Disposition": f"attachment; filename*=UTF-8''turn_{turn_idx}_{session_id[:6]}.docx"}
+        )
+
+    # Fallback to plain markdown
+    md_content = f"# {target_turn.get('question', '')}\n\n{target_turn.get('answer', '')}"
+    return Response(
+        content=md_content.encode("utf-8"),
+        media_type="text/markdown; charset=utf-8",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''turn_{turn_idx}.md"}
     )
 
 
