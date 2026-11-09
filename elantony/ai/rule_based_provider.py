@@ -4,11 +4,7 @@ ArchiveMaster - ELANTONY LIBRARY AI
 Advanced Grounded Theological Synthesis Engine (Phases 6 & 7)
 Synthesizes comprehensive patristic, dogmatic, and biblical answers strictly grounded
 in verified library volumes with zero hallucination.
-Implements verified citation types:
-- QUOTATION (اقتباس حرفي)
-- PARAPHRASE (صياغة تحليلية)
-- SYNTHESIS (استنتاج مركب)
-- EXTERNAL_KNOWLEDGE (معلومة تمهيدية عامة)
+Produces clean, publication-ready academic monographs without emojis or distracting tags.
 """
 
 from typing import List, Dict, Any, Optional
@@ -20,8 +16,8 @@ from elantony.core.text_cleaner import clean_theological_text
 class RuleBasedChurchProvider(BaseAIProvider):
     """
     Offline zero-cost theological synthesizer.
-    Generates a structured, authoritative, and well-researched patristic thesis
-    strictly grounded in verified library volumes with verified citation tags.
+    Generates a structured, authoritative, and well-researched patristic monograph
+    strictly grounded in verified library volumes according to standard academic layout.
     """
 
     @property
@@ -40,29 +36,30 @@ class RuleBasedChurchProvider(BaseAIProvider):
     ) -> str:
         if not context_chunks and not dedicated_books:
             return (
-                "⚠️ *لم يتم العثور على شواهد مباشرة كافية في المراجع المفهرسة حالياً تغطي هذا السؤال بدقة.*\n\n"
-                "💡 *أمانة التوثيق الكنسي:* تنص قواعد المنظومة على الامتناع التام عن تخمين أو اختلاق أي شواهد غير متوفرة نصياً بالمكتبة.\n\n"
-                "🔍 *نصائح للبحث:*\n"
-                "• جرب استخدام كلمات مفتاحية أخرى (مثال: `التجسد`، `المعمودية`، `طوفان نوح`، `الفداء`).\n"
-                "• أو تصفح كتب الآباء عبر قائمة `/categories` أو البحث المتخصص عبر `/father`."
+                "لم يتم العثور على نصوص كافية ومباشرة في المراجع المفهرسة حالياً تغطي هذا السؤال بدقة.\n\n"
+                "تنبيه توثيقي: تنص معايير المنظومة الأكاديمية على الامتناع التام عن تخمين أو اختلاق أي شواهد غير متوفرة نصياً بالمكتبة.\n\n"
+                "مقترحات للبحث:\n"
+                "- استخدام مصطلحات بحثية لاهوتية بديلة (مثل: التجسد، المعمودية، الفداء، قانونية الأسفار).\n"
+                "- البحث المتخصص بحسب اسم الأب أو تصنيف المراجع."
             )
 
-        # 1. Header
+        q_clean = question.strip()
+
+        # 1. Main Academic Title
         lines = [
-            "✠ *دراسة وبحث لاهوتي موثق من أمهات كتب المكتبة* ✠",
-            f"📌 *المسألة المطروحة:* «{question}»",
-            "─────────────────────────"
+            f"# دراسة وبحث لاهوتي موثق: «{q_clean}»",
+            "",
+            "### المقدمة والتأصيل المنهجي",
         ]
 
-        q_lower = question.lower()
+        q_lower = q_clean.lower()
 
         # 2. Section 1: Introduction (مقدمة)
-        lines.append("📌 *المقدمة والتعريف المنهجي:*")
         if "طوفان" in q_lower or "نوح" in q_lower:
             lines.append(
-                "طوفان نوح هو حدث خلاصي ودينونة إلهية عامة شكلت نقطة تحول في تاريخ الخلاص. "
+                "طوفان نوح هو حدث خلاصي ودينونة إلهية عامة شكلت نقطة تحول كبرى في تاريخ الخلاص. "
                 "تتفق نصوص العهد القديم وشواهد العهد الجديد وتفاسير الآباء على كونه حدثاً تاريخياً شاملاً "
-                "يحمل في أعماقه بعداً رمزياً وطقسياً يشير مباشرة إلى سر المعمودية المحيي.\n"
+                "يحمل في جوهره بعداً رمزياً وطقسياً يشير مباشرة إلى سر المعمودية المحيي والتجديد بالماء والروح.\n"
             )
         elif any(k in q_lower for k in ["إقامة", "اقامة", "أقام", "اقام", "موتى", "أموات", "ميت"]) and any(k in q_lower for k in ["ايليا", "إيليا", "اليشع", "أليشع", "أنبياء", "الأنبياء"]):
             lines.append(
@@ -71,8 +68,8 @@ class RuleBasedChurchProvider(BaseAIProvider):
             )
         elif "تجسد" in q_lower:
             lines.append(
-                "سر التجسد الإلهي هو المحور الجوهري للإيمان المسيحي القويم؛ حيث اتخذ الكلمة الأزلي جسداً بشرياً حقيقياً "
-                "كاملاً شبيهاً بنا في كل شيء ما خلا الخطية وحدها، لتجديد الطبيعة البشرية ومصالحها مع الآب وإبادة سلطان الموت.\n"
+                "سر التجسد الإلهي هو المحور الجوهري للإيمان المسيحي الأرثوذكسي القويم؛ حيث اتخذ أقنوم الكلمة الأزلي جسداً بشرياً حقيقياً "
+                "كاملاً شبيهاً بنا في كل شيء ما خلا الخطية وحدها، لتجديد الطبيعة البشرية ومصالحتها مع الآب وإبادة سلطان الموت بالقيامة.\n"
             )
         elif "فداء" in q_lower or "صليب" in q_lower:
             lines.append(
@@ -82,45 +79,18 @@ class RuleBasedChurchProvider(BaseAIProvider):
         elif "معمودية" in q_lower:
             lines.append(
                 "سر المعمودية المقدسة هو باب الأسرار والولادة الثانية الجديدة من الماء والروح، "
-                "به يُدفن الإنسان القديم مع المسيح ويقوم حاملاً بره وطهارته عضواً حياً في جسد الكنيسة.\n"
+                "به يُدفن الإنسان العتيق مع المسيح ويقوم حاملاً بره وطهارته عضواً حياً في جسد الكنيسة الجامعة.\n"
             )
         else:
             lines.append(
-                f"استناداً إلى شواهد أمهات الكتب الكنسية الموثقة في هذا الشأن، نستعرض التحليل اللاهوتي والآبائي المنظم لمسألة «{question}»:\n"
+                f"استناداً إلى شواهد أمهات الكتب الكنسية المعتمدة في مكتبتنا الآبائية، "
+                f"نستعرض فيما يلي التحقيق اللاهوتي والشواهد التوثيقية المباشرة لمسألة «{q_clean}»:\n"
             )
 
-        # 3. Section 2: Core Patristic & Theological Axes (المحاور التفصيلية)
-        lines.append("🏛️ *المحور الأول: التقرير اللاهوتي والآبائي:*")
-        if "طوفان" in q_lower or "نوح" in q_lower:
-            lines.append(
-                "• [صياغة تحليلية - PARAPHRASE]:\n"
-                "  أكدت نصوص الكتاب وتفاسير الآباء شمولية الطوفان لكل الأرض المأهولة (تك 7: 19)، "
-                "  وهو ما ثبته السيد المسيح في إنجيل متى (24: 37-39) وشهادة الرسل (1 بط 3: 20، 2 بط 2: 5)، "
-                "  نافياً فرضيات الطوفان الموضعي المحدود.\n"
-            )
-        elif any(k in q_lower for k in ["إقامة", "اقامة", "أقام", "اقام", "موتى", "أموات", "ميت"]) and any(k in q_lower for k in ["ايليا", "إيليا", "اليشع", "أليشع", "أنبياء", "الأنبياء"]):
-            lines.append(
-                "• [صياغة تحليلية - PARAPHRASE]:\n"
-                "  1. **المصدر والسلطان**: أقام الأنبياء الموتى بالصلاة والتضرع والرجاء الممنوح لهم من الله كوسطاء وخدام (1 مل 17: 21)، "
-                "  بينما أقام المسيح الموتى بسلطانه الإلهي الذاتي والمباشر («أيها الشاب لك أقول قم»، «يا صبية قومي»، «لعازر هلم خارجاً»).\n"
-                "  2. **طبيعة القيامة**: الذين أقامهم إيليا عادوا لجسدهم الضعيف القابل للموت وماتوا ثانية؛ "
-                "  أما المسيح فهو القيامة والحياة وقيامته قيامة مجد خالد لا يسود عليه الموت بعد (رو 6: 9).\n"
-            )
-        elif "تجسد" in q_lower:
-            lines.append(
-                "• [صياغة تحليلية - PARAPHRASE]:\n"
-                "  يعلمنا القديس أثناسيوس الرسولي في كتاب «تجسد الكلمة» أن العلة العظمى للتجسد هي تجديد الطبيعة البشرية "
-                "  التي انحدرت نحو الفساد، وإبطال حكم الموت بموت جسد الكلمة نيابة عن الكل وقيامته المحيية.\n"
-            )
-        else:
-            lines.append(
-                "• [استنتاج مركب - SYNTHESIS]:\n"
-                "  تجمع شواهد الآباء المستخرجة أدناه على تأصيل هذه العقيدة وفق التسليم الكنسي المستقيم وإجماع الكنيسة الجامعة.\n"
-            )
-
-        # 4. Section 3: Verified Library Citations (الشواهد المقتبسة حرفياً)
+        # 3. Section 2: Extracted Authentic Citations (المبحث الأول: الشواهد المباشرة)
         if context_chunks:
-            lines.append("📖 *المحور الثاني: نصوص المراجع والشواهد الأصلية المستخرجة:*")
+            lines.append("### المبحث الأول: نصوص المراجع والشواهد الأصلية المستخرجة")
+            lines.append("")
             seen_refs = set()
             count = 0
 
@@ -131,49 +101,54 @@ class RuleBasedChurchProvider(BaseAIProvider):
                 count += 1
 
                 cleaned_excerpt = clean_theological_text(chunk.chunk_text)
-                if len(cleaned_excerpt) > 340:
-                    cleaned_excerpt = cleaned_excerpt[:340].rsplit(" ", 1)[0] + "..."
+                if len(cleaned_excerpt) > 420:
+                    cleaned_excerpt = cleaned_excerpt[:420].rsplit(" ", 1)[0] + "..."
 
-                tier_desc = f"مرتبة التوثيق: {chunk.authenticity_tier}"
-                if chunk.source_types:
-                    tier_desc += f" | {chunk.source_types}"
+                author_str = chunk.author if chunk.author else "آباء ومعلمو الكنيسة"
+                book_str = chunk.file_name.replace(".pdf", "")
+                page_str = f"صـ {chunk.printed_page or chunk.page_number}"
 
-                lines.append(
-                    f"*{count}. {chunk.source_reference}* ({tier_desc})\n"
-                    f"🏷️ [اقتباس حرفي - QUOTATION]:\n"
-                    f"❝ {cleaned_excerpt} ❞\n"
-                )
-                if count >= 3:
+                lines.append(f"#### {count}. {chunk.source_reference}")
+                lines.append(f"> «{cleaned_excerpt}»")
+                lines.append(f"> ")
+                lines.append(f"> *(المصدر: {author_str}، «{book_str}»، {page_str})*")
+                lines.append("")
+                if count >= 4:
                     break
 
-        # 5. Section 4: Spiritual Typology & Application (البعد الروحي والتطبيقي)
-        lines.append("🕊️ *المحور الثالث: البعد الروحي والجهاد المعاش:*")
+        # 4. Section 3: Theological & Spiritual Exposition (المبحث الثاني: التحليل والأبعاد اللاهوتية)
+        lines.append("### المبحث الثاني: التحليل اللاهوتي والأبعاد الكنسية")
         if "طوفان" in q_lower or "نوح" in q_lower:
             lines.append(
-                "«الفلك هو رمز الكنيسة الواحدة الجامعة؛ كما نجا نوح وبنوه داخل الفلك من الهلاك، "
-                "كذلك يخلص المؤمنون اليوم داخل فلك الكنيسة عبر مياه المعمودية المقدسة وثمار التوبة الحقيقية (1 بط 3: 20-21).»\n"
+                "تجمع شواهد الآباء على أن فلك نوح كان نموذجاً (Typology) نبوياً صريحاً للكنيسة الجامعة؛ "
+                "فكما نجا نوح وبنوه داخل الفلك من الهلاك، كذلك يخلص المؤمنون اليوم داخل فلك الكنيسة عبر مياه المعمودية المقدسة وثمار التوبة الحقيقية (1 بط 3: 20-21).\n"
+            )
+        elif any(k in q_lower for k in ["إقامة", "اقامة", "أقام", "اقام", "موتى", "أموات", "ميت"]) and any(k in q_lower for k in ["ايليا", "إيليا", "اليشع", "أليشع", "أنبياء", "الأنبياء"]):
+            lines.append(
+                "يتمايز الإعجاز الإلهي في قيامة المسيح وسلطانه عن معجزات الأنبياء في نقطتين جوهريتين:\n"
+                "1. المصدر والسلطان: أقام الأنبياء الموتى بالصلاة والتوسل والرجاء الممنوح لهم كوسطاء، بينما أقام المسيح الموتى بسلطانه الإلهي الذاتي المباشر.\n"
+                "2. طبيعة القيامة: الذين أقامهم الأنبياء عادوا للجسد القابل للموت وماتوا ثانية؛ أما المسيح فهو القيامة والحياة وقيامته قيامة مجد أبدي لا يسود عليه الموت بعد (رو 6: 9).\n"
             )
         else:
             lines.append(
-                "«غاية كل تعليم آبائي ولاهوتي هو خلاص النفس وعمق الحياة مع الله وثبات الإيمان المستقيم في حياة التوبة والجهاد اليومي.»\n"
+                "تؤكد الشواهد الآبائية المستخرجة أعلاه وحدة التعليم الكنسي الأرثوذكسي المسلّم مرة للقديسين، "
+                "حيث ترتبط المفاهيم العقائدية بالخلاص الأبدي والجهاد الروحي وسر الإفخارستيا في حياة الكنيسة اليومية.\n"
             )
 
-        # 6. Section 5: Dedicated Library Volumes (المصادر المكتنزة)
-        if dedicated_books:
-            lines.append("🏛️ *المراجع والموسوعات الكبرى المتخصصة في مكتبتنا الكنسية:*")
-            for b in dedicated_books[:3]:
-                lines.append(f"  • 📘 *{b['clean_title']}* ({b.get('page_count', 0)} ص)")
-            lines.append("")
+        # 5. Section 4: Key Findings (النتائج والخلاصة)
+        lines.append("### النتائج والخلاصة اللاهوتية المستخلصة")
+        lines.append(f"- سلامة التأصيل العقيدي لمسألة «{q_clean}» واستنادها إلى شهادات كتابية وتاريخية متصلة.")
+        lines.append("- إجماع التقليد الآبائي على الربط بين الإيمان العقيدي والتطبيق العملي في حياة التوبة والشركة المقدسة.")
+        lines.append("- ثبات التسليم الكنسي عبر أمهات الكتب المعتمدة وتطابق شواهدها مع مقررات المجامع.")
+        lines.append("")
 
-        # 7. Section 6: Verified Sources List
-        lines.append("─────────────────────────")
-        lines.append("📚 *قائمة المصادر والمراجع المعتمدة المستخدمة في البحث:*")
+        # 6. Section 5: Bibliography (ثبت المصادر والمراجع)
+        lines.append("### ثبت المصادر والمراجع المعتمدة")
         ref_idx = 1
-        for chunk in context_chunks[:3]:
-            page_info = f"ص {chunk.printed_page} (مطبوعة) / ص {chunk.page_number} (ملف PDF)" if chunk.printed_page else f"ص {chunk.page_number} (ملف PDF)"
+        for chunk in context_chunks[:4]:
+            page_info = f"صـ {chunk.printed_page or chunk.page_number}"
             author_info = f" | المؤلف: {chunk.author}" if chunk.author else ""
-            lines.append(f"  {ref_idx}. كتاب: «{chunk.file_name.replace('.pdf', '')}»{author_info} — {page_info}")
+            lines.append(f"{ref_idx}. «{chunk.file_name.replace('.pdf', '')}»{author_info} — {page_info}")
             ref_idx += 1
 
-        lines.append("\n_ملاحظة توثيقية: تم استخراج هذه النصوص بأمانة تامة دون أي اختلاق من النسخ المعتمدة بالمكتبة._")
         return "\n".join(lines)

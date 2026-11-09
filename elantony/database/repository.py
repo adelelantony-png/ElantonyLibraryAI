@@ -7,6 +7,7 @@ Handles book cataloging, FTS5 semantic indexing, user bookmarks, and statistics.
 import sqlite3
 import json
 import uuid
+import re
 from datetime import datetime
 from typing import List, Dict, Any, Optional, Tuple
 
@@ -819,15 +820,15 @@ class DatabaseRepository:
 
     def compile_session(self, session_id: str) -> Dict[str, Any]:
         """
-        Compiles all turns of a discussion into a unified Master Research Monograph:
-        - Structured Table of Questions
-        - For each question: Full grounded answer and specific citations
-        - Consolidated Theological Synthesis
-        - Unified Patristic Bibliography (deduplicated)
+        Compiles all turns of a discussion into a unified Master Academic Research Monograph:
+        - Clean publication-ready layout without emojis or redundant clutter
+        - Structured Table of Contents / Research Sections
+        - Full grounded patristic analysis for each chapter/axis
+        - Consolidated Unified Patristic Bibliography (deduplicated)
         """
         session = self.get_session(session_id)
         if not session:
-            return {"error": "الجلسة غير موجودة"}
+            return {"error": "جلسة البحث غير موجودة"}
 
         messages = self.get_session_messages(session_id, limit=200)
         if not messages:
@@ -835,8 +836,10 @@ class DatabaseRepository:
                 "session_id": session_id,
                 "title": session.get("title", "بحث لاهوتي"),
                 "turns_count": 0,
-                "markdown": "لا توجد أسئلة أو إجابات مسجلة في هذا البحث حتى الآن.",
-                "plain_text": "لا توجد أسئلة أو إجابات مسجلة في هذا البحث حتى الآن."
+                "turns": [],
+                "bibliography": [],
+                "markdown": "لا توجد حوارات أو أبحاث مسجلة في هذه الجلسة بعد.",
+                "plain_text": "لا توجد حوارات أو أبحاث مسجلة في هذه الجلسة بعد."
             }
 
         # Pair questions and answers
@@ -848,17 +851,20 @@ class DatabaseRepository:
             elif m["role"] == "assistant" and current_user_msg:
                 turns.append({
                     "question": current_user_msg["content"],
+                    "user_query": current_user_msg["content"],
                     "answer": m["content"],
+                    "ai_response": m["content"],
                     "citations": m.get("citations", []),
                     "created_at": current_user_msg.get("created_at")
                 })
                 current_user_msg = None
 
         if current_user_msg:
-            # Trailing unanswered question
             turns.append({
                 "question": current_user_msg["content"],
-                "answer": "قيد المتابعة والدراسة...",
+                "user_query": current_user_msg["content"],
+                "answer": "قيد المتابعة والدراسة الأكاديمية...",
+                "ai_response": "قيد المتابعة والدراسة الأكاديمية...",
                 "citations": [],
                 "created_at": current_user_msg.get("created_at")
             })
@@ -867,9 +873,10 @@ class DatabaseRepository:
         biblio_dict = {}
         for t in turns:
             for c in t["citations"]:
-                title = c.get("book_title", "مرجع كنسي")
+                raw_title = c.get("book_title", "مرجع كنسي")
+                title = re.sub(r"^[0-9\-_\s]+", "", raw_title).replace(".pdf", "").strip()
                 p = c.get("printed_page") or c.get("page_number")
-                author = c.get("author", "غير محدد")
+                author = c.get("author", "آباء الكنيسة")
                 tier = c.get("authenticity_tier", 3)
                 key = (title, author)
                 if key not in biblio_dict:
@@ -877,67 +884,76 @@ class DatabaseRepository:
                 if p:
                     biblio_dict[key]["pages"].add(str(p))
 
+        # Helper to strip emojis for clean academic output
+        def _clean_academic(txt: str) -> str:
+            # Strip emojis and technical brackets
+            t = re.sub(r"[\U00010000-\U0010ffff]", "", txt)
+            t = re.sub(r"\[(QUOTATION|PARAPHRASE|SYNTHESIS|اقتباس حرفي|صياغة تحليلية|استنتاج مركب)[^\]]*\]", "", t)
+            return t.strip()
+
         # Format Markdown Document
         title = session.get("title", "أطروحة بحثية لاهوتية")
-        if title == "بحث لاهوتي جديد" and turns:
-            title = turns[0]["question"][:60]
+        if (title in ["بحث لاهوتي جديد", "جلسة بحث جديدة"] or not title) and turns:
+            title = turns[0]["question"][:60].strip()
+
+        title = _clean_academic(title)
 
         md_lines = [
-            f"# ✠ أطروحة بحثية لاهوتية مجمعة ✠",
-            f"### الموضوع الأساسي: «{title}»",
-            f"*منظومة ELANTONY LIBRARY AI - مكتبة كنيسة المشرق والتقليد القبطي الأرثوذكسي*",
-            f"**تاريخ الجمع والتوثيق:** `{datetime.now().strftime('%Y-%m-%d %H:%M')}` | **عدد المحاور والأسئلة:** `{len(turns)}`",
+            "# أطروحة بحثية لاهوتية مجمعة",
+            f"## الموضوع: «{title}»",
+            "*منظومة ELANTONY LIBRARY AI - كنيسة الإسكندرية القبطية الأرثوذكسية*",
+            f"**تاريخ التوثيق:** `{datetime.now().strftime('%Y-%m-%d')}` | **عدد المباحث:** `{len(turns)}`",
             "",
             "---",
             "",
-            "## 📋 فهرس المحاور والأسئلة المتفرعة في البحث:",
+            "### فهرس مباحث ومحتويات البحث:",
         ]
 
         for i, t in enumerate(turns, 1):
-            md_lines.append(f"{i}. [المحور {i}: {t['question']}](#محور-{i})")
+            q_clean = _clean_academic(t['question'])
+            md_lines.append(f"{i}. [المبحث {i}: {q_clean}](#مبحث-{i})")
 
         md_lines.extend(["", "---", ""])
 
-        # Detailed Q&A Sections
+        # Detailed Q&A Chapters
         for i, t in enumerate(turns, 1):
-            md_lines.append(f"## <a id='محور-{i}'></a>🔹 المحور {i}: «{t['question']}»")
-            md_lines.append("")
-            md_lines.append("### 📖 التحليل والإجابة الموثقة:")
-            md_lines.append(t['answer'])
-            md_lines.append("")
+            q_clean = _clean_academic(t['question'])
+            ans_clean = _clean_academic(t['answer'])
 
-            if t['citations']:
-                md_lines.append("#### 🏛️ الشواهد والمراجع المعتمدة لهذا المحور:")
-                for c_idx, c in enumerate(t['citations'], 1):
-                    p_info = f"صـ {c.get('printed_page') or c.get('page_number')}"
-                    auth = c.get('author') or 'الآباء'
-                    md_lines.append(f"- **[{c_idx}] {c.get('book_title')}** ({auth}) - {p_info} | `Tier {c.get('authenticity_tier', 3)}`")
-                    if c.get("excerpt"):
-                        md_lines.append(f"  > ❝ {c['excerpt'][:220]}... ❞")
-                md_lines.append("")
-
+            md_lines.append(f"## <a id='مبحث-{i}'></a>المبحث {i}: «{q_clean}»")
+            md_lines.append("")
+            md_lines.append(ans_clean)
+            md_lines.append("")
             md_lines.append("---")
             md_lines.append("")
 
-        # Unified Bibliography
-        md_lines.append("## 📚 المكتبة البيبليوغرافية الموحدة للبحث (Consolidated Patristic Bibliography):")
+        # Unified Bibliography Section
+        md_lines.append("## ثبت المصادر والمراجع البيبليوغرافية الموحدة للبحث:")
+        bib_list_for_export = []
         if biblio_dict:
             for b_idx, (k, b_info) in enumerate(biblio_dict.items(), 1):
-                pages_str = ", ".join(sorted(b_info["pages"], key=lambda x: int(x) if x.isdigit() else 0))
-                pages_label = f"الصفحات المستشهد بها: [{pages_str}]" if pages_str else "كامل المرجع"
-                md_lines.append(f"{b_idx}. **{b_info['title']}** — الكاتب/الأب: `{b_info['author']}` | المرتبة: `Tier {b_info['tier']}` | {pages_label}")
+                sorted_pages = sorted(list(b_info["pages"]), key=lambda x: int(x) if x.isdigit() else 0)
+                pages_str = ", ".join(sorted_pages)
+                pages_label = f"صـ {pages_str}" if pages_str else "كامل المرجع"
+                md_lines.append(f"{b_idx}. **{b_info['title']}** — الكاتب/الأب: `{b_info['author']}` | {pages_label} | المرتبة: `Tier {b_info['tier']}`")
+                bib_list_for_export.append({
+                    "title": b_info["title"],
+                    "author": b_info["author"],
+                    "pages_cited": pages_label,
+                    "tier": b_info["tier"]
+                })
         else:
-            md_lines.append("تم الاعتماد على الأصول الآبائية الموثقة في سياق المحاور أعلاه.")
+            md_lines.append("تم الاعتماد على الأصول والوثائق الآبائية الموثقة في سياق المباحث أعلاه.")
 
         md_lines.extend([
             "",
             "---",
-            "*(تم تجميع وتوثيق هذه الدراسة بواسطة ELANTONY LIBRARY AI - خدمة التراث الكنسي الأرثوذكسي)*"
+            "*(تم تحرير وتوثيق هذه الدراسة بواسطة ELANTONY LIBRARY AI - خدمة التراث الكنسي الأرثوذكسي)*"
         ])
 
         full_md = "\n".join(md_lines)
 
-        # Plain text conversion for Telegram / WhatsApp
+        # Plain text conversion
         plain_text = (
             full_md.replace("# ", "")
             .replace("## ", "")
@@ -953,7 +969,7 @@ class DatabaseRepository:
             "title": title,
             "turns_count": len(turns),
             "turns": turns,
-            "bibliography": list(biblio_dict.values()),
+            "bibliography": bib_list_for_export if bib_list_for_export else list(biblio_dict.values()),
             "markdown": full_md,
             "plain_text": plain_text
         }

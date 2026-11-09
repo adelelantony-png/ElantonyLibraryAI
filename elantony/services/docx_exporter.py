@@ -4,9 +4,11 @@ ELANTONY LIBRARY AI - Microsoft Word (.docx) Research Monograph Exporter
 Builds professionally formatted ecclesiastical research papers with RTL support,
 tables of contents, verified patristic quotations, and consolidated bibliographies.
 Guarantees clean Arabic typography with w:cs font mappings for Microsoft Word.
+Clean academic layout without emojis or distracting artifacts.
 """
 
 import os
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, Optional
@@ -27,7 +29,7 @@ def _set_paragraph_rtl(paragraph) -> None:
     pPr.append(bidi)
 
 
-def _set_run_font(run, font_name: str = "Arial", size_pt: float = 11, bold: bool = False, italic: bool = False, color_rgb: Optional[RGBColor] = None) -> None:
+def _set_run_font(run, font_name: str = "Traditional Arabic", size_pt: float = 14, bold: bool = False, italic: bool = False, color_rgb: Optional[RGBColor] = None) -> None:
     """Configures font name and complex-script (w:cs) font mapping for proper Arabic in Microsoft Word."""
     run.font.name = font_name
     run.font.size = Pt(size_pt)
@@ -55,20 +57,43 @@ def _set_cell_background(cell, fill_hex: str) -> None:
     tcPr.append(shd)
 
 
+def _strip_emojis(text: str) -> str:
+    """Removes emojis and symbols for clean academic printing."""
+    # Pattern to match emojis and presentation selectors
+    emoji_pattern = re.compile(
+        "["
+        "😀-🙏"  # emoticons
+        "🌀-🗿"  # symbols & pictographs
+        "🚀-🛿"  # transport & map
+        "🇠-🇿"  # flags (iOS)
+        "✂-➰"
+        "Ⓜ-🉑"
+        "🤀-🧿"  # supplemental symbols
+        "🩰-🫿"  # symbols and pictographs extended-A
+        "]+",
+        flags=re.UNICODE
+    )
+    cleaned = emoji_pattern.sub("", text)
+    # Also strip stray technical tags
+    cleaned = re.sub(r"\[(QUOTATION|PARAPHRASE|SYNTHESIS|اقتباس حرفي|صياغة تحليلية|استنتاج مركب)[^\]]*\]", "", cleaned)
+    return cleaned
+
+
 def generate_session_docx(comp_data: Dict[str, Any], output_path: str) -> str:
     """
     Exports compiled session monograph into a beautifully formatted Microsoft Word document (.docx).
+    Clean, publication-ready academic layout.
     """
     doc = docx.Document()
 
-    # Page Margins: 0.8 inch on all sides
+    # Page Margins: 1 inch standard academic
     for section in doc.sections:
-        section.top_margin = Inches(0.8)
-        section.bottom_margin = Inches(0.8)
-        section.left_margin = Inches(0.8)
-        section.right_margin = Inches(0.8)
+        section.top_margin = Inches(1.0)
+        section.bottom_margin = Inches(1.0)
+        section.left_margin = Inches(1.0)
+        section.right_margin = Inches(1.0)
 
-    title = comp_data.get("title", "دراسة وأطروحة لاهوتية آبائية موثقة")
+    title = _strip_emojis(comp_data.get("title", "دراسة وأطروحة لاهوتية آبائية موثقة")).strip()
     turns = comp_data.get("turns", [])
     bibliography = comp_data.get("bibliography", [])
 
@@ -76,18 +101,18 @@ def generate_session_docx(comp_data: Dict[str, Any], output_path: str) -> str:
     p_header = doc.add_paragraph()
     _set_paragraph_rtl(p_header)
     p_header.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    r_brand = p_header.add_run("✠ كنيسة الإسكندرية القبطية الأرثوذكسية - منظومة ELANTONY LIBRARY AI ✠\n")
-    _set_run_font(r_brand, "Arial", 11, bold=True, color_rgb=RGBColor(140, 100, 30))
+    r_brand = p_header.add_run("كنيسة الإسكندرية القبطية الأرثوذكسية - مكتبة الدراسات الآبائية واللاهوتية\n")
+    _set_run_font(r_brand, "Traditional Arabic", 13, bold=True, color_rgb=RGBColor(135, 79, 25))
 
     # 2. Main Title
     p_title = doc.add_paragraph()
     _set_paragraph_rtl(p_title)
     p_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
     r_title = p_title.add_run(f"« {title} »\n")
-    _set_run_font(r_title, "Arial", 20, bold=True, color_rgb=RGBColor(30, 60, 130))
+    _set_run_font(r_title, "Traditional Arabic", 22, bold=True, color_rgb=RGBColor(24, 43, 73))
 
     r_sub = p_title.add_run("أطروحة بحثية لاهوتية مجمعة وموثقة من أمهات الكتب الآبائية والكنسية")
-    _set_run_font(r_sub, "Arial", 12, italic=True, color_rgb=RGBColor(100, 116, 139))
+    _set_run_font(r_sub, "Traditional Arabic", 14, italic=True, color_rgb=RGBColor(100, 116, 139))
 
     # 3. Metadata Table
     table_meta = doc.add_table(rows=1, cols=3)
@@ -100,103 +125,92 @@ def generate_session_docx(comp_data: Dict[str, Any], output_path: str) -> str:
     p0 = hdr_cells[0].paragraphs[0]
     _set_paragraph_rtl(p0)
     p0.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    r0 = p0.add_run(f"📅 التاريخ: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
-    _set_run_font(r0, "Arial", 10, bold=True)
+    r0 = p0.add_run(f"تاريخ التوثيق: {datetime.now().strftime('%Y-%m-%d')}")
+    _set_run_font(r0, "Traditional Arabic", 12, bold=True)
 
     p1 = hdr_cells[1].paragraphs[0]
     _set_paragraph_rtl(p1)
     p1.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    r1 = p1.add_run(f"📊 عدد المباحث: {len(turns)} مباحث")
-    _set_run_font(r1, "Arial", 10, bold=True)
+    r1 = p1.add_run(f"عدد المباحث: {len(turns)}")
+    _set_run_font(r1, "Traditional Arabic", 12, bold=True)
 
     p2 = hdr_cells[2].paragraphs[0]
     _set_paragraph_rtl(p2)
     p2.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    r2 = p2.add_run(f"🏛️ المراجع المعتمدة: {len(bibliography)} مراجع")
-    _set_run_font(r2, "Arial", 10, bold=True)
+    r2 = p2.add_run(f"المراجع المستند إليها: {len(bibliography)}")
+    _set_run_font(r2, "Traditional Arabic", 12, bold=True)
 
     doc.add_paragraph()  # Spacing
 
-    # 4. Table of Questions / Contents
+    # 4. Table of Contents
     p_toc_head = doc.add_paragraph()
     _set_paragraph_rtl(p_toc_head)
-    r_toc_head = p_toc_head.add_run("📋 فهرس المحاور والأسئلة المتفرعة في البحث:")
-    _set_run_font(r_toc_head, "Arial", 14, bold=True, color_rgb=RGBColor(15, 23, 42))
+    r_toc_head = p_toc_head.add_run("فهرس مباحث ومحتويات البحث:")
+    _set_run_font(r_toc_head, "Traditional Arabic", 16, bold=True, color_rgb=RGBColor(15, 23, 42))
 
     for idx, t in enumerate(turns, 1):
         p_item = doc.add_paragraph()
         _set_paragraph_rtl(p_item)
         p_item.paragraph_format.left_indent = Inches(0.25)
         p_item.paragraph_format.right_indent = Inches(0.25)
-        q_text = t.get("user_query") or t.get("question", "")
-        r_item = p_item.add_run(f"{idx}. {q_text}")
-        _set_run_font(r_item, "Arial", 11, bold=True, color_rgb=RGBColor(71, 85, 105))
+        q_text = _strip_emojis(t.get("user_query") or t.get("question", "")).strip()
+        r_item = p_item.add_run(f"المبحث {idx}: {q_text}")
+        _set_run_font(r_item, "Traditional Arabic", 13, bold=True, color_rgb=RGBColor(51, 65, 85))
 
     doc.add_paragraph()
 
     # 5. Core Discussion Turns (Chapters)
     for idx, t in enumerate(turns, 1):
+        # Section Divider
         p_div = doc.add_paragraph()
         _set_paragraph_rtl(p_div)
-        r_div = p_div.add_run("─────────────────────────────────────────────────────────────")
-        _set_run_font(r_div, "Arial", 9, color_rgb=RGBColor(203, 213, 225))
+        r_div = p_div.add_run("__________________________________________________________________")
+        _set_run_font(r_div, "Arial", 8, color_rgb=RGBColor(203, 213, 225))
 
         # Question Header
         p_q = doc.add_paragraph()
         _set_paragraph_rtl(p_q)
-        q_text = t.get("user_query") or t.get("question", "")
+        q_text = _strip_emojis(t.get("user_query") or t.get("question", "")).strip()
         r_q = p_q.add_run(f"المبحث {idx}: {q_text}")
-        _set_run_font(r_q, "Arial", 15, bold=True, color_rgb=RGBColor(30, 58, 138))
+        _set_run_font(r_q, "Traditional Arabic", 18, bold=True, color_rgb=RGBColor(24, 43, 73))
 
-        # Answer Header
-        p_ahead = doc.add_paragraph()
-        _set_paragraph_rtl(p_ahead)
-        r_ahead = p_ahead.add_run("📜 الدراسة اللاهوتية الموثقة:")
-        _set_run_font(r_ahead, "Arial", 12, bold=True, color_rgb=RGBColor(180, 110, 10))
-
-        # Clean markdown formatting for Word
+        # Clean answer lines
         raw_ans = t.get("ai_response", "") or t.get("answer", "")
-        clean_ans = raw_ans.replace("### ", "").replace("## ", "").replace("# ", "")
+        clean_ans = _strip_emojis(raw_ans)
+
         for line in clean_ans.split("\n"):
             line_str = line.strip()
-            if not line_str:
+            if not line_str or line_str == "---":
                 continue
+
             p_line = doc.add_paragraph()
             _set_paragraph_rtl(p_line)
-            p_line.paragraph_format.line_spacing = 1.25
+            p_line.paragraph_format.line_spacing = 1.35
 
-            if line_str.startswith("•") or line_str.startswith("-"):
+            if line_str.startswith("#"):
+                # Subheading
+                heading_level_text = re.sub(r"^#+\s*", "", line_str)
+                r_head = p_line.add_run(heading_level_text)
+                _set_run_font(r_head, "Traditional Arabic", 15, bold=True, color_rgb=RGBColor(135, 79, 25))
+            elif line_str.startswith(">"):
+                # Blockquote (Patristic Quotation)
+                quote_text = re.sub(r"^>\s*", "", line_str)
+                p_line.paragraph_format.left_indent = Inches(0.4)
+                p_line.paragraph_format.right_indent = Inches(0.4)
+                r_q = p_line.add_run(quote_text)
+                is_bold = "*(" in quote_text or "المصدر:" in quote_text
+                _set_run_font(r_q, "Traditional Arabic", 13.5, bold=is_bold, italic=not is_bold, color_rgb=RGBColor(30, 41, 59))
+            elif line_str.startswith("•") or line_str.startswith("-"):
+                # Bullet list
                 r_bullet = p_line.add_run("  • ")
-                _set_run_font(r_bullet, "Arial", 11, bold=True, color_rgb=RGBColor(37, 99, 235))
-                line_str = line_str.lstrip("•- ")
-
-            r_txt = p_line.add_run(line_str)
-            _set_run_font(r_txt, "Arial", 11)
-
-        # Citations for this turn
-        turn_citations = t.get("citations", [])
-        if turn_citations:
-            p_cithdr = doc.add_paragraph()
-            _set_paragraph_rtl(p_cithdr)
-            r_cithdr = p_cithdr.add_run("🏛️ الشواهد والمراجع المعتمدة لهذا المبحث:")
-            _set_run_font(r_cithdr, "Arial", 11, bold=True, color_rgb=RGBColor(71, 85, 105))
-
-            for c_idx, c in enumerate(turn_citations, 1):
-                p_c = doc.add_paragraph()
-                _set_paragraph_rtl(p_c)
-                p_c.paragraph_format.left_indent = Inches(0.2)
-                p_c.paragraph_format.right_indent = Inches(0.2)
-
-                p_label = f"صـ {c.get('printed_page') or c.get('page_number')}"
-                auth = c.get('author') or 'آباء الكنيسة'
-                tier = c.get('authenticity_tier', 3)
-
-                r_ref = p_c.add_run(f"[{c_idx}] {c.get('book_title')} (المؤلف: {auth}) - {p_label} | المرتبة: Tier {tier}\n")
-                _set_run_font(r_ref, "Arial", 10, bold=True, color_rgb=RGBColor(30, 41, 59))
-
-                if c.get("excerpt"):
-                    r_ex = p_c.add_run(f"    « {c['excerpt'][:240]}... »\n")
-                    _set_run_font(r_ex, "Arial", 9.5, italic=True, color_rgb=RGBColor(100, 116, 139))
+                _set_run_font(r_bullet, "Traditional Arabic", 14, bold=True, color_rgb=RGBColor(135, 79, 25))
+                bullet_text = line_str.lstrip("•- ").strip()
+                r_txt = p_line.add_run(bullet_text)
+                _set_run_font(r_txt, "Traditional Arabic", 14)
+            else:
+                # Normal paragraph
+                r_txt = p_line.add_run(line_str)
+                _set_run_font(r_txt, "Traditional Arabic", 14)
 
         doc.add_paragraph()
 
@@ -205,13 +219,13 @@ def generate_session_docx(comp_data: Dict[str, Any], output_path: str) -> str:
 
     p_bib_title = doc.add_paragraph()
     _set_paragraph_rtl(p_bib_title)
-    r_bib_title = p_bib_title.add_run("📚 المكتبة البيبليوغرافية الموحدة للبحث (Consolidated Patristic Bibliography):")
-    _set_run_font(r_bib_title, "Arial", 15, bold=True, color_rgb=RGBColor(15, 23, 42))
+    r_bib_title = p_bib_title.add_run("ثبت المصادر والمراجع البيبليوغرافية الموحدة للبحث:")
+    _set_run_font(r_bib_title, "Traditional Arabic", 18, bold=True, color_rgb=RGBColor(24, 43, 73))
 
     p_bib_sub = doc.add_paragraph()
     _set_paragraph_rtl(p_bib_sub)
-    r_bib_sub = p_bib_sub.add_run("قائمة مرقمة بجميع أمهات الكتب والمراجع الكنسية التي تم الاعتماد عليها وتوثيقها في هذا البحث:")
-    _set_run_font(r_bib_sub, "Arial", 11, italic=True, color_rgb=RGBColor(100, 116, 139))
+    r_bib_sub = p_bib_sub.add_run("قائمة موحدة بجميع أمهات الكتب والمراجع الكنسية التي تم الاعتماد عليها وتوثيقها في هذا البحث:")
+    _set_run_font(r_bib_sub, "Traditional Arabic", 13, italic=True, color_rgb=RGBColor(100, 116, 139))
 
     if bibliography:
         table_bib = doc.add_table(rows=1, cols=4)
@@ -228,20 +242,20 @@ def generate_session_docx(comp_data: Dict[str, Any], output_path: str) -> str:
                 _set_paragraph_rtl(p)
                 p.alignment = WD_ALIGN_PARAGRAPH.CENTER
                 for r in p.runs:
-                    _set_run_font(r, "Arial", 10, bold=True)
+                    _set_run_font(r, "Traditional Arabic", 12, bold=True)
 
         for b_idx, b in enumerate(bibliography, 1):
             row_cells = table_bib.add_row().cells
             row_cells[0].text = str(b_idx)
-            row_cells[1].text = b.get("title") or b.get("reference", "")
-            row_cells[2].text = b.get("author") or "آباء الكنيسة"
+            row_cells[1].text = _strip_emojis(b.get("title") or b.get("reference", "")).strip()
+            row_cells[2].text = _strip_emojis(b.get("author") or "آباء الكنيسة").strip()
             row_cells[3].text = str(b.get("pages_cited") or "مطبوعة")
 
             for cell in row_cells:
                 for p in cell.paragraphs:
                     _set_paragraph_rtl(p)
                     for r in p.runs:
-                        _set_run_font(r, "Arial", 9.5)
+                        _set_run_font(r, "Traditional Arabic", 12)
 
     doc.save(output_path)
     return output_path
