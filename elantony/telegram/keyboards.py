@@ -17,7 +17,8 @@ def get_main_menu_reply_keyboard() -> Dict[str, Any]:
     """
     return {
         "keyboard": [
-            [{"text": "🤖 اسأل المساعد الذكي"}, {"text": "📑 تجميع الأطروحة (Word + PDF)"}],
+            [{"text": "🌐 رابط موقع الأبحاث"}, {"text": "🤖 اسأل المساعد الذكي"}],
+            [{"text": "📑 تجميع الأطروحة (Word + PDF)"}],
             [{"text": "📜 سنكسار اليوم"}, {"text": "📖 آية وتفسير آبائي"}],
             [{"text": "🌐 سحب جوجل درايف"}, {"text": "📡 قنوات تليجرام"}],
             [{"text": "📊 لوحة الإشراف (Admin)"}, {"text": "⚡ قائمة الأوامر الخاصة"}],
@@ -36,6 +37,9 @@ def get_main_menu_inline_keyboard() -> Dict[str, Any]:
     """
     return {
         "inline_keyboard": [
+            [
+                {"text": "🌐 فتح بوابة ومكتبة الأبحاث (اضغط هنا)", "url": "https://technical-cute-innovative-combat.trycloudflare.com"}
+            ],
             [
                 {"text": "🧠 المساعد اللاهوتي الفائق (ذاكرة مستمرة)", "callback_data": "menu:ask_ai"},
                 {"text": "📑 تجميع البحث (Word)", "callback_data": "session:compile"}
@@ -82,6 +86,9 @@ def get_depth_selection_inline_keyboard(current_mode: str = "academic") -> Dict[
     apologetic_check = "✓ " if current_mode == "apologetic" else ""
     return {
         "inline_keyboard": [
+            [
+                {"text": "🌐 فتح بوابة ومكتبة الأبحاث (اضغط هنا)", "url": "https://technical-cute-innovative-combat.trycloudflare.com"}
+            ],
             [{"text": f"{academic_check}🎓 نمط أكاديمي موسع (نصوص أصلية + مراجع دقيقة)", "callback_data": "depth:academic"}],
             [{"text": f"{pastoral_check}🕊️ نمط رعوي وروحي (مباشر ومبسط للشباب)", "callback_data": "depth:pastoral"}],
             [{"text": f"{apologetic_check}⚖️ نمط دفاعي مقارن (ردود وبراهين)", "callback_data": "depth:apologetic"}],
@@ -96,6 +103,9 @@ def get_fathers_topics_inline_keyboard() -> Dict[str, Any]:
     """
     return {
         "inline_keyboard": [
+            [
+                {"text": "🌐 فتح بوابة ومكتبة الأبحاث (اضغط هنا)", "url": "https://technical-cute-innovative-combat.trycloudflare.com"}
+            ],
             [
                 {"text": "🙏 عن الصلاة والهدوء", "callback_data": "topic:prayer"},
                 {"text": "🕊️ عن التوبة ونقاوة القلب", "callback_data": "topic:repentance"}
@@ -122,6 +132,9 @@ def get_quick_books_inline_keyboard() -> Dict[str, Any]:
     """
     return {
         "inline_keyboard": [
+            [
+                {"text": "🌐 فتح بوابة ومكتبة الأبحاث (اضغط هنا)", "url": "https://technical-cute-innovative-combat.trycloudflare.com"}
+            ],
             [
                 {"text": "📖 تجسد الكلمة (أثناسيوس)", "callback_data": "binfo:17addeee0ec0"},
                 {"text": "📖 الجوهرة النفيسة (ابن سباع)", "callback_data": "binfo:5b4235b181c7"}
@@ -154,6 +167,9 @@ def get_book_card_inline_keyboard(ref: str) -> Dict[str, Any]:
     sref = str(ref)[:16]
     return {
         "inline_keyboard": [
+            [
+                {"text": "🌐 فتح بوابة ومكتبة الأبحاث (اضغط هنا)", "url": "https://technical-cute-innovative-combat.trycloudflare.com"}
+            ],
             [
                 {"text": "📥 تنزيل الكتاب كاملاً (PDF)", "callback_data": f"pdf:{sref}"}
             ],
@@ -273,6 +289,9 @@ def get_back_to_main_inline_keyboard() -> Dict[str, Any]:
     """
     return {
         "inline_keyboard": [
+            [
+                {"text": "🌐 فتح بوابة ومكتبة الأبحاث (اضغط هنا)", "url": "https://technical-cute-innovative-combat.trycloudflare.com"}
+            ],
             [{"text": "🔙 العودة للقائمة الرئيسية", "callback_data": "nav:main"}]
         ]
     }
@@ -282,6 +301,9 @@ def get_catalog_hub_inline_keyboard() -> Dict[str, Any]:
     """Master Hub for Library Catalog."""
     return {
         "inline_keyboard": [
+            [
+                {"text": "🌐 فتح بوابة ومكتبة الأبحاث (اضغط هنا)", "url": "https://technical-cute-innovative-combat.trycloudflare.com"}
+            ],
             [{"text": "📂 تصفح حسب الموضوع والتصنيف", "callback_data": "cat:topics"}],
             [{"text": "✍️ تصفح حسب المؤلفين والآباء", "callback_data": "cat:authors"}],
             [{"text": "🔤 الفهرس الأبجدي (من أ إلى ي)", "callback_data": "cat:alpha"}],
@@ -384,6 +406,9 @@ def get_random_book_inline_keyboard(sha256: str) -> Dict[str, Any]:
     sref = str(sha256)[:16]
     return {
         "inline_keyboard": [
+            [
+                {"text": "🌐 فتح بوابة ومكتبة الأبحاث (اضغط هنا)", "url": "https://technical-cute-innovative-combat.trycloudflare.com"}
+            ],
             [{"text": "📥 تنزيل الكتاب كاملاً (PDF)", "callback_data": f"pdf:{sref}"}],
             [
                 {"text": "📄 قراءة الكتاب (ص 1)", "callback_data": f"page:{sref}:1"},
@@ -503,6 +528,9 @@ def get_special_commands_inline_keyboard() -> Dict[str, Any]:
     """
     return {
         "inline_keyboard": [
+            [
+                {"text": "🌐 فتح بوابة ومكتبة الأبحاث (اضغط هنا)", "url": "https://technical-cute-innovative-combat.trycloudflare.com"}
+            ],
             [
                 {"text": "🌐 سحب وفهرسة Google Drive", "callback_data": "menu:harvest_drive"},
                 {"text": "📡 دليل قنوات تليجرام", "callback_data": "menu:harvest_tg"}

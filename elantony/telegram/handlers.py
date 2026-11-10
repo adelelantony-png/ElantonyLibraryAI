@@ -591,6 +591,28 @@ class TelegramHandlerService:
         cmd = first_token.split("@")[0].lower() if first_token.startswith("/") else ""
 
         # 0. /commands or special commands menu
+        # Link to Web Portal
+        if cmd in ["/link", "/portal", "/web", "/site", "/url"] or text in ["رابط الموقع", "الموقع", "الرابط", "🌐 رابط موقع الأبحاث", "بوابة الابحاث", "بوابة الأبحاث"]:
+            portal_msg = (
+                "🌐 *رابط بوابة ومكتبة الأبحاث اللاهوتية المباشر:* ✠\n\n"
+                "🔗 https://technical-cute-innovative-combat.trycloudflare.com\n\n"
+                "🏠 *الرابط المحلي (على شبكة الراوتر المنزلية):*\n"
+                "http://192.168.1.167:8000\n\n"
+                "✨ *المميزات المتوفرة في المنصة الآن:*\n"
+                "• تصفح أكثر من 3,656 كتاباً و 557,541 مقطعاً آبائياً محققاً.\n"
+                "• قراءة حرة برحابة كاملة للشاشة (>66% مساحة قراءة).\n"
+                "• عناوين الأبحاث كاملة بدون أي بتر (حتى سطرين).\n"
+                "• تصدير الأبحاث المجمعة بضغطة واحدة كملف Word (.docx) أو مطبوعة كنسية A4.\n"
+                "• إمكانية رفع كتب ومخطوطات جديدة وإثراء الأبحاث المفتوحة فورياً."
+            )
+            await self.send_message(
+                client, chat_id, portal_msg,
+                reply_markup={"inline_keyboard": [
+                    [{"text": "🌐 فتح منصة الأبحاث في المتصفح فوراً", "url": "https://technical-cute-innovative-combat.trycloudflare.com"}]
+                ]}
+            )
+            return
+
         if cmd in ["/commands", "/tools", "/menu_commands"] or text in ["قائمة الأوامر", "الأوامر الخاصة", "⚡ قائمة الأوامر الخاصة", "⚡ قائمة الأوامر والتحكم"]:
             await send_special_commands_menu(self, client, chat_id)
             return
