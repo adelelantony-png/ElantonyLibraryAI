@@ -1682,8 +1682,54 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             transform: translateY(-1px);
         }
 
+        .btn-mobile-sidebar {
+            display: none;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: var(--bg-card);
+            border: 1px solid var(--accent);
+            border-radius: 8px;
+            color: var(--accent);
+            font-weight: 700;
+            font-size: 13px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .btn-mobile-sidebar:hover {
+            background: var(--accent);
+            color: #fff;
+        }
+        .mobile-sidebar-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.55);
+            z-index: 998;
+            backdrop-filter: blur(2px);
+        }
+        .mobile-sidebar-overlay.active {
+            display: block;
+        }
+
         @media (max-width: 992px) {
-            .sidebar { display: none; }
+            .btn-mobile-sidebar { display: inline-flex !important; }
+            .sidebar {
+                position: fixed;
+                right: 0;
+                top: 0;
+                bottom: 0;
+                width: 320px;
+                max-width: 85vw;
+                z-index: 999;
+                box-shadow: -5px 0 25px rgba(0,0,0,0.35);
+                transform: translateX(100%);
+                display: flex !important;
+                transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            }
+            .sidebar.mobile-open {
+                transform: translateX(0);
+            }
             .top-navbar { flex-direction: column; align-items: stretch; gap: 8px; padding: 10px; }
             .controls-wrapper { justify-content: center; }
             .nav-actions { justify-content: center; }
@@ -1788,9 +1834,13 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             <div class="app-brand">
                 <span>✠</span> ELANTONY AI
             </div>
-            <a href="https://t.me/ElantonyLibrarybot" target="_blank" title="فتح البوت الرسمي على تليجرام" style="color: var(--accent); font-size: 18px; text-decoration: none;">
-                ✈️
-            </a>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <button onclick="loadSessions()" title="تحديث قائمة الأبحاث" style="background:none; border:none; cursor:pointer; font-size:15px; padding:2px;" class="btn-refresh-sessions">🔄</button>
+                <a href="https://t.me/ElantonyLibrarybot" target="_blank" title="فتح البوت الرسمي على تليجرام" style="color: var(--accent); font-size: 18px; text-decoration: none;">
+                    ✈️
+                </a>
+                <button onclick="closeMobileSidebar()" class="btn-mobile-close" title="إغلاق القائمة" style="display:none; background:none; border:none; font-size:18px; cursor:pointer; color:var(--text-sub); margin-right:4px;">✕</button>
+            </div>
         </div>
         <!-- Scholar Profile / Isolation Space -->
         <div class="scholar-profile-card" style="margin: 0 16px 10px; padding: 8px 12px; background: var(--bg-darker); border: 1px solid var(--card-border); border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
@@ -1836,9 +1886,15 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
     <!-- Main Chat Container -->
     <main class="main-container">
         <!-- Top Navbar with Eye-Comfort Controls -->
+        <div class="mobile-sidebar-overlay" id="mobileOverlay" onclick="closeMobileSidebar()"></div>
         <div class="top-navbar">
-            <div class="nav-title">
-                <span>✠</span> المساعد والباحث اللاهوتي الذكي
+            <div style="display:flex; align-items:center; gap:10px;">
+                <button class="btn-mobile-sidebar" onclick="toggleMobileSidebar()" title="فتح قائمة الأبحاث والمحادثات">
+                    ☰ الأبحاث
+                </button>
+                <div class="nav-title">
+                    <span>✠</span> المساعد والباحث اللاهوتي الذكي
+                </div>
             </div>
 
             <div class="controls-wrapper">
@@ -2216,6 +2272,20 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             return String(text).replace(/[&<>"']/g, function(m) { return map[m]; });
         }
 
+        function toggleMobileSidebar() {
+            const sidebar = document.querySelector('.sidebar');
+            const overlay = document.getElementById('mobileOverlay');
+            if (sidebar) sidebar.classList.toggle('mobile-open');
+            if (overlay) overlay.classList.toggle('active');
+        }
+
+        function closeMobileSidebar() {
+            const sidebar = document.querySelector('.sidebar');
+            const overlay = document.getElementById('mobileOverlay');
+            if (sidebar) sidebar.classList.remove('mobile-open');
+            if (overlay) overlay.classList.remove('active');
+        }
+
         async function loadSessions() {
             try {
                 // 1. Check if a shared session is requested via URL (?session=... or ?share=...)
@@ -2351,6 +2421,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
         }
 
         async function selectSession(sessionId) {
+            closeMobileSidebar();
             currentSessionId = sessionId;
             if (window.history && window.history.replaceState) {
                 window.history.replaceState(null, '', window.location.pathname + '?session=' + encodeURIComponent(sessionId));
@@ -3353,7 +3424,7 @@ ${url}`;
             }
         }
 
-        async async function inspectScholarSessions(targetUid) {
+        async function inspectScholarSessions(targetUid) {
             if (!confirm("هل تريد استعراض واجهة المحادثات والتبويبات الخاصة بهذا الباحث؟")) return;
             currentUserId = targetUid;
             closeAdminConsole();
