@@ -335,11 +335,14 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
         .chat-tabs-bar {
             background: var(--bg-sidebar);
             border-bottom: 1px solid var(--card-border);
-            padding: 6px 16px;
+            padding: 2px 12px;
+            height: 32px;
+            min-height: 32px;
+            max-height: 32px;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 10px;
+            gap: 8px;
             min-width: 0 !important;
             max-width: 100% !important;
             overflow: hidden !important;
@@ -536,16 +539,19 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             overflow: hidden;
         }
         .top-navbar {
-            min-height: 60px;
+            min-height: 42px;
+            height: 42px;
             border-bottom: 1px solid var(--card-border);
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 8px 18px;
+            padding: 0 14px;
             background: var(--nav-bg);
             backdrop-filter: blur(10px);
-            gap: 10px;
-            flex-wrap: wrap;
+            gap: 8px;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            overflow-y: hidden;
             z-index: 10;
         }
         .nav-title { font-weight: 900; font-size: 14.5px; display: flex; align-items: center; gap: 8px; color: var(--text-main); }
@@ -901,7 +907,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
 
         /* Bottom Input Bar */
         .input-area {
-            padding: 14px 20px 18px 20px;
+            padding: 4px 16px 6px 16px;
             border-top: 1px solid var(--card-border);
             background: var(--bg-sidebar);
             transition: background 0.25s ease;
@@ -912,10 +918,10 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             position: relative;
             background: var(--input-bg);
             border: 1px solid var(--card-border);
-            border-radius: 14px;
+            border-radius: 10px;
             display: flex;
             align-items: flex-end;
-            padding: 8px 14px;
+            padding: 4px 10px;
             transition: 0.2s;
             box-shadow: var(--shadow-sm);
         }
@@ -928,14 +934,14 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             background: transparent;
             border: none;
             color: var(--text-main);
-            font-size: 15px;
+            font-size: 13.5px;
             font-family: 'Cairo', 'Noto Sans Coptic', 'Gentium Plus', 'Noto Serif', 'Segoe UI Historic', Arial, sans-serif;
             resize: none;
             outline: none;
             max-height: 180px;
-            min-height: 28px;
-            line-height: 1.6;
-            padding: 6px 0;
+            min-height: 22px;
+            line-height: 1.4;
+            padding: 3px 0;
         }
         .chat-textarea::placeholder {
             color: var(--text-sub);
@@ -945,25 +951,26 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             background: var(--accent);
             color: #FFF;
             border: none;
-            width: 38px;
-            height: 38px;
-            border-radius: 10px;
+            width: 30px;
+            height: 30px;
+            border-radius: 7px;
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
             transition: 0.2s;
-            margin-right: 8px;
+            margin-right: 6px;
             flex-shrink: 0;
-            font-size: 16px;
+            font-size: 13px;
         }
         .btn-send:hover { background: var(--accent-hover); transform: scale(1.05); }
         .btn-send:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
         .input-disclaimer {
             text-align: center;
-            font-size: 12px;
+            font-size: 9.5px;
             color: var(--text-sub);
-            margin-top: 8px;
+            margin-top: 2px;
+            opacity: 0.55;
         }
 
         /* Modal Styles */
@@ -1797,10 +1804,11 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             display: flex;
             align-items: center;
             justify-content: flex-start;
-            gap: 6px;
-            margin-bottom: 8px;
+            gap: 4px;
+            margin-bottom: 2px;
             padding: 0 4px;
-            flex-wrap: wrap;
+            flex-wrap: nowrap;
+            overflow-x: auto;
         }
         .topic-flow-label {
             font-size: 11px;
@@ -2131,68 +2139,61 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
     <main class="main-container">
         <!-- Top Navbar with Eye-Comfort Controls -->
         <div class="mobile-sidebar-overlay" id="mobileOverlay" onclick="closeMobileSidebar()"></div>
+        <!-- Streamlined Single-Line Top Navbar (42px) -->
         <div class="top-navbar">
-            <div style="display:flex; align-items:center; gap:10px;">
-                <button class="btn-toggle-sidebar" id="btnToggleSidebar" onclick="toggleSidebar()" title="إظهار / إخفاء قائمة الأبحاث">
+            <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
+                <button class="btn-toggle-sidebar" id="btnToggleSidebar" onclick="toggleSidebar()" title="إظهار / إخفاء قائمة الأبحاث" style="padding:4px 8px; font-size:11.5px;">
                     📂 سجل الأبحاث
                 </button>
-                <div class="nav-title">
-                    <span>✠</span> المساعد والباحث اللاهوتي الذكي
+                <div class="nav-title" style="font-size:13px; font-weight:800;">
+                    <span>✠</span> ELANTONY AI
                 </div>
             </div>
 
             <div class="controls-wrapper">
-                <!-- Theme Switcher (أقصى راحة للعين) -->
-                <div class="theme-switch-group" title="اختر نمط الإضاءة المريح لعينيك">
-                    <span class="ctrl-label">🎨 المظهر:</span>
-                    <button class="btn-ctrl active" id="th_sepia" onclick="setTheme('sepia')" title="ورق برديات دافئ مهدئ للعينين (الأفضل للقراءة المطولة)">📜 برديات دافئة</button>
-                    <button class="btn-ctrl" id="th_dark" onclick="setTheme('dark')" title="هدوء ليلي مخملي مضاد للوهج">🌙 ليلي هادئ</button>
-                    <button class="btn-ctrl" id="th_light" onclick="setTheme('light')" title="ورق كنسي صباحي هادئ">☀️ ورقي ناصع</button>
+                <!-- Theme Switcher -->
+                <div class="theme-switch-group" title="اختر المظهر المريح لعينيك">
+                    <button class="btn-ctrl active" id="th_sepia" onclick="setTheme('sepia')" title="برديات دافئة">📜 برديات</button>
+                    <button class="btn-ctrl" id="th_dark" onclick="setTheme('dark')" title="ليلي هادئ">🌙 ليلي</button>
+                    <button class="btn-ctrl" id="th_light" onclick="setTheme('light')" title="ورقي ناصع">☀️ ورقي</button>
                 </div>
 
-                <!-- Font & Size Adjuster (التحكم في الخط والحجم) -->
-                <div class="font-ctrl-group" title="التحكم في خط وحجم القراءة">
-                    <button class="btn-ctrl" id="btnFontToggle" onclick="toggleFontFamily()" title="التبديل بين خط النسخ الآبائي وخط كايرو الحديث">🔤 نسخ آبائي</button>
-                    <button class="btn-ctrl" onclick="adjustFontSize(-1)" title="تصغير الخط">A-</button>
+                <!-- Font & Size Adjuster -->
+                <div class="font-ctrl-group" title="التحكم في الخط والحجم">
+                    <button class="btn-ctrl" id="btnFontToggle" onclick="toggleFontFamily()" title="تبديل الخط">🔤</button>
+                    <button class="btn-ctrl" onclick="adjustFontSize(-1)">A-</button>
                     <span class="font-size-label" id="fontSizeLabel">100%</span>
-                    <button class="btn-ctrl" onclick="adjustFontSize(1)" title="تكبير الخط">A+</button>
+                    <button class="btn-ctrl" onclick="adjustFontSize(1)">A+</button>
                 </div>
 
-                <!-- Depth Mode Switcher -->
-                <div class="depth-selector-group" title="اختر نمط وعمق الإجابة اللاهوتية">
-                    <span class="ctrl-label">العمق:</span>
-                    <button class="btn-ctrl active" id="depth_academic" onclick="setDepthMode('academic')">🎓 أكاديمي</button>
-                    <button class="btn-ctrl" id="depth_pastoral" onclick="setDepthMode('pastoral')">🕊️ رعوي</button>
-                    <button class="btn-ctrl" id="depth_apologetic" onclick="setDepthMode('apologetic')">⚖️ دفاعي</button>
-                </div>
+                <!-- Depth Select Dropdown -->
+                <select id="depthSelect" onchange="setDepthMode(this.value)" style="padding:2px 6px; font-size:11px; font-weight:700; height:24px; border:1px solid var(--card-border); background:var(--bg-darker); color:var(--text-main); border-radius:6px; cursor:pointer;" title="عمق البحث">
+                    <option value="academic">🎓 أكاديمي</option>
+                    <option value="pastoral">🕊️ رعوي</option>
+                    <option value="apologetic">⚖️ دفاعي</option>
+                </select>
             </div>
 
             <div class="nav-actions">
-                <button class="btn-top-preview" onclick="previewCurrentMonograph()" title="معاينة وطباعة الأطروحة بنمط النشر الأكاديمي وبجودة A4 الفائقة (Ctrl + P)">
-                    <span>🖨️</span> معاينة وطباعة الأطروحة (A4)
+                <button class="btn-top-preview" onclick="previewCurrentMonograph()" title="معاينة وطباعة الأطروحة (Ctrl + P)" style="padding:3px 9px; font-size:11px; font-weight:800;">
+                    <span>🖨️</span> طباعة (A4)
                 </button>
-                <button class="btn-nav btn-reset-nav" onclick="clearBotMemory()" title="تفريغ ذاكرة البوت ومسح سياق الأسئلة السابقة تماماً للبدء بصفحة بيضاء" style="background: rgba(239, 68, 68, 0.14); border-color: #ef4444; color: #dc2626; font-weight: 800;">
-                    <span>🧹</span> سؤال جديد (تفريغ)
-                </button>
-                <button class="btn-nav btn-docx-nav" onclick="downloadCurrentExport('docx')" title="تنزيل أطروحة البحث كاملة كملف Microsoft Word منسق">
+                <button class="btn-nav btn-docx-nav" onclick="downloadCurrentExport('docx')" title="تنزيل كملف Word" style="padding:3px 8px; font-size:11px;">
                     <span>📄</span> Word
                 </button>
-                <button class="btn-nav btn-fav-nav" onclick="openScholarNotebookModal()" title="كشكول الباحث ومفضلة الشواهد وتدوين الهوامش" style="background: rgba(234, 179, 8, 0.15); border-color: #ca8a04; color: #a16207; font-weight: 700;">
-                    <span>⭐</span> الكشكول (<span id="notebookBadge">0</span>)
+                <button class="btn-nav btn-fav-nav" onclick="openScholarNotebookModal()" title="كشكول الباحث" style="background:rgba(234, 179, 8, 0.15); border-color:#ca8a04; color:#a16207; font-weight:700; padding:3px 8px; font-size:11px;">
+                    <span>⭐</span> (<span id="notebookBadge">0</span>)
                 </button>
-                <button class="btn-nav btn-share-nav" onclick="openShareModal()" title="مشاركة رابط هذا البحث والمراجع مع أي شخص لفتحه وتصفحه" style="background: rgba(16, 185, 129, 0.14); border-color: #10b981; color: #047857; font-weight: 700;">
-                    <span>🔗</span> مشاركة
+                <button class="btn-nav btn-share-nav" onclick="openShareModal()" title="مشاركة رابط البحث" style="background:rgba(16, 185, 129, 0.14); border-color:#10b981; color:#047857; font-weight:700; padding:3px 8px; font-size:11px;">
+                    <span>🔗</span>
                 </button>
-                <button class="btn-nav btn-upload-nav" onclick="openUploadBookModal()" title="رفع وإضافة كتاب جديد للمكتبة مع فهرسته فورياً" style="background: rgba(14, 165, 233, 0.14); border-color: #0284c7; color: #0369a1; font-weight: 700;">
-                    <span>📥</span> إضافة كتاب
-                </button>
-                <button class="btn-nav btn-admin-nav" onclick="openAdminConsole()" title="لوحة إشراف المدير العام ومتابعة أبحاث كل المستخدمين (PIN: 2026)" style="background: rgba(217, 119, 6, 0.12); border-color: #d97706; color: #d97706; font-weight: 800;">
-                    <span>🛡️</span> الإشراف
+                <button class="btn-nav btn-admin-nav" onclick="openAdminConsole()" title="لوحة الإشراف (PIN: 2026)" style="background:rgba(217, 119, 6, 0.12); border-color:#d97706; color:#d97706; font-weight:800; padding:3px 7px; font-size:11px;">
+                    <span>🛡️</span>
                 </button>
             </div>
         </div>
 
-        <!-- Dynamic Topic Tabs Bar (تبويبات الموضوعات الذكية التلقائية) -->
+        <!-- Dynamic Topic Tabs Bar (تبويبات الموضوعات الذكية - 32px Single Line) -->
         <div class="chat-tabs-bar" id="chatTabsBar">
             <div class="chat-tabs-scroll" id="chatTabsList">
                 <!-- Dynamically populated from active sessions -->
@@ -2202,58 +2203,50 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             </button>
         </div>
 
-        <!-- Topic Sub-questions Breadcrumb Navigator (فهرس الأسئلة المتسلسلة داخل نفس الموضوع) -->
-        <div class="topic-subq-bar" id="topicSubqBar" style="display: none;">
-            <!-- Dynamically populated from active discussion questions -->
-        </div>
-
-        <!-- Prominent Monograph Action Header (دائماً ظاهر وواضح للمعاينة والطباعة) -->
-        <div class="active-session-header" id="activeSessionHeader" style="display:flex; align-items:center; justify-content:space-between; padding:8px 16px; background:var(--bg-card); border-bottom:1px solid var(--card-border); gap:10px; flex-wrap:wrap; z-index:4;">
-            <div style="display:flex; align-items:center; gap:8px; overflow:hidden;">
-                <span style="font-size:16px;">📖</span>
-                <span id="currentSessionTitleDisplay" style="font-weight:800; font-size:14px; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:650px;">بحث لاهوتي</span>
-                <button class="btn-ctrl" onclick="renameSession(event, currentSessionId, document.getElementById('currentSessionTitleDisplay').textContent)" style="padding:2px 8px; font-size:11px;" title="تعديل عنوان البحث">✏️ تعديل العنوان</button>
+        <!-- Unified Monograph & Chapters Navigator (34px Single Line) -->
+        <div class="active-session-header" id="activeSessionHeader" style="display:flex; align-items:center; justify-content:space-between; height:34px; min-height:34px; max-height:34px; padding:0 12px; background:var(--bg-card); border-bottom:1px solid var(--card-border); gap:8px; z-index:4;">
+            <div style="display:flex; align-items:center; gap:6px; min-width:0; flex:1; max-width:650px;">
+                <span style="font-size:14px; flex-shrink:0;">📖</span>
+                <span id="currentSessionTitleDisplay" style="font-weight:800; font-size:12px; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="عنوان الأطروحة">بحث لاهوتي</span>
+                <button class="btn-ctrl" onclick="renameSession(event, currentSessionId, document.getElementById('currentSessionTitleDisplay').textContent)" style="padding:1px 5px; font-size:10px; flex-shrink:0;" title="تعديل عنوان البحث">✏️</button>
             </div>
-        <!-- Real-Time Library Reference Discovery & Enrichment Alert Card -->
-        <div id="libraryEnrichmentCard" style="display:none; margin: 8px 16px; padding: 10px 16px; background: linear-gradient(135deg, rgba(217, 119, 6, 0.12), rgba(124, 45, 18, 0.08)); border: 1px solid var(--accent); border-radius: 8px; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; z-index: 4;">
-            <div style="display:flex; align-items:center; gap:10px;">
-                <span style="font-size:24px;">🔔📚</span>
-                <div>
-                    <div style="font-size:12.5px; font-weight:800; color:var(--text-main);">
-                        انتبه: تم رصد <span id="enrichBooksCount" style="color:var(--accent); font-size:14px;">0</span> مراجع كنسية متخصصة في مكتبتك لنفس هذا الموضوع!
-                    </div>
-                    <div id="enrichBooksList" style="font-size:11px; color:var(--text-sub); margin-top:3px; display:flex; gap:6px; flex-wrap:wrap;">
-                        <!-- Book Badges -->
-                    </div>
-                </div>
-            </div>
-            <button onclick="enrichCurrentMonographWithNewBooks()" class="btn-ctrl" style="background:#7c2d12; color:#fff; border-color:#7c2d12; font-weight:800; padding:6px 14px; font-size:12px; box-shadow:0 2px 6px rgba(124,45,18,0.3); display:inline-flex; align-items:center; gap:6px; cursor:pointer;" title="توسيع الأطروحة واستخراج الشواهد الآبائية من هذه المراجع">
-                <span>⚡</span> إثراء وتوسيع الأطروحة بهذه المراجع
-            </button>
-        </div>
 
-            <div style="display:flex; align-items:center; gap:8px;">
-                <button class="btn-ctrl" onclick="recalibrateActiveMonograph()" style="background:#065f46; color:#fff; border-color:#065f46; font-weight:800; padding:6px 12px; font-size:12px; display:inline-flex; align-items:center; gap:5px;" title="إعادة معايرة وتوليف الأطروحة ودمج الأسئلة الجزئية في مفاهيم شاملة">
-                    <span>⚖️</span> <span>معايرة وتوليف</span>
-                </button>
-                <button class="btn-ctrl" onclick="reorderActiveMonograph()" style="background:#1e40af; color:#fff; border-color:#1e40af; font-weight:700; padding:6px 12px; font-size:12px; display:inline-flex; align-items:center; gap:5px;" title="ترتيب تسلسلي منطقي لفصول ومحاور البحث">
-                    <span>🔀</span> <span>ترتيب منطقي</span>
-                </button>
-                <button class="btn-ctrl" onclick="previewCurrentMonograph()" style="background:#7c2d12; color:#fff; border-color:#7c2d12; font-weight:800; padding:6px 14px; font-size:12.5px; box-shadow:0 2px 5px rgba(124,45,18,0.25);" title="معاينة وطباعة الأطروحة بنمط النشر A4 المعتمد">
-                    🖨️ معاينة وطباعة الأطروحة
-                </button>
-                <button class="btn-ctrl" onclick="downloadCurrentSessionDocx()" style="background:rgba(2,132,199,0.12); color:#0284c7; border-color:#0284c7; font-weight:700; padding:6px 12px; font-size:12px;" title="تنزيل البحث كملف Word">
-                    📄 ملف Word
-                </button>
-                <button class="btn-ctrl" onclick="startNewChat()" style="background:rgba(239,68,68,0.1); color:#dc2626; border-color:#ef4444; font-weight:700; padding:6px 12px; font-size:12px;" title="تفريغ الذاكرة وبدء بحث جديد">
-                    🧹 تفريغ الذاكرة
-                </button>
+            <!-- Inline Sub-questions Navigator (س1، س2..) -->
+            <div id="topicSubqBar" style="display:none; align-items:center; gap:4px; flex:1; justify-content:center; min-width:0; max-width:50%;">
+                <!-- Injected via renderSubqDropdown -->
+            </div>
+
+            <!-- Quick Action Buttons -->
+            <div style="display:flex; align-items:center; gap:4px; flex-shrink:0;">
+                <button class="btn-ctrl" onclick="recalibrateActiveMonograph()" style="background:#065f46; color:#fff; border-color:#065f46; font-weight:700; padding:2px 7px; font-size:11px;" title="إعادة معايرة وتوليف الأطروحة">⚖️ معايرة</button>
+                <button class="btn-ctrl" onclick="previewCurrentMonograph()" style="background:#7c2d12; color:#fff; border-color:#7c2d12; font-weight:800; padding:2px 8px; font-size:11px;" title="معاينة وطباعة الأطروحة A4">🖨️ طباعة</button>
             </div>
         </div>
 
-        <!-- Messages Area -->
+        <!-- Messages Area (VAST & EXPANSIVE - OVER 80% SCREEN HEIGHT) -->
         <div class="messages-area" id="messagesArea">
             <div class="messages-container" id="messagesContainer">
+                <!-- Real-Time Library Reference Discovery & Enrichment Alert Card (Inside scrollable content!) -->
+                <div id="libraryEnrichmentCard" style="display:none; margin: 8px 0 14px 0; padding: 10px 14px; background: linear-gradient(135deg, rgba(217, 119, 6, 0.12), rgba(124, 45, 18, 0.08)); border: 1px solid var(--accent); border-radius: 8px; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <span style="font-size:22px;">🔔📚</span>
+                        <div>
+                            <div style="font-size:12px; font-weight:800; color:var(--text-main);">
+                                انتبه: تم رصد <span id="enrichBooksCount" style="color:var(--accent); font-size:13.5px;">0</span> مراجع كنسية متخصصة في مكتبتك لنفس هذا الموضوع!
+                            </div>
+                            <div id="enrichBooksList" style="font-size:11px; color:var(--text-sub); margin-top:3px; display:flex; gap:5px; flex-wrap:wrap; max-height:60px; overflow-y:auto;">
+                                <!-- Book Badges -->
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <button onclick="enrichCurrentMonographWithNewBooks()" class="btn-ctrl" style="background:#7c2d12; color:#fff; border-color:#7c2d12; font-weight:800; padding:5px 12px; font-size:11.5px; box-shadow:0 2px 5px rgba(124,45,18,0.25); display:inline-flex; align-items:center; gap:5px; cursor:pointer;" title="توسيع الأطروحة واستخراج الشواهد الآبائية من هذه المراجع">
+                            <span>⚡</span> إثراء وتوسيع الأطروحة بهذه المراجع
+                        </button>
+                        <button onclick="document.getElementById('libraryEnrichmentCard').style.display='none'" style="background:none; border:none; cursor:pointer; font-size:14px; color:var(--text-sub); padding:2px 6px; border-radius:4px;" title="إغلاق التنبيه">✕</button>
+                    </div>
+                </div>
+
                 <!-- Hero screen when no messages -->
                 <div class="hero" id="heroScreen">
                     <div class="hero-badge">✠ منظومة ELANTONY LIBRARY AI</div>
@@ -2734,7 +2727,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             }
 
             currentTotalUserQueries = distinctQueries.length;
-            subqBar.style.display = 'flex';
+            subqBar.style.display = 'inline-flex';
             subqBar.innerHTML = '';
 
             const wrapper = document.createElement('div');
@@ -2743,7 +2736,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             // Label
             const label = document.createElement('span');
             label.className = 'subq-nav-label';
-            label.innerHTML = '<span>📍</span> <span>محاور وفصول البحث (' + distinctQueries.length + '):</span>';
+            label.innerHTML = '<span style="font-size:11px; font-weight:800; color:var(--gold); white-space:nowrap;">📍 المحاور (' + distinctQueries.length + '):</span>';
             wrapper.appendChild(label);
 
             // Dropdown Select
@@ -3047,7 +3040,11 @@ async function loadSessions() {
                 checkLibraryEnrichment(sessionId);
 
                 chatMessages = [];
+                const enrichCard = document.getElementById('libraryEnrichmentCard');
                 messagesContainer.innerHTML = '';
+                if (enrichCard) {
+                    messagesContainer.appendChild(enrichCard);
+                }
 
                 userMsgCounter = 0;
                 if (messages.length === 0) {
@@ -4855,6 +4852,10 @@ ${url}`;
         async function checkLibraryEnrichment(sessionId) {
             const card = document.getElementById('libraryEnrichmentCard');
             if (!card || !sessionId) return;
+            const mc = document.getElementById('messagesContainer');
+            if (mc && card.parentElement !== mc) {
+                mc.insertBefore(card, mc.firstChild);
+            }
             try {
                 const res = await fetch('/api/sessions/' + sessionId + '/relevant_books');
                 if (!res.ok) return;
