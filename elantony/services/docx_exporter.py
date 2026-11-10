@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 """
 ELANTONY LIBRARY AI - Microsoft Word (.docx) Research Monograph Exporter
-Builds professionally formatted ecclesiastical research papers with RTL support,
-tables of contents, verified patristic quotations, and consolidated bibliographies.
+Builds professionally formatted ecclesiastical research papers with 100% strict RTL support,
+card-like chapters, verified patristic quotations, and consolidated bibliographic cards.
 Guarantees clean Arabic typography with w:cs font mappings for Microsoft Word.
-Clean academic layout without emojis or distracting artifacts.
+Clean academic layout without emojis, rigid tables, or distracting artifacts.
 """
 
 import os
@@ -16,7 +16,6 @@ from typing import Dict, Any, Optional
 import docx
 from docx.shared import Inches, Pt, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 
@@ -47,37 +46,24 @@ def _set_run_font(run, font_name: str = "Traditional Arabic", size_pt: float = 1
     rFonts.set(qn('w:cs'), font_name)
     rPr.append(rFonts)
 
-
-def _set_table_rtl(table) -> None:
-    """Sets table to Right-To-Left column layout (Arabic bidi visual)."""
-    tblPr = table._tbl.tblPr
-    bidi = OxmlElement('w:bidiVisual')
-    tblPr.append(bidi)
-
-
-def _set_cell_background(cell, fill_hex: str) -> None:
-    """Sets cell shading color in hexadecimal (e.g. 'F1F5F9')."""
-    tcPr = cell._tc.get_or_add_tcPr()
-    shd = OxmlElement('w:shd')
-    shd.set(qn('w:val'), 'clear')
-    shd.set(qn('w:color'), 'auto')
-    shd.set(qn('w:fill'), fill_hex)
-    tcPr.append(shd)
+    # Complex script flag
+    cs = OxmlElement('w:cs')
+    cs.set(qn('w:val'), '1')
+    rPr.append(cs)
 
 
 def _strip_emojis(text: str) -> str:
     """Removes emojis and symbols for clean academic printing."""
-    # Pattern to match emojis and presentation selectors
     emoji_pattern = re.compile(
         "["
-        "😀-🙏"  # emoticons
-        "🌀-🗿"  # symbols & pictographs
-        "🚀-🛿"  # transport & map
-        "🇠-🇿"  # flags (iOS)
+        "😀-🙏"
+        "🌀-🗿"
+        "🚀-🛿"
+        "🇠-🇿"
         "✂-➰"
         "Ⓜ-🉑"
-        "🤀-🧿"  # supplemental symbols
-        "🩰-🫿"  # symbols and pictographs extended-A
+        "🤀-🧿"
+        "🩰-🫿"
         "]+",
         flags=re.UNICODE
     )
@@ -90,7 +76,7 @@ def _strip_emojis(text: str) -> str:
 def generate_session_docx(comp_data: Dict[str, Any], output_path: str) -> str:
     """
     Exports compiled session monograph into a beautifully formatted Microsoft Word document (.docx).
-    Clean, publication-ready academic layout.
+    Clean, publication-ready academic layout matching the portal's card theme without rigid tables.
     """
     doc = docx.Document()
 
@@ -122,34 +108,24 @@ def generate_session_docx(comp_data: Dict[str, Any], output_path: str) -> str:
     r_sub = p_title.add_run("أطروحة بحثية لاهوتية مجمعة وموثقة من أمهات الكتب الآبائية والكنسية")
     _set_run_font(r_sub, "Traditional Arabic", 14, italic=True, color_rgb=RGBColor(100, 116, 139))
 
-    # 3. Metadata Table
-    table_meta = doc.add_table(rows=1, cols=3)
-    table_meta.alignment = WD_TABLE_ALIGNMENT.CENTER
-    _set_table_rtl(table_meta)
-    hdr_cells = table_meta.rows[0].cells
+    # 3. Metadata Summary Block (Zero Rigid Table - Fluid Responsive Card)
+    p_meta = doc.add_paragraph()
+    _set_paragraph_rtl(p_meta)
+    p_meta.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p_meta.paragraph_format.space_before = Pt(8)
+    p_meta.paragraph_format.space_after = Pt(14)
+    r_meta = p_meta.add_run(
+        f"📅 تاريخ التوثيق: {datetime.now().strftime('%Y-%m-%d')}   |   "
+        f"📑 عدد المباحث: {len(turns)} محاور   |   "
+        f"🏛️ المراجع المعتمدة: {len(bibliography)} مصدراً كنسياً"
+    )
+    _set_run_font(r_meta, "Traditional Arabic", 12.5, bold=True, color_rgb=RGBColor(71, 85, 105))
 
-    for c in hdr_cells:
-        _set_cell_background(c, "F8FAFC")
-
-    p0 = hdr_cells[0].paragraphs[0]
-    _set_paragraph_rtl(p0)
-    p0.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    r0 = p0.add_run(f"تاريخ التوثيق: {datetime.now().strftime('%Y-%m-%d')}")
-    _set_run_font(r0, "Traditional Arabic", 12, bold=True)
-
-    p1 = hdr_cells[1].paragraphs[0]
-    _set_paragraph_rtl(p1)
-    p1.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    r1 = p1.add_run(f"عدد المباحث: {len(turns)}")
-    _set_run_font(r1, "Traditional Arabic", 12, bold=True)
-
-    p2 = hdr_cells[2].paragraphs[0]
-    _set_paragraph_rtl(p2)
-    p2.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    r2 = p2.add_run(f"المراجع المستند إليها: {len(bibliography)}")
-    _set_run_font(r2, "Traditional Arabic", 12, bold=True)
-
-    doc.add_paragraph()  # Spacing
+    p_sep = doc.add_paragraph()
+    _set_paragraph_rtl(p_sep)
+    p_sep.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    r_sep = p_sep.add_run("═══════════════════════════════════════════════")
+    _set_run_font(r_sep, "Arial", 9, color_rgb=RGBColor(217, 119, 6))
 
     # 4. Table of Contents
     p_toc_head = doc.add_paragraph()
@@ -163,8 +139,8 @@ def generate_session_docx(comp_data: Dict[str, Any], output_path: str) -> str:
         p_item.paragraph_format.left_indent = Inches(0.25)
         p_item.paragraph_format.right_indent = Inches(0.25)
         q_text = _strip_emojis(t.get("user_query") or t.get("question", "")).strip()
-        r_item = p_item.add_run(f"المبحث {idx}: {q_text}")
-        _set_run_font(r_item, "Traditional Arabic", 13, bold=True, color_rgb=RGBColor(51, 65, 85))
+        r_item = p_item.add_run(f"• المبحث {idx}: {q_text}")
+        _set_run_font(r_item, "Traditional Arabic", 13.5, bold=True, color_rgb=RGBColor(51, 65, 85))
 
     doc.add_paragraph()
 
@@ -181,7 +157,7 @@ def generate_session_docx(comp_data: Dict[str, Any], output_path: str) -> str:
         _set_paragraph_rtl(p_q)
         q_text = _strip_emojis(t.get("user_query") or t.get("question", "")).strip()
         r_q = p_q.add_run(f"المبحث {idx}: {q_text}")
-        _set_run_font(r_q, "Traditional Arabic", 18, bold=True, color_rgb=RGBColor(24, 43, 73))
+        _set_run_font(r_q, "Traditional Arabic", 18, bold=True, color_rgb=RGBColor(124, 45, 18))
 
         # Clean answer lines
         raw_ans = t.get("ai_response", "") or t.get("answer", "")
@@ -192,16 +168,30 @@ def generate_session_docx(comp_data: Dict[str, Any], output_path: str) -> str:
             if not line_str or line_str == "---":
                 continue
 
+            # Dismantle any markdown tables into clean paragraph cards
+            if line_str.startswith("|") and line_str.endswith("|"):
+                if re.match(r"^\|[\s\-:|]+\|$", line_str):
+                    continue
+                cells = [c.strip() for c in line_str.split("|")[1:-1] if c.strip()]
+                if cells:
+                    p_table_card = doc.add_paragraph()
+                    _set_paragraph_rtl(p_table_card)
+                    p_table_card.paragraph_format.left_indent = Inches(0.3)
+                    p_table_card.paragraph_format.right_indent = Inches(0.3)
+                    r_t = p_table_card.add_run("✦ " + " — ".join(cells))
+                    _set_run_font(r_t, "Traditional Arabic", 13, bold=True, color_rgb=RGBColor(51, 65, 85))
+                continue
+
             p_line = doc.add_paragraph()
             _set_paragraph_rtl(p_line)
-            p_line.paragraph_format.line_spacing = 1.35
-            p_line.paragraph_format.space_after = Pt(4)
+            p_line.paragraph_format.line_spacing = 1.4
+            p_line.paragraph_format.space_after = Pt(5)
 
             if line_str.startswith("#"):
                 # Subheading
                 heading_level_text = re.sub(r"^#+\s*", "", line_str)
                 r_head = p_line.add_run(heading_level_text)
-                _set_run_font(r_head, "Traditional Arabic", 15, bold=True, color_rgb=RGBColor(135, 79, 25))
+                _set_run_font(r_head, "Traditional Arabic", 15.5, bold=True, color_rgb=RGBColor(146, 64, 14))
             elif line_str.startswith(">"):
                 # Blockquote (Patristic Quotation)
                 quote_text = re.sub(r"^>\s*", "", line_str)
@@ -224,49 +214,37 @@ def generate_session_docx(comp_data: Dict[str, Any], output_path: str) -> str:
 
         doc.add_paragraph()
 
-    # 6. Consolidated Bibliography Section
+    # 6. Consolidated Bibliography Section (Zero Rigid Table - Beautiful Cards)
     doc.add_page_break()
 
     p_bib_title = doc.add_paragraph()
     _set_paragraph_rtl(p_bib_title)
     r_bib_title = p_bib_title.add_run("ثبت المصادر والمراجع البيبليوغرافية الموحدة للبحث:")
-    _set_run_font(r_bib_title, "Traditional Arabic", 18, bold=True, color_rgb=RGBColor(24, 43, 73))
+    _set_run_font(r_bib_title, "Traditional Arabic", 18, bold=True, color_rgb=RGBColor(15, 118, 110))
 
     p_bib_sub = doc.add_paragraph()
     _set_paragraph_rtl(p_bib_sub)
-    r_bib_sub = p_bib_sub.add_run("قائمة موحدة بجميع أمهات الكتب والمراجع الكنسية التي تم الاعتماد عليها وتوثيقها في هذا البحث:")
+    r_bib_sub = p_bib_sub.add_run("قائمة موحدة ومحققة بجميع أمهات الكتب والمصادر الكنسية المستند إليها في هذا البحث:")
     _set_run_font(r_bib_sub, "Traditional Arabic", 13, italic=True, color_rgb=RGBColor(100, 116, 139))
 
     if bibliography:
-        table_bib = doc.add_table(rows=1, cols=4)
-        table_bib.alignment = WD_TABLE_ALIGNMENT.CENTER
-        _set_table_rtl(table_bib)
-        b_hdr = table_bib.rows[0].cells
-        b_hdr[0].text = "م"
-        b_hdr[1].text = "اسم الكتاب / المرجع"
-        b_hdr[2].text = "المؤلف / الأب"
-        b_hdr[3].text = "الصفحات الموثقة"
-
-        for cell in b_hdr:
-            _set_cell_background(cell, "E2E8F0")
-            for p in cell.paragraphs:
-                _set_paragraph_rtl(p)
-                p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                for r in p.runs:
-                    _set_run_font(r, "Traditional Arabic", 12, bold=True)
-
         for b_idx, b in enumerate(bibliography, 1):
-            row_cells = table_bib.add_row().cells
-            row_cells[0].text = str(b_idx)
-            row_cells[1].text = _strip_emojis(b.get("title") or b.get("reference", "")).strip()
-            row_cells[2].text = _strip_emojis(b.get("author") or "آباء الكنيسة").strip()
-            row_cells[3].text = str(b.get("pages_cited") or "مطبوعة")
+            p_b = doc.add_paragraph()
+            _set_paragraph_rtl(p_b)
+            p_b.paragraph_format.left_indent = Inches(0.2)
+            p_b.paragraph_format.right_indent = Inches(0.2)
+            p_b.paragraph_format.space_before = Pt(5)
+            p_b.paragraph_format.space_after = Pt(4)
 
-            for cell in row_cells:
-                for p in cell.paragraphs:
-                    _set_paragraph_rtl(p)
-                    for r in p.runs:
-                        _set_run_font(r, "Traditional Arabic", 12)
+            b_title = _strip_emojis(b.get("title") or b.get("reference", "")).strip()
+            b_author = _strip_emojis(b.get("author") or "آباء الكنيسة").strip()
+            b_pages = str(b.get("pages_cited") or "مواضع متعددة")
+
+            r_idx_title = p_b.add_run(f"[{b_idx}] « {b_title} »\n")
+            _set_run_font(r_idx_title, "Traditional Arabic", 14, bold=True, color_rgb=RGBColor(24, 43, 73))
+
+            r_details = p_b.add_run(f"    • المؤلف: {b_author}   |   📄 الصفحات المعتمدة: {b_pages}")
+            _set_run_font(r_details, "Traditional Arabic", 12.5, color_rgb=RGBColor(135, 79, 25))
 
     doc.save(output_path)
     return output_path

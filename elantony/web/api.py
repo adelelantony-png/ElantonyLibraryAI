@@ -1868,6 +1868,12 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             </div>
 
             <div class="nav-actions">
+                <button class="btn-nav btn-reset-nav" onclick="clearBotMemory()" title="تفريغ ذاكرة البوت ومسح سياق الأسئلة السابقة تماماً للبدء بصفحة بيضاء" style="background: rgba(239, 68, 68, 0.14); border-color: #ef4444; color: #dc2626; font-weight: 800;">
+                    <span>🧹</span> تفريغ ذاكرة البوت
+                </button>
+                <button class="btn-nav btn-preview-nav" onclick="previewCurrentMonograph()" title="معاينة وطباعة الأطروحة بنمط الويب الأنيق وبجودة A4 الفائقة" style="background: rgba(124, 45, 18, 0.14); border-color: #7c2d12; color: #7c2d12; font-weight: 700;">
+                    <span>🖨️</span> معاينة وطباعة
+                </button>
                 <button class="btn-nav btn-compile" onclick="openCompilationModal()" title="تجميع أسئلة وإجابات البحث مع الفهرس والمراجع">
                     <span>📑</span> تجميع البحث
                 </button>
@@ -1944,6 +1950,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                 <button type="button" class="topic-mode-pill active" id="btnModeContinue" onclick="setTopicMode('continue')" title="إدراج هذا السؤال كسؤال متسلسل في نفس موضوع وبحث التبويب الحالي (افتراضي)">🔗 استكمال في نفس المبحث</button>
                 <button type="button" class="topic-mode-pill" id="btnModeNew" onclick="setTopicMode('new')" title="فتح تبويب ومبحث مستقل وجديد كلياً في القائمة الجانبية">➕ فتح بحث مستقل جديد</button>
                 <button type="button" class="topic-mode-pill" id="btnModeAuto" onclick="setTopicMode('auto')" title="تصنيف ذكي: استكمال نفس المبحث إذا كان متصلاً أو فتح موضوع جديد إذا اختلف">⚡ ذكي تلقائي</button>
+                <button type="button" class="topic-mode-pill" onclick="clearBotMemory()" title="تفريغ ذاكرة البوت ومسح سياق الأسئلة السابقة للبدء بصفحة بيضاء" style="background:rgba(239, 68, 68, 0.12); border-color:#ef4444; color:#dc2626; font-weight:700; margin-right:auto;">🧹 تفريغ الذاكرة</button>
             </div>
             <div class="input-box-wrapper">
                 <textarea 
@@ -2487,7 +2494,25 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             }, 150);
         }
 
-        async function startNewChat() {
+        
+        async function clearBotMemory() {
+            if (chatMessages && chatMessages.length > 0) {
+                if (!confirm("هل تريد بالتأكيد تفريغ ذاكرة البوت ومسح أي أسئلة وسياقات سابقة للبدء بصفحة بيضاء تماماً؟")) {
+                    return;
+                }
+            }
+            await startNewChat();
+            showTopicToast("✨ تم تفريغ ذاكرة البوت بنجاح! الذاكرة الآن نقية ومستعدة لسؤالك الجديد.");
+        }
+
+        function previewCurrentMonograph() {
+            if (!currentSessionId) {
+                alert("يرجى اختيار جلسة بحث أولاً للمعاينة والطباعة.");
+                return;
+            }
+            window.open('/api/sessions/' + currentSessionId + '/preview', '_blank');
+        }
+async function startNewChat() {
             try {
                 const res = await fetch('/api/sessions', {
                     method: 'POST',
@@ -4045,6 +4070,20 @@ async def compile_discussion_session(session_id: str):
         raise HTTPException(status_code=404, detail=res["error"])
     return res
 
+
+
+@app.get("/api/sessions/{session_id}/preview")
+async def preview_session_monograph(session_id: str):
+    """
+    Renders the session as a stunning, publication-grade ecclesiastical HTML monograph
+    mirroring the exact Web Portal aesthetic, ready for direct viewing and printing (Ctrl+P).
+    """
+    res = repo.compile_session(session_id)
+    if "error" in res:
+        raise HTTPException(status_code=404, detail=res["error"])
+    from elantony.services.html_exporter import generate_session_html
+    html_out = generate_session_html(res)
+    return Response(content=html_out.encode("utf-8"), media_type="text/html; charset=utf-8")
 
 @app.get("/api/sessions/{session_id}/export")
 async def export_discussion_session(session_id: str, format: str = "markdown"):

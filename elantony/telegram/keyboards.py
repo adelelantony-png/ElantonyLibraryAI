@@ -21,7 +21,7 @@ def get_main_menu_reply_keyboard() -> Dict[str, Any]:
             [{"text": "📜 سنكسار اليوم"}, {"text": "📖 آية وتفسير آبائي"}],
             [{"text": "🌐 سحب جوجل درايف"}, {"text": "📡 قنوات تليجرام"}],
             [{"text": "📊 لوحة الإشراف (Admin)"}, {"text": "⚡ قائمة الأوامر الخاصة"}],
-            [{"text": "🔄 بحث جديد"}, {"text": "📂 أبحاثي السابقة"}],
+            [{"text": "🧹 تفريغ الذاكرة (بحث جديد)"}, {"text": "📂 أبحاثي السابقة"}],
             [{"text": "📑 فهرس المكتبة الشامل"}, {"text": "📚 البحث في المكتبة"}],
             [{"text": "⚙️ عمق الإجابة"}, {"text": "ℹ️ حول المكتبة"}]
         ],
@@ -45,7 +45,7 @@ def get_main_menu_inline_keyboard() -> Dict[str, Any]:
                 {"text": "📖 آية وتفسير آبائي", "callback_data": "menu:daily_verse"}
             ],
             [
-                {"text": "🔄 بدء بحث جديد", "callback_data": "session:new"},
+                {"text": "🧹 تفريغ الذاكرة (بحث جديد)", "callback_data": "session:new"},
                 {"text": "📂 أبحاثي السابقة", "callback_data": "session:history"}
             ],
             [

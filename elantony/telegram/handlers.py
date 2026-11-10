@@ -689,7 +689,7 @@ class TelegramHandlerService:
         if cmd in ["/new", "/session_new", "/reset", "/clear"] or text.lower() in [
             "/new", "/reset", "/clear", "reset", "clear",
             "🔄 بحث جديد", "بحث جديد", "محادثة جديدة", "جلسة جديدة",
-            "تصفير", "تصفير الذاكرة", "مسح الذاكرة", "مسح", "ابدأ من جديد"
+            "تصفير", "تصفير الذاكرة", "مسح الذاكرة", "مسح", "ابدأ من جديد", "🧹 تفريغ الذاكرة (بحث جديد)", "تفريغ الذاكرة", "تفريغ"
         ] or text.startswith("/new") or text.startswith("/reset") or text.startswith("/clear"):
             new_id = repo.create_session(str(user_id))
             _user_states.pop(user_id, None)
