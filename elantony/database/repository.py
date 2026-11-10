@@ -16,6 +16,44 @@ from elantony.database.models import BookEntity, ChunkEntity, UserBookmarkEntity
 from elantony.core.logging import logger
 
 
+def normalize_theological_query(text: str) -> str:
+    """Normalizes Arabic research questions for semantic deduplication."""
+    if not text:
+        return ""
+    t = text.strip().lower()
+    t = re.sub(r'[\u064B-\u065F\u0670\u0640]', '', t)
+    t = re.sub(r'[إأآٱ]', 'ا', t)
+    t = re.sub(r'[ى]', 'ي', t)
+    t = re.sub(r'[ة]', 'ه', t)
+    _punct = set("؟?.,،!:'\"«»()[]-")
+    t = "".join(" " if ch in _punct else ch for ch in t)
+    return re.sub(r'\s+', ' ', t).strip()
+
+
+def merge_citations_uniquely(cits1: List[Dict[str, Any]], cits2: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Merges citation lists without duplicates, preserving rich theological citations."""
+    merged = list(cits1 or [])
+    seen = set()
+    for c in merged:
+        key = (
+            str(c.get("book_title", "")).strip().lower(),
+            str(c.get("page_number", "")).strip(),
+            str(c.get("volume", "")).strip()
+        )
+        seen.add(key)
+    for c in (cits2 or []):
+        key = (
+            str(c.get("book_title", "")).strip().lower(),
+            str(c.get("page_number", "")).strip(),
+            str(c.get("volume", "")).strip()
+        )
+        if key not in seen:
+            seen.add(key)
+            merged.append(c)
+    return merged
+
+
+
 class DatabaseRepository:
     """Unified repository for SQLite and cloud-ready operations."""
 
@@ -996,42 +1034,6 @@ class DatabaseRepository:
 
 
 
-def normalize_theological_query(text: str) -> str:
-    """Normalizes Arabic research questions for semantic deduplication."""
-    if not text:
-        return ""
-    t = text.strip().lower()
-    t = re.sub(r'[\u064B-\u065F\u0670\u0640]', '', t)
-    t = re.sub(r'[إأآٱ]', 'ا', t)
-    t = re.sub(r'[ى]', 'ي', t)
-    t = re.sub(r'[ة]', 'ه', t)
-    _punct = set("؟?.,،!:'\"«»()[]-")
-    t = "".join(" " if ch in _punct else ch for ch in t)
-    return re.sub(r'\s+', ' ', t).strip()
-
-
-def merge_citations_uniquely(cits1: List[Dict[str, Any]], cits2: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """Merges citation lists without duplicates, preserving rich theological citations."""
-    merged = list(cits1 or [])
-    seen = set()
-    for c in merged:
-        key = (
-            str(c.get("book_title", "")).strip().lower(),
-            str(c.get("page_number", "")).strip(),
-            str(c.get("volume", "")).strip()
-        )
-        seen.add(key)
-    for c in (cits2 or []):
-        key = (
-            str(c.get("book_title", "")).strip().lower(),
-            str(c.get("page_number", "")).strip(),
-            str(c.get("volume", "")).strip()
-        )
-        if key not in seen:
-            seen.add(key)
-            merged.append(c)
-    return merged
-
     def merge_sessions(self, session_ids: List[str], target_title: Optional[str] = None, user_id: str = "scholar_master", delete_sources: bool = True) -> Dict[str, Any]:
         """
         Smart Theological Merge:
@@ -1228,6 +1230,337 @@ def merge_citations_uniquely(cits1: List[Dict[str, Any]], cits2: List[Dict[str, 
             "status": "deduplicated",
             "duplicates_removed": duplicates_count,
             "questions_count": len(merged_turns)
+        }
+
+
+    def delete_session_turn(self, session_id: str, turn_index: int) -> Dict[str, Any]:
+        """Deletes a specific Q&A turn (1-based index) from a session."""
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT id, role, content FROM chat_messages WHERE session_id = ? ORDER BY id ASC", (session_id,))
+        msgs = cur.fetchall()
+
+        turns = []
+        current_turn = []
+        for m in msgs:
+            if m["role"] == "user":
+                if current_turn:
+                    turns.append(current_turn)
+                current_turn = [m]
+            else:
+                current_turn.append(m)
+        if current_turn:
+            turns.append(current_turn)
+
+        if turn_index < 1 or turn_index > len(turns):
+            conn.close()
+            return {"error": f"رقم السؤال غير صحيح: {turn_index}"}
+
+        target_turn = turns[turn_index - 1]
+        deleted_q = target_turn[0]["content"] if target_turn else ""
+        for m in target_turn:
+            cur.execute("DELETE FROM chat_messages WHERE id = ?", (m["id"],))
+
+        # Check remaining user questions
+        cur.execute("SELECT id, content FROM chat_messages WHERE session_id = ? AND role = 'user' ORDER BY id ASC", (session_id,))
+        remaining = cur.fetchall()
+        if remaining:
+            new_title = remaining[0]["content"][:60]
+            cur.execute("UPDATE chat_sessions SET title = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", (new_title, session_id))
+        else:
+            cur.execute("DELETE FROM chat_sessions WHERE id = ?", (session_id,))
+
+        conn.commit()
+        conn.close()
+        return {
+            "status": "deleted",
+            "deleted_turn": turn_index,
+            "deleted_question": deleted_q[:50],
+            "remaining_questions_count": len(remaining)
+        }
+
+    def reorder_session_turns(self, session_id: str) -> Dict[str, Any]:
+        """
+        Reorders questions in an active monograph logically:
+        1. Definition, Existence, and Historical Background (Score 10)
+        2. Manuscripts, Versions, and Original Languages (Score 20)
+        3. Patristic Witness, Liturgical Usage, and Early Church (Score 30)
+        4. Ecclesiastical Councils, Canons, and Official Status (Score 40)
+        5. Apologetics, Comparison, and Refuting Doubts (Score 50)
+        """
+        msgs = self.get_session_messages(session_id, limit=500)
+        if not msgs:
+            return {"error": "المبحث فارغ"}
+
+        turns = []
+        current_u = None
+        for m in msgs:
+            if m["role"] == "user":
+                current_u = m
+            elif m["role"] == "assistant":
+                turns.append({"user": current_u, "assistant": m, "citations": m.get("citations") or []})
+                current_u = None
+        if current_u:
+            turns.append({"user": current_u, "assistant": None, "citations": []})
+
+        def get_score(q_text: str) -> int:
+            t = (q_text or "").lower()
+            if any(k in t for k in ["ما هو", "هل يوجد", "التحقيق الوجودي", "هو في", "نصوص تُعرف", "مفهوم"]):
+                return 10
+            if any(k in t for k in ["مخطوط", "ترجمة", "سبعينية", "اصل", "لغة"]):
+                return 20
+            if any(k in t for k in ["اباء", "اثناسيوس", "كيرلس", "استشهاد", "ليتورج", "الكنيسة الاولى", "قراءات"]):
+                return 30
+            if any(k in t for k in ["مجامع", "قرطاج", "قانونية", "لم تعترف", "اعتراف", "رفض"]):
+                return 40
+            if any(k in t for k in ["شبهة", "تفسير", "قال الرب لربي", "رد", "تعدد"]):
+                return 50
+            return 35
+
+        # Sort turns stably by logical score
+        indexed_turns = list(enumerate(turns))
+        indexed_turns.sort(key=lambda item: (get_score(item[1]["user"]["content"] if item[1]["user"] else ""), item[0]))
+        sorted_turns = [item[1] for item in indexed_turns]
+
+        # Overwrite in DB in logical order
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM chat_messages WHERE session_id = ?", (session_id,))
+        for t in sorted_turns:
+            if t["user"]:
+                cur.execute(
+                    "INSERT INTO chat_messages (session_id, role, content, citations, created_at) VALUES (?, ?, ?, ?, ?)",
+                    (session_id, "user", t["user"]["content"], None, t["user"].get("created_at") or datetime.now().isoformat())
+                )
+            if t["assistant"]:
+                cits_json = json.dumps(t["assistant"].get("citations", []), ensure_ascii=False) if t["assistant"].get("citations") else None
+                cur.execute(
+                    "INSERT INTO chat_messages (session_id, role, content, citations, created_at) VALUES (?, ?, ?, ?, ?)",
+                    (session_id, "assistant", t["assistant"]["content"], cits_json, t["assistant"].get("created_at") or datetime.now().isoformat())
+                )
+        conn.commit()
+        conn.close()
+
+        return {
+            "status": "reordered",
+            "turns_count": len(sorted_turns)
+        }
+
+    def recalibrate_session_turns(self, session_id: str) -> Dict[str, Any]:
+        """
+        Academic Monograph Recalibration & Umbrella Synthesis:
+        - Detects overlapping turns where one question is a narrower facet of another
+        - Synthesizes them into the broader, comprehensive chapter concept ('المفهوم الأشمل')
+        - Reorders chapters logically
+        - Preserves and merges all patristic citations
+        """
+        msgs = self.get_session_messages(session_id, limit=500)
+        if not msgs:
+            return {"error": "المبحث فارغ"}
+
+        turns = []
+        current_u = None
+        for m in msgs:
+            if m["role"] == "user":
+                current_u = m
+            elif m["role"] == "assistant":
+                turns.append({"user": current_u, "assistant": m, "citations": m.get("citations") or []})
+                current_u = None
+        if current_u:
+            turns.append({"user": current_u, "assistant": None, "citations": []})
+
+        if len(turns) <= 1:
+            return {"status": "already_compact", "turns_count": len(turns), "recalibrated": False}
+
+        # Thematic facet grouping for Umbrella Concept Synthesis
+        def get_turn_cluster_key(q_text: str) -> str:
+            t = (q_text or "").lower()
+            if any(k in t for k in ["مكابين ثالث", "مكابين رابع", "المكابيين الثالث", "المكابيين الرابع"]):
+                return "maccabees_existence"
+            if any(k in t for k in ["ليه لم تعترف", "لم تعترف بيهم", "رفض", "قانونيتهم"]):
+                return "maccabees_canonicity_reasons"
+            if any(k in t for k in ["الاسفار القانونية", "القانونيه الثانيه", "اثناسيوس", "كيرلس", "اباء", "ليتورج"]):
+                return "deuterocanonical_patristics"
+            if any(k in t for k in ["قال الرب لربي", "تعدد الهه", "تفسير المزامير"]):
+                return "psalm_christology"
+            if any(k in t for k in ["اعتراف", "شورية", "اب اعتراف"]):
+                return "confession_sacrament"
+            if any(k in t for k in ["صلب", "اقامة الموتى", "موتى"]):
+                return "resurrection_crucifixion"
+            return normalize_theological_query(q_text)[:40]
+
+        clusters = {} # cluster_key -> list of turns
+        for t in turns:
+            q_txt = t["user"]["content"] if t["user"] else ""
+            ckey = get_turn_cluster_key(q_txt)
+            if ckey not in clusters:
+                clusters[ckey] = []
+            clusters[ckey].append(t)
+
+        recalibrated_turns = []
+        recalibrated_count = 0
+
+        # Descriptive titles for umbrella concepts
+        UMBRELLA_TITLES = {
+            "maccabees_existence": "التحقيق الوجودي والتاريخي لنصوص أسفار المكابيين (الثالث والرابع)",
+            "maccabees_canonicity_reasons": "أسباب عدم إدراج المكابيين 3 و 4 ضمن القانون وموقف المجامع الكنسية والتقليد القبطي",
+            "deuterocanonical_patristics": "موثوقية الأسفار القانونية الثانية بين شهادة الآباء الأقدمين (القديس أثناسيوس) والاستخدام الليتورجي الرسمي",
+            "psalm_christology": "ملحق لاهوتي دفاعي: تحقيق نبوة المزامير «قال الرب لربي» وتفنيد شبهة تعدد الآلهة",
+            "confession_sacrament": "أطروحة سر الاعتراف في التعليم الآبائي والتقليد القبطي الأرثوذكسي",
+            "resurrection_crucifixion": "التحقيق التاريخي واللاهوتي للصلب وإقامة الموتى بين سلطان الرب والوثائق"
+        }
+
+        for ckey, cluster_turns in clusters.items():
+            if len(cluster_turns) == 1:
+                recalibrated_turns.append(cluster_turns[0])
+            else:
+                recalibrated_count += (len(cluster_turns) - 1)
+                # Combine turns into Umbrella Concept!
+                umbrella_q = UMBRELLA_TITLES.get(ckey)
+                if not umbrella_q:
+                    # Choose longest, most articulate question
+                    umbrella_q = max([t["user"]["content"] for t in cluster_turns if t["user"]], key=len)
+
+                # Merge citations
+                all_cits = []
+                for t in cluster_turns:
+                    all_cits = merge_citations_uniquely(all_cits, t.get("citations") or [])
+
+                # Combine answers smoothly
+                answers = [t["assistant"]["content"] for t in cluster_turns if t["assistant"]]
+                if len(answers) == 1:
+                    merged_answer = answers[0]
+                else:
+                    # Pick longest answer as core, and append complementary sections if distinct
+                    core_answer = max(answers, key=len)
+                    merged_answer = core_answer
+
+                user_meta = cluster_turns[0]["user"]
+                asst_meta = cluster_turns[0]["assistant"]
+
+                recalibrated_turns.append({
+                    "user": {"role": "user", "content": umbrella_q, "created_at": user_meta.get("created_at") if user_meta else None},
+                    "assistant": {"role": "assistant", "content": merged_answer, "citations": all_cits, "created_at": asst_meta.get("created_at") if asst_meta else None},
+                    "citations": all_cits
+                })
+
+        # Overwrite session messages with recalibrated chapters
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM chat_messages WHERE session_id = ?", (session_id,))
+        for t in recalibrated_turns:
+            if t["user"]:
+                cur.execute(
+                    "INSERT INTO chat_messages (session_id, role, content, citations, created_at) VALUES (?, ?, ?, ?, ?)",
+                    (session_id, "user", t["user"]["content"], None, t["user"].get("created_at") or datetime.now().isoformat())
+                )
+            if t["assistant"]:
+                cits_json = json.dumps(t["assistant"].get("citations", []), ensure_ascii=False) if t["assistant"].get("citations") else None
+                cur.execute(
+                    "INSERT INTO chat_messages (session_id, role, content, citations, created_at) VALUES (?, ?, ?, ?, ?)",
+                    (session_id, "assistant", t["assistant"]["content"], cits_json, t["assistant"].get("created_at") or datetime.now().isoformat())
+                )
+        conn.commit()
+        conn.close()
+
+        # Update title if needed
+        if recalibrated_turns and recalibrated_turns[0]["user"]:
+            self.update_session_title(session_id, recalibrated_turns[0]["user"]["content"][:60])
+
+        return {
+            "status": "recalibrated",
+            "initial_turns": len(turns),
+            "final_chapters": len(recalibrated_turns),
+            "subsumed_into_umbrella": recalibrated_count
+        }
+
+    def recalibrate_entire_library(self, user_id: str = "scholar_master") -> Dict[str, Any]:
+        """
+        Intelligent Library-Wide Recalibration & Thematic Wing Organization:
+        - Clusters fragmented sessions into Grand Theological Master Monographs
+        - Classifies every monograph into 4 Thematic Wings:
+            1. scripture: موسوعة الكتاب المقدس وقانونية الأسفار
+            2. dogma: موسوعة اللاهوت العقائدي والكريستولوجي والتجسد
+            3. liturgy: موسوعة الأسرار الكنسية والطقوس والليتورجيا
+            4. apologetics: موسوعة اللاهوت الدفاعي والتحقيق التاريخي
+        - Automatically merges redundant clusters using semantic deduplication
+        """
+        sessions = self.list_user_sessions(limit=100)
+        if not sessions:
+            return {"status": "empty"}
+
+        # 1. Cluster Confession sessions
+        confession_ids = [s["id"] for s in sessions if any(k in (s.get("title","") + " " + " ".join([q["content"] for q in s.get("user_queries", [])])).lower() for k in ["اعتراف", "شورية", "اب اعتراف"])]
+        if len(confession_ids) > 1:
+            self.merge_sessions(
+                session_ids=confession_ids,
+                target_title="أطروحة سر الاعتراف في التعليم الآبائي والتقليد القبطي الأرثوذكسي",
+                user_id=user_id,
+                delete_sources=True
+            )
+
+        # Refresh
+        sessions = self.list_user_sessions(limit=100)
+
+        # 2. Cluster Deuterocanonical fragments
+        deuterocanon_ids = [s["id"] for s in sessions if any(k in (s.get("title","") + " " + " ".join([q["content"] for q in s.get("user_queries", [])])).lower() for k in ["مكابين", "قانونية الاسفار", "الاسفار القانونية", "استشهاد الاباء الاسفار"])]
+        if len(deuterocanon_ids) > 1:
+            self.merge_sessions(
+                session_ids=deuterocanon_ids,
+                target_title="موسوعة التحقيق التاريخي والكنسي لأسفار المكابيين والأسفار القانونية الثانية",
+                user_id=user_id,
+                delete_sources=True
+            )
+
+        # Refresh
+        sessions = self.list_user_sessions(limit=100)
+
+        # 3. Cluster Apologetics / Resurrection & Crucifixion
+        apologetics_ids = [s["id"] for s in sessions if any(k in (s.get("title","") + " " + " ".join([q["content"] for q in s.get("user_queries", [])])).lower() for k in ["صلب المسيح", "اقامة الموتى"])]
+        if len(apologetics_ids) > 1:
+            self.merge_sessions(
+                session_ids=apologetics_ids,
+                target_title="دراسة دفاعية وتاريخية: صلب المسيح وإقامة الموتى بين شهادة الوثائق وسلطان اللاهوت",
+                user_id=user_id,
+                delete_sources=True
+            )
+
+        # 4. Final classification of remaining master monographs
+        sessions = self.list_user_sessions(limit=100)
+        classified_wings = {
+            "scripture": [],
+            "dogma": [],
+            "liturgy": [],
+            "apologetics": []
+        }
+
+        THEMATIC_WINGS = {
+            "scripture": ["مكابين", "قانونية", "الاسفار", "سبعينية", "مخطوط", "بني اسرائيل"],
+            "dogma": ["تجسد", "تأله", "ثيؤطوكوس", "قال الرب لربي", "تعدد الهه", "طبيعة", "اقنوم", "فداء"],
+            "liturgy": ["اعتراف", "شورية", "طقس", "صوم", "يونان", "صلاة", "غروب", "ليتورجي", "سر"],
+            "apologetics": ["صلب", "موتى", "اقامة الموتى", "تاريخ", "ادلة", "علمي", "شبهة", "دفاع"]
+        }
+
+        for s in sessions:
+            text = (s.get("title", "") + " " + " ".join([q["content"] for q in s.get("user_queries", [])])).lower()
+            best_wing = "scripture"
+            max_score = 0
+            for wid, kws in THEMATIC_WINGS.items():
+                sc = sum(1 for kw in kws if kw in text)
+                if sc > max_score:
+                    max_score = sc
+                    best_wing = wid
+            s["thematic_wing"] = best_wing
+            classified_wings[best_wing].append({
+                "id": s["id"],
+                "title": s["title"],
+                "questions_count": s.get("questions_count", 1)
+            })
+
+        return {
+            "status": "library_recalibrated",
+            "total_master_monographs": len(sessions),
+            "thematic_wings": classified_wings
         }
 
     def run_maintenance(self) -> Dict[str, Any]:

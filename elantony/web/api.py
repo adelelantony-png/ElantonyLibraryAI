@@ -2057,11 +2057,16 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             <input type="text" id="sidebarSearchInput" placeholder="🔍 بحث في أبحاثك..." oninput="filterSidebarSessions(this.value)" class="sidebar-search-box">
         </div>
 
-                <div style="display:flex; align-items:center; justify-content:space-between; padding: 6px 16px;">
-            <div class="chat-history-title" style="padding:0;">📂 أبحاثك المحفوظة</div>
-            <button class="btn-ctrl" id="btnSidebarMergeToggle" onclick="toggleSidebarMergeMode()" style="padding:3px 9px; font-size:11.5px; background:rgba(217,119,6,0.15); color:#d97706; border-color:#d97706; font-weight:800; display:inline-flex; align-items:center; gap:4px;" title="تحديد عدة أبحاث لدمجها في بحث واحد">
-                <span>🗂️</span> دمج أبحاث
-            </button>
+                <div style="display:flex; align-items:center; justify-content:space-between; padding: 6px 16px; gap:6px;">
+            <div class="chat-history-title" style="padding:0; font-size:12px;">📂 مكتبة الأبحاث</div>
+            <div style="display:flex; align-items:center; gap:5px;">
+                <button class="btn-ctrl" onclick="recalibrateLibraryEntirely()" style="padding:3px 7px; font-size:11px; background:rgba(99,102,241,0.15); color:#6366f1; border-color:#6366f1; font-weight:800; display:inline-flex; align-items:center; gap:3px;" title="إعادة معايرة وتنظيم مكتبة الأبحاث وتصنيفها ودمج المتشابه موسوعياً">
+                    <span>🏛️</span> تنظيم المكتبة
+                </button>
+                <button class="btn-ctrl" id="btnSidebarMergeToggle" onclick="toggleSidebarMergeMode()" style="padding:3px 7px; font-size:11px; background:rgba(217,119,6,0.15); color:#d97706; border-color:#d97706; font-weight:800; display:inline-flex; align-items:center; gap:3px;" title="تحديد عدة أبحاث لدمجها في بحث واحد">
+                    <span>🗂️</span> دمج
+                </button>
+            </div>
         </div>
 
         <!-- Sticky Sidebar Merge Panel (يظهر عند تفعيل وضع الدمج) -->
@@ -2185,6 +2190,12 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                 <button class="btn-ctrl" onclick="renameSession(event, currentSessionId, document.getElementById('currentSessionTitleDisplay').textContent)" style="padding:2px 8px; font-size:11px;" title="تعديل عنوان البحث">✏️ تعديل العنوان</button>
             </div>
             <div style="display:flex; align-items:center; gap:8px;">
+                <button class="btn-ctrl" onclick="recalibrateActiveMonograph()" style="background:#065f46; color:#fff; border-color:#065f46; font-weight:800; padding:6px 12px; font-size:12px; display:inline-flex; align-items:center; gap:5px;" title="إعادة معايرة وتوليف الأطروحة ودمج الأسئلة الجزئية في مفاهيم شاملة">
+                    <span>⚖️</span> <span>معايرة وتوليف</span>
+                </button>
+                <button class="btn-ctrl" onclick="reorderActiveMonograph()" style="background:#1e40af; color:#fff; border-color:#1e40af; font-weight:700; padding:6px 12px; font-size:12px; display:inline-flex; align-items:center; gap:5px;" title="ترتيب تسلسلي منطقي لفصول ومحاور البحث">
+                    <span>🔀</span> <span>ترتيب منطقي</span>
+                </button>
                 <button class="btn-ctrl" onclick="previewCurrentMonograph()" style="background:#7c2d12; color:#fff; border-color:#7c2d12; font-weight:800; padding:6px 14px; font-size:12.5px; box-shadow:0 2px 5px rgba(124,45,18,0.25);" title="معاينة وطباعة الأطروحة بنمط النشر A4 المعتمد">
                     🖨️ معاينة وطباعة الأطروحة
                 </button>
@@ -2725,6 +2736,15 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             nextBtn.innerHTML = '<span>التالي</span> <span>▶</span>';
             nextBtn.onclick = () => navigateSubq(1);
             wrapper.appendChild(nextBtn);
+
+            const delBtn = document.createElement('button');
+            delBtn.className = 'btn-subq-nav';
+            delBtn.style.color = '#ef4444';
+            delBtn.style.borderColor = 'rgba(239,68,68,0.3)';
+            delBtn.title = 'حذف هذا السؤال الجانبي من الأطروحة';
+            delBtn.innerHTML = '<span>🗑️</span> <span>حذف السؤال</span>';
+            delBtn.onclick = () => deleteCurrentQuestionPrompt();
+            wrapper.appendChild(delBtn);
 
             subqBar.appendChild(wrapper);
             currentNavigatedQIdx = queryToOriginalTurn[0];
@@ -4665,6 +4685,97 @@ ${url}`;
             loadScholarNotebook().catch(() => {});
         });
 
+
+        async function deleteCurrentQuestionPrompt() {
+            if (!currentSessionId) return;
+            const select = document.getElementById('subqDropdownSelect');
+            const qTurn = select ? parseInt(select.value, 10) : currentNavigatedQIdx;
+            if (!qTurn || qTurn < 1) return;
+
+            if (!confirm(`هل تريد بالتأكيد حذف السؤال رقم (${qTurn}) وإجابته من هذا المبحث؟`)) return;
+
+            try {
+                const res = await fetch('/api/sessions/' + currentSessionId + '/turns/' + qTurn, {
+                    method: 'DELETE'
+                });
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.detail || "تعذر حذف السؤال");
+                }
+                const data = await res.json();
+                showTopicToast("✨ تم استبعاد السؤال بنجاح وتحديث فهرس الأطروحة.");
+                await loadSessions();
+                if (data.remaining_questions_count > 0) {
+                    await selectSession(currentSessionId);
+                } else {
+                    await startNewChat();
+                }
+            } catch(e) {
+                alert("خطأ أثناء حذف السؤال: " + e.message);
+            }
+        }
+
+        async function reorderActiveMonograph() {
+            if (!currentSessionId) return;
+            if (!confirm("هل تريد إعادة ترتيب أسئلة وفصول هذا المبحث تسلسلياً وفق المنطق الأكاديمي واللاهوتي؟")) return;
+
+            try {
+                const res = await fetch('/api/sessions/' + currentSessionId + '/reorder', {
+                    method: 'POST'
+                });
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.detail || "فشل إعادة الترتيب");
+                }
+                showTopicToast("✨ تم إعادة الترتيب المنطقي للأطروحة بنجاح.");
+                await selectSession(currentSessionId);
+            } catch(e) {
+                alert("خطأ: " + e.message);
+            }
+        }
+
+        async function recalibrateActiveMonograph() {
+            if (!currentSessionId) return;
+            if (!confirm("هل تريد إعادة معايرة وتوليف الأطروحة؟ سيقوم النظام بدمج الأسئلة الجزئية في مفاهيم لاهوتية شاملة وتنسيق الفصول.")) return;
+
+            try {
+                showTopicToast("⏳ جاري إعادة معايرة وتوليف الأطروحة للمفهوم الأشمل...");
+                const res = await fetch('/api/sessions/' + currentSessionId + '/recalibrate', {
+                    method: 'POST'
+                });
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.detail || "فشل المعايرة");
+                }
+                const data = await res.json();
+                showTopicToast(`✨ تم إعادة معايرة وتوليف الأطروحة بنجاح (${data.final_chapters} فصول شاملة).`);
+                await loadSessions();
+                await selectSession(currentSessionId);
+            } catch(e) {
+                alert("خطأ: " + e.message);
+            }
+        }
+
+        async function recalibrateLibraryEntirely() {
+            if (!confirm("هل تريد إعادة معايرة وتنظيم مكتبة الأبحاث بالكامل ودمج الأبحاث المتشابهة في أطروحات موسوعية كبرى؟")) return;
+
+            try {
+                showTopicToast("⏳ جاري إعادة معايرة وتنظيم مكتبة الأبحاث موسوعياً...");
+                const res = await fetch('/api/library/recalibrate', {
+                    method: 'POST'
+                });
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.detail || "فشل تنظيم المكتبة");
+                }
+                const data = await res.json();
+                showTopicToast(`🏛️ تم تنظيم ومعايرة المكتبة بنجاح إلى (${data.total_master_monographs}) أطروحات موسوعية كبرى.`);
+                await loadSessions();
+            } catch(e) {
+                alert("خطأ: " + e.message);
+            }
+        }
+
 </script>
 </body>
 </html>"""
@@ -4818,6 +4929,40 @@ class MergeSessionsRequest(BaseModel):
     user_id: Optional[str] = "scholar_master"
     delete_sources: bool = True
 
+
+
+@app.delete("/api/sessions/{session_id}/turns/{turn_index}")
+async def delete_turn_endpoint(session_id: str, turn_index: int):
+    """Deletes a specific user question turn and its answer from a monograph."""
+    res = repo.delete_session_turn(session_id, turn_index)
+    if "error" in res:
+        raise HTTPException(status_code=400, detail=res["error"])
+    return res
+
+
+@app.post("/api/sessions/{session_id}/reorder")
+async def reorder_session_turns_endpoint(session_id: str):
+    """Reorders questions in active monograph logically by academic progression."""
+    res = repo.reorder_session_turns(session_id)
+    if "error" in res:
+        raise HTTPException(status_code=400, detail=res["error"])
+    return res
+
+
+@app.post("/api/sessions/{session_id}/recalibrate")
+async def recalibrate_session_endpoint(session_id: str):
+    """Recalibrates monograph chapters, synthesizing overlapping questions into comprehensive umbrella concepts."""
+    res = repo.recalibrate_session_turns(session_id)
+    if "error" in res:
+        raise HTTPException(status_code=400, detail=res["error"])
+    return res
+
+
+@app.post("/api/library/recalibrate")
+async def recalibrate_library_endpoint(user_id: Optional[str] = "scholar_master"):
+    """Performs full library-wide recalibration, thematic classification, and clustering."""
+    res = repo.recalibrate_entire_library(user_id=user_id or "scholar_master")
+    return res
 
 @app.post("/api/sessions/merge")
 async def merge_discussion_sessions(req: MergeSessionsRequest):
