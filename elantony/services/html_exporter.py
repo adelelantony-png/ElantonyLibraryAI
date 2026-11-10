@@ -386,8 +386,16 @@ def generate_session_html(comp_data: Dict[str, Any]) -> str:
   }}
 
   .m-paragraph {{
-    margin: 0 0 14px 0;
+    margin: 0 0 16px 0;
     text-align: justify;
+    text-justify: inter-word;
+    text-align-last: right;
+    line-height: 1.9;
+    font-size: 14pt;
+    color: #1e293b;
+    hyphens: none;
+    -webkit-hyphens: none;
+    font-feature-settings: "kern" 1, "liga" 1;
   }}
 
   .m-main-heading {{
