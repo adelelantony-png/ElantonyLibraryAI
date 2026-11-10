@@ -27,6 +27,7 @@ def _set_paragraph_rtl(paragraph) -> None:
     bidi = OxmlElement('w:bidi')
     bidi.set(qn('w:val'), '1')
     pPr.append(bidi)
+    paragraph.alignment = WD_ALIGN_PARAGRAPH.RIGHT
 
 
 def _set_run_font(run, font_name: str = "Traditional Arabic", size_pt: float = 14, bold: bool = False, italic: bool = False, color_rgb: Optional[RGBColor] = None) -> None:
@@ -45,6 +46,13 @@ def _set_run_font(run, font_name: str = "Traditional Arabic", size_pt: float = 1
     rFonts.set(qn('w:hAnsi'), font_name)
     rFonts.set(qn('w:cs'), font_name)
     rPr.append(rFonts)
+
+
+def _set_table_rtl(table) -> None:
+    """Sets table to Right-To-Left column layout (Arabic bidi visual)."""
+    tblPr = table._tbl.tblPr
+    bidi = OxmlElement('w:bidiVisual')
+    tblPr.append(bidi)
 
 
 def _set_cell_background(cell, fill_hex: str) -> None:
@@ -117,6 +125,7 @@ def generate_session_docx(comp_data: Dict[str, Any], output_path: str) -> str:
     # 3. Metadata Table
     table_meta = doc.add_table(rows=1, cols=3)
     table_meta.alignment = WD_TABLE_ALIGNMENT.CENTER
+    _set_table_rtl(table_meta)
     hdr_cells = table_meta.rows[0].cells
 
     for c in hdr_cells:
@@ -186,6 +195,7 @@ def generate_session_docx(comp_data: Dict[str, Any], output_path: str) -> str:
             p_line = doc.add_paragraph()
             _set_paragraph_rtl(p_line)
             p_line.paragraph_format.line_spacing = 1.35
+            p_line.paragraph_format.space_after = Pt(4)
 
             if line_str.startswith("#"):
                 # Subheading
@@ -230,6 +240,7 @@ def generate_session_docx(comp_data: Dict[str, Any], output_path: str) -> str:
     if bibliography:
         table_bib = doc.add_table(rows=1, cols=4)
         table_bib.alignment = WD_TABLE_ALIGNMENT.CENTER
+        _set_table_rtl(table_bib)
         b_hdr = table_bib.rows[0].cells
         b_hdr[0].text = "م"
         b_hdr[1].text = "اسم الكتاب / المرجع"

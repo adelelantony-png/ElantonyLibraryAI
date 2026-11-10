@@ -2582,6 +2582,14 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             const text = chatInput.value.trim();
             if (!text) return;
 
+            const lower = text.toLowerCase();
+            if (['/reset', '/clear', '/new', 'تصفير', 'تصفير الذاكرة', 'مسح الذاكرة', 'مسح', 'reset', 'clear', 'ابدأ من جديد'].includes(lower)) {
+                chatInput.value = '';
+                await startNewChat();
+                showTopicToast("✨ تم تصفير الذاكرة وبدء جلسة جديدة بنجاح!");
+                return;
+            }
+
             if (heroScreen) heroScreen.style.display = 'none';
 
             chatMessages.push({ role: 'user', content: text });
@@ -2771,6 +2779,9 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                     </button>
                     <button class="btn-msg-act" onclick="exportSingleTurnDocx(${turnNumber || 1})" title="تصدير هذا المبحث تحديداً كملف Word مستقل">
                         <span>📄</span> تصدير Word للمبحث
+                    </button>
+                    <button class="btn-msg-act" onclick="exportSingleTurnPdf(${turnNumber || 1})" title="تصدير هذا المبحث تحديداً كملف PDF عالي الجودة">
+                        <span>📕</span> تصدير PDF للمبحث
                     </button>
                     <button class="btn-msg-act" onclick="openCompilationModal()" title="تجميع هذا البحث مع سائر المحاور في أطروحة كاملة وتصديرها">
                         <span>📑</span> تجميع الأطروحة
@@ -3134,6 +3145,14 @@ ${url}`;
                 return;
             }
             window.open('/api/sessions/' + currentSessionId + '/turns/' + (turnIdx || 1) + '/export?format=docx', '_blank');
+        }
+
+        function exportSingleTurnPdf(turnIdx) {
+            if (!currentSessionId) {
+                alert("يرجى اختيار جلسة بحث أولاً.");
+                return;
+            }
+            window.open('/api/sessions/' + currentSessionId + '/turns/' + (turnIdx || 1) + '/export?format=pdf', '_blank');
         }
 
         function copyTurnMarkdown(btn) {
@@ -4127,6 +4146,20 @@ async def export_single_turn(session_id: str, turn_idx: int, format: str = "docx
             content=docx_bytes,
             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             headers={"Content-Disposition": f"attachment; filename*=UTF-8''turn_{turn_idx}_{session_id[:6]}.docx"}
+        )
+
+    if format == "pdf":
+        from elantony.services.pdf_exporter import generate_session_pdf
+        doc_dir = settings.base_dir / "data" / "compiled_researches"
+        doc_dir.mkdir(parents=True, exist_ok=True)
+        pdf_path = doc_dir / f"turn_{session_id}_{turn_idx}.pdf"
+        generate_session_pdf(single_comp, str(pdf_path))
+        with open(pdf_path, "rb") as f:
+            pdf_bytes = f.read()
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename*=UTF-8''turn_{turn_idx}_{session_id[:6]}.pdf"}
         )
 
     # Fallback to plain markdown
