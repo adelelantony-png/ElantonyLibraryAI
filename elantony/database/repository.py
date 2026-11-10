@@ -995,13 +995,52 @@ class DatabaseRepository:
         }
 
 
+
+def normalize_theological_query(text: str) -> str:
+    """Normalizes Arabic research questions for semantic deduplication."""
+    if not text:
+        return ""
+    t = text.strip().lower()
+    t = re.sub(r'[\u064B-\u065F\u0670\u0640]', '', t)
+    t = re.sub(r'[إأآٱ]', 'ا', t)
+    t = re.sub(r'[ى]', 'ي', t)
+    t = re.sub(r'[ة]', 'ه', t)
+    _punct = set("؟?.,،!:'\"«»()[]-")
+    t = "".join(" " if ch in _punct else ch for ch in t)
+    return re.sub(r'\s+', ' ', t).strip()
+
+
+def merge_citations_uniquely(cits1: List[Dict[str, Any]], cits2: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Merges citation lists without duplicates, preserving rich theological citations."""
+    merged = list(cits1 or [])
+    seen = set()
+    for c in merged:
+        key = (
+            str(c.get("book_title", "")).strip().lower(),
+            str(c.get("page_number", "")).strip(),
+            str(c.get("volume", "")).strip()
+        )
+        seen.add(key)
+    for c in (cits2 or []):
+        key = (
+            str(c.get("book_title", "")).strip().lower(),
+            str(c.get("page_number", "")).strip(),
+            str(c.get("volume", "")).strip()
+        )
+        if key not in seen:
+            seen.add(key)
+            merged.append(c)
+    return merged
+
     def merge_sessions(self, session_ids: List[str], target_title: Optional[str] = None, user_id: str = "scholar_master", delete_sources: bool = True) -> Dict[str, Any]:
         """
-        Merges multiple discussion sessions into a single new unified session:
-        - Retrieves all messages from the specified session_ids
-        - Creates a new session in chat_sessions
-        - Copies all messages (preserving their order and content) into the new session
-        - Returns the new session object and metadata
+        Smart Theological Merge:
+        - Retrieves messages from all specified session_ids
+        - Groups them into coherent Q&A research turns
+        - Eliminates duplicate questions semantically (normalizing Arabic text & punctuation)
+        - Combines citations and retains the richest/most comprehensive response for any repeated questions
+        - Saves the unified monograph into chat_sessions & chat_messages
+        - Returns metadata including unique_questions_count and duplicates_removed
         """
         if not session_ids or len(session_ids) < 2:
             return {"error": "يجب تحديد جلستي بحث على الأقل للدمج"}
@@ -1021,21 +1060,75 @@ class DatabaseRepository:
 
         new_session_id = self.create_session(user_id=user_id, title=target_title.strip())
 
-        # Copy messages from all sessions in order
+        # Intelligent Turn Extraction and Question Deduplication
+        merged_turns = []
+        seen_questions = {} # norm_q -> index in merged_turns
+        duplicates_removed = 0
+
+        for sid in session_ids:
+            msgs = self.get_session_messages(sid, limit=500)
+            current_user = None
+            for m in msgs:
+                if m["role"] == "user":
+                    current_user = m
+                elif m["role"] == "assistant":
+                    norm_key = normalize_theological_query(current_user["content"]) if current_user else None
+                    if norm_key and norm_key in seen_questions:
+                        # Smart duplicate resolution: enrich existing turn without duplicating question!
+                        duplicates_removed += 1
+                        exist_idx = seen_questions[norm_key]
+                        exist_turn = merged_turns[exist_idx]
+
+                        # Merge citations
+                        exist_cits = exist_turn["assistant"].get("citations") or []
+                        new_cits = m.get("citations") or []
+                        merged_cits = merge_citations_uniquely(exist_cits, new_cits)
+                        exist_turn["assistant"]["citations"] = merged_cits
+
+                        # Keep richest answer text
+                        if len(m.get("content", "")) > len(exist_turn["assistant"].get("content", "")):
+                            exist_turn["assistant"]["content"] = m["content"]
+                    else:
+                        turn_data = {
+                            "user": current_user,
+                            "assistant": m
+                        }
+                        if norm_key:
+                            seen_questions[norm_key] = len(merged_turns)
+                        merged_turns.append(turn_data)
+                    current_user = None
+
+            if current_user:
+                norm_key = normalize_theological_query(current_user["content"])
+                if norm_key not in seen_questions:
+                    seen_questions[norm_key] = len(merged_turns)
+                    merged_turns.append({"user": current_user, "assistant": None})
+                else:
+                    duplicates_removed += 1
+
+        # Write deduplicated turns to database
         conn = get_connection()
         cur = conn.cursor()
         total_copied = 0
 
-        for sid in session_ids:
-            msgs = self.get_session_messages(sid, limit=500)
-            for m in msgs:
-                citations_json = json.dumps(m.get("citations", []), ensure_ascii=False) if m.get("citations") else None
+        for turn in merged_turns:
+            if turn["user"]:
                 cur.execute(
                     """
                     INSERT INTO chat_messages (session_id, role, content, citations, created_at)
                     VALUES (?, ?, ?, ?, ?)
                     """,
-                    (new_session_id, m["role"], m["content"], citations_json, m.get("created_at") or datetime.now().isoformat())
+                    (new_session_id, "user", turn["user"]["content"], None, turn["user"].get("created_at") or datetime.now().isoformat())
+                )
+                total_copied += 1
+            if turn["assistant"]:
+                cits_json = json.dumps(turn["assistant"].get("citations", []), ensure_ascii=False) if turn["assistant"].get("citations") else None
+                cur.execute(
+                    """
+                    INSERT INTO chat_messages (session_id, role, content, citations, created_at)
+                    VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (new_session_id, "assistant", turn["assistant"]["content"], cits_json, turn["assistant"].get("created_at") or datetime.now().isoformat())
                 )
                 total_copied += 1
 
@@ -1055,8 +1148,86 @@ class DatabaseRepository:
             "session_id": new_session_id,
             "title": target_title.strip(),
             "messages_copied": total_copied,
+            "unique_questions_count": len(merged_turns),
+            "duplicates_removed": duplicates_removed,
             "merged_sessions_count": len(valid_sessions),
             "sources_deleted": delete_sources
+        }
+
+    def deduplicate_session(self, session_id: str) -> Dict[str, Any]:
+        """
+        Deduplicates questions and answers in an existing session in-place.
+        Merges redundant citations and removes duplicate user questions.
+        """
+        msgs = self.get_session_messages(session_id, limit=500)
+        if not msgs:
+            return {"status": "empty", "duplicates_removed": 0}
+
+        merged_turns = []
+        seen_questions = {}
+        duplicates_count = 0
+
+        current_user = None
+        for m in msgs:
+            if m["role"] == "user":
+                current_user = m
+            elif m["role"] == "assistant":
+                norm_key = normalize_theological_query(current_user["content"]) if current_user else None
+                if norm_key and norm_key in seen_questions:
+                    duplicates_count += 1
+                    exist_idx = seen_questions[norm_key]
+                    exist_turn = merged_turns[exist_idx]
+
+                    exist_cits = exist_turn["assistant"].get("citations") or []
+                    new_cits = m.get("citations") or []
+                    merged_cits = merge_citations_uniquely(exist_cits, new_cits)
+                    exist_turn["assistant"]["citations"] = merged_cits
+
+                    if len(m.get("content", "")) > len(exist_turn["assistant"].get("content", "")):
+                        exist_turn["assistant"]["content"] = m["content"]
+                else:
+                    turn_data = {
+                        "user": current_user,
+                        "assistant": m
+                    }
+                    if norm_key:
+                        seen_questions[norm_key] = len(merged_turns)
+                    merged_turns.append(turn_data)
+                current_user = None
+
+        if current_user:
+            norm_key = normalize_theological_query(current_user["content"])
+            if norm_key not in seen_questions:
+                seen_questions[norm_key] = len(merged_turns)
+                merged_turns.append({"user": current_user, "assistant": None})
+            else:
+                duplicates_count += 1
+
+        if duplicates_count == 0:
+            return {"status": "already_clean", "duplicates_removed": 0, "questions_count": len(merged_turns)}
+
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM chat_messages WHERE session_id = ?", (session_id,))
+        for turn in merged_turns:
+            if turn["user"]:
+                cur.execute(
+                    "INSERT INTO chat_messages (session_id, role, content, citations, created_at) VALUES (?, ?, ?, ?, ?)",
+                    (session_id, "user", turn["user"]["content"], None, turn["user"].get("created_at") or datetime.now().isoformat())
+                )
+            if turn["assistant"]:
+                cits_json = json.dumps(turn["assistant"].get("citations", []), ensure_ascii=False) if turn["assistant"].get("citations") else None
+                cur.execute(
+                    "INSERT INTO chat_messages (session_id, role, content, citations, created_at) VALUES (?, ?, ?, ?, ?)",
+                    (session_id, "assistant", turn["assistant"]["content"], cits_json, turn["assistant"].get("created_at") or datetime.now().isoformat())
+                )
+        conn.commit()
+        conn.close()
+
+        return {
+            "status": "deduplicated",
+            "duplicates_removed": duplicates_count,
+            "questions_count": len(merged_turns)
         }
 
     def run_maintenance(self) -> Dict[str, Any]:

@@ -2609,7 +2609,8 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
 
                 const data = await res.json();
                 toggleSidebarMergeMode(false);
-                showTopicToast("✨ تم دمج " + data.merged_sessions_count + " أبحاث بنجاح في أطروحة واحدة: «" + data.title + "»");
+                const dupMsg = (data.duplicates_removed > 0) ? ` (تم استبعاد ${data.duplicates_removed} أسئلة مكررة بذكاء ودمج شواهدها)` : '';
+                showTopicToast(`✨ تم الدمج الذكي بنجاح: «${data.title}» - ${data.unique_questions_count || data.messages_copied} محاور فريدة${dupMsg}`);
 
                 await loadSessions();
                 await selectSession(data.session_id);
@@ -2652,12 +2653,33 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
         function renderSubqDropdown(userQueries) {
             const subqBar = document.getElementById('topicSubqBar');
             if (!subqBar) return;
-            if (!userQueries || userQueries.length <= 1) {
+
+            // Intelligent semantic deduplication of questions
+            const distinctQueries = [];
+            const seenQueries = new Set();
+            const queryToOriginalTurn = [];
+
+            (userQueries || []).forEach((qText, rawIdx) => {
+                const norm = (qText || '').replace(/[\u064B-\u065F\u0670\u0640]/g, '')
+                                          .replace(/[إأآٱ]/g, 'ا')
+                                          .replace(/[ى]/g, 'ي')
+                                          .replace(/[ة]/g, 'ه')
+                                          .replace(/[؟\?\.،,!:'"«»\(\)\-\[\]]/g, ' ')
+                                          .replace(/\s+/g, ' ').trim().toLowerCase();
+                if (norm && !seenQueries.has(norm)) {
+                    seenQueries.add(norm);
+                    distinctQueries.push(qText);
+                    queryToOriginalTurn.push(rawIdx + 1);
+                }
+            });
+
+            if (distinctQueries.length <= 1) {
                 subqBar.style.display = 'none';
                 currentTotalUserQueries = 0;
                 return;
             }
-            currentTotalUserQueries = userQueries.length;
+
+            currentTotalUserQueries = distinctQueries.length;
             subqBar.style.display = 'flex';
             subqBar.innerHTML = '';
 
@@ -2667,7 +2689,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             // Label
             const label = document.createElement('span');
             label.className = 'subq-nav-label';
-            label.innerHTML = '<span>📍</span> <span>محاور وفصول البحث (' + userQueries.length + '):</span>';
+            label.innerHTML = '<span>📍</span> <span>محاور وفصول البحث (' + distinctQueries.length + '):</span>';
             wrapper.appendChild(label);
 
             // Dropdown Select
@@ -2677,9 +2699,10 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             select.title = 'انقر لاختيار أي سؤال أو محور بحثي والتنقل إليه مباشرة';
             select.onchange = (e) => jumpToQuestion(parseInt(e.target.value, 10));
 
-            userQueries.forEach((qText, idx) => {
+            distinctQueries.forEach((qText, idx) => {
+                const origTurn = queryToOriginalTurn[idx];
                 const opt = document.createElement('option');
-                opt.value = idx + 1;
+                opt.value = origTurn;
                 const cleanText = String(qText || '').split(String.fromCharCode(10)).join(' ').split(String.fromCharCode(13)).join(' ').trim();
                 const preview = cleanText.length > 55 ? cleanText.substring(0, 52) + '...' : cleanText;
                 opt.textContent = String.fromCharCode(1587) + (idx + 1) + ': ' + preview;
@@ -2704,16 +2727,20 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             wrapper.appendChild(nextBtn);
 
             subqBar.appendChild(wrapper);
-            currentNavigatedQIdx = 1;
-            select.value = 1;
+            currentNavigatedQIdx = queryToOriginalTurn[0];
+            select.value = queryToOriginalTurn[0];
         }
 
         function navigateSubq(direction) {
-            if (currentTotalUserQueries <= 1) return;
-            let nextIdx = currentNavigatedQIdx + direction;
-            if (nextIdx < 1) nextIdx = currentTotalUserQueries;
-            if (nextIdx > currentTotalUserQueries) nextIdx = 1;
-            jumpToQuestion(nextIdx);
+            const select = document.getElementById('subqDropdownSelect');
+            if (!select || select.options.length <= 1) return;
+            let currentOptionIdx = select.selectedIndex;
+            if (currentOptionIdx === -1) currentOptionIdx = 0;
+            let nextOptionIdx = currentOptionIdx + direction;
+            if (nextOptionIdx < 0) nextOptionIdx = select.options.length - 1;
+            if (nextOptionIdx >= select.options.length) nextOptionIdx = 0;
+            select.selectedIndex = nextOptionIdx;
+            jumpToQuestion(parseInt(select.value, 10));
         }
 
         function renderTabsBar(sessions) {
