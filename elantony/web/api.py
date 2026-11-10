@@ -2172,19 +2172,44 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
     <div class="modal-overlay" id="compileModal">
         <div class="modal-card">
             <div class="modal-header">
-                <div class="modal-title">
-                    <span>✠</span> أطروحة البحث اللاهوتية المجمعة (سؤال وتحته الإجابات)
+                <div style="display:flex; flex-direction:column; gap:8px;">
+                    <div class="modal-title">
+                        <span>✠</span> أطروحة البحث اللاهوتية المجمعة
+                    </div>
+                    <!-- Mode switch tabs -->
+                    <div style="display:flex; gap:8px;">
+                        <button id="btnTabCompileCurrent" class="btn-ctrl active" onclick="switchCompileTab('current')" style="padding:5px 12px; font-weight:700;">
+                            📑 تجميع أسئلة البحث الحالي
+                        </button>
+                        <button id="btnTabCompileMerge" class="btn-ctrl" onclick="switchCompileTab('merge')" style="padding:5px 12px; font-weight:700; background:rgba(217,119,6,0.12); color:#d97706; border-color:#d97706;">
+                            🗂️ دمج عدة أبحاث سابقة في بحث واحد
+                        </button>
+                    </div>
                 </div>
                 <div class="modal-actions">
                     <button class="btn-modal-act btn-modal-docx" onclick="downloadCurrentExport('docx')">📄 مستند Word (.docx)</button>
                     <button class="btn-modal-act" onclick="copyCompilationText()">📋 نسخ النص</button>
-                    <button class="btn-modal-act" onclick="downloadCurrentExport('markdown')">📥 (.md)</button>
-                    <button class="btn-modal-act" onclick="window.print()">🖨️ طباعة</button>
+                    <button class="btn-modal-act" onclick="previewCurrentMonograph()">🖨️ معاينة وطباعة</button>
                     <button class="btn-modal-close" onclick="closeCompilationModal()">✕</button>
                 </div>
             </div>
             <div class="modal-body" id="compileModalBody">
                 <div style="text-align: center; padding: 40px; color: var(--text-sub);">جاري تجميع البحث وتوثيق المراجع...</div>
+            </div>
+            <!-- Merge Previous Sessions Container -->
+            <div class="modal-body" id="mergeModalBody" style="display:none; padding:18px;">
+                <div style="margin-bottom:14px; font-size:13.5px; color:var(--text-sub);">
+                    اختر موضوعين أو أكثر من أبحاثك السابقة لدمجها تلقائياً في <strong>أطروحة لاهوتية موحدة</strong> مع فهرس شامل وقائمة مراجع مدمجة:
+                </div>
+                <div id="mergeSessionsList" style="max-height:280px; overflow-y:auto; border:1px solid var(--card-border); border-radius:8px; padding:10px; background:var(--bg-darker); margin-bottom:14px;">
+                    <!-- Dynamically populated checkboxes -->
+                </div>
+                <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                    <input type="text" id="mergeNewTitleInput" placeholder="عنوان الأطروحة المجمعة الجديدة (اختياري)..." style="flex:1; min-width:240px; padding:8px 12px; border:1px solid var(--card-border); border-radius:6px; font-family:inherit; background:var(--bg-chat); color:var(--text-main);">
+                    <button onclick="executeMergeSelectedSessions()" class="btn-ctrl" style="background:#7c2d12; color:#fff; border-color:#7c2d12; font-weight:800; padding:8px 18px; cursor:pointer;" id="btnExecuteMerge">
+                        📑 دمج وتجميع الأبحاث المحددة
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -3154,6 +3179,123 @@ async function startNewChat() {
                 compileModalBody.innerHTML = marked.parse(rawCompiledMarkdown);
             } catch (err) {
                 compileModalBody.innerHTML = '<div style="color: #EF4444; text-align: center; padding: 30px;">فشل تجميع البحث: ' + err.message + '</div>';
+            }
+        }
+
+        
+        let currentCompileTab = 'current';
+
+        async function switchCompileTab(tabName) {
+            currentCompileTab = tabName;
+            const btnCurrent = document.getElementById('btnTabCompileCurrent');
+            const btnMerge = document.getElementById('btnTabCompileMerge');
+            const bodyCompile = document.getElementById('compileModalBody');
+            const bodyMerge = document.getElementById('mergeModalBody');
+
+            if (tabName === 'current') {
+                btnCurrent.classList.add('active');
+                btnCurrent.style.background = 'var(--accent)';
+                btnCurrent.style.color = '#FFF';
+                btnMerge.classList.remove('active');
+                btnMerge.style.background = 'rgba(217,119,6,0.12)';
+                btnMerge.style.color = '#d97706';
+                bodyCompile.style.display = 'block';
+                bodyMerge.style.display = 'none';
+            } else {
+                btnMerge.classList.add('active');
+                btnMerge.style.background = 'var(--accent)';
+                btnMerge.style.color = '#FFF';
+                btnCurrent.classList.remove('active');
+                btnCurrent.style.background = 'none';
+                btnCurrent.style.color = 'var(--text-sub)';
+                bodyCompile.style.display = 'none';
+                bodyMerge.style.display = 'block';
+                await loadMergeSessionsList();
+            }
+        }
+
+        async function loadMergeSessionsList() {
+            const container = document.getElementById('mergeSessionsList');
+            if (!container) return;
+            container.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-sub);">جاري استرجاع قائمة الأبحاث السابقة...</div>';
+
+            try {
+                const res = await fetch('/api/sessions?all=true');
+                if (!res.ok) throw new Error("تعذر جلب الأبحاث");
+                const data = await res.json();
+                const sessions = data.sessions || [];
+
+                if (sessions.length === 0) {
+                    container.innerHTML = '<div style="text-align:center; padding:20px;">لا توجد أبحاث سابقة مسجلة للدمج.</div>';
+                    return;
+                }
+
+                container.innerHTML = '';
+                sessions.forEach(s => {
+                    const row = document.createElement('label');
+                    row.style.display = 'flex';
+                    row.style.alignItems = 'center';
+                    row.style.gap = '10px';
+                    row.style.padding = '8px 10px';
+                    row.style.cursor = 'pointer';
+                    row.style.borderBottom = '1px solid var(--card-border)';
+                    row.style.borderRadius = '6px';
+                    row.style.transition = 'background 0.15s ease';
+                    row.onmouseover = () => row.style.background = 'var(--card-hover)';
+                    row.onmouseout = () => row.style.background = 'transparent';
+
+                    const isCurrent = s.id === currentSessionId;
+                    row.innerHTML = `
+                        <input type="checkbox" class="merge-checkbox" value="${s.id}" ${isCurrent ? 'checked' : ''} style="width:16px; height:16px; cursor:pointer;">
+                        <span style="font-weight:700; color:var(--text-main); flex:1;">${escapeHtml(s.title || 'بحث لاهوتي')}</span>
+                        <span style="font-size:11px; color:var(--text-sub);">${s.questions_count || s.message_count || 0} أسئلة/محاور</span>
+                    `;
+                    container.appendChild(row);
+                });
+            } catch(err) {
+                container.innerHTML = '<div style="color:#ef4444; padding:15px; text-align:center;">فشل جلب الأبحاث: ' + err.message + '</div>';
+            }
+        }
+
+        async function executeMergeSelectedSessions() {
+            const checked = Array.from(document.querySelectorAll('.merge-checkbox:checked')).map(el => el.value);
+            if (checked.length < 2) {
+                alert("يرجى اختيار بحثين على الأقل لدمجهما في أطروحة واحدة.");
+                return;
+            }
+
+            const customTitle = document.getElementById('mergeNewTitleInput').value.trim();
+            const btn = document.getElementById('btnExecuteMerge');
+            btn.disabled = true;
+            btn.textContent = '⏳ جاري الدمج والتوثيق...';
+
+            try {
+                const res = await fetch('/api/sessions/merge', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        session_ids: checked,
+                        title: customTitle || null
+                    })
+                });
+
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.detail || "فشل دمج الأبحاث");
+                }
+
+                const data = await res.json();
+                closeCompilationModal();
+                showTopicToast("✨ تم دمج " + data.merged_sessions_count + " أبحاث بنجاح في أطروحة واحدة: «" + data.title + "»");
+
+                // Select the new merged session
+                await loadSessions();
+                await selectSession(data.session_id);
+            } catch(err) {
+                alert("تعذر دمج الأبحاث: " + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '📑 دمج وتجميع الأبحاث المحددة';
             }
         }
 
@@ -4360,6 +4502,29 @@ async def update_discussion_title(session_id: str, req: UpdateTitleRequest):
     repo.update_session_title(session_id, clean_title)
     return {"success": True, "session_id": session_id, "title": clean_title}
 
+
+
+
+class MergeSessionsRequest(BaseModel):
+    session_ids: List[str]
+    title: Optional[str] = None
+    user_id: Optional[str] = "scholar_master"
+
+
+@app.post("/api/sessions/merge")
+async def merge_discussion_sessions(req: MergeSessionsRequest):
+    """Merges multiple previous discussion sessions into a single comprehensive master session."""
+    if not req.session_ids or len(req.session_ids) < 2:
+        raise HTTPException(status_code=400, detail="يجب تحديد جلستي بحث على الأقل للدمج")
+    
+    result = repo.merge_sessions(
+        session_ids=req.session_ids,
+        target_title=req.title,
+        user_id=req.user_id or "scholar_master"
+    )
+    if "error" in result:
+        raise HTTPException(status_code=400, detail=result["error"])
+    return result
 
 
 @app.post("/api/sessions/{session_id}/compile")

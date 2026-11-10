@@ -734,6 +734,95 @@ def generate_session_html(comp_data: Dict[str, Any]) -> str:
     background: #b45309;
   }}
 
+
+    /* Mobile Phone & Tablet Optimization (عرض فاخر ومتجاوب 100% على شاشات الموبايل) */
+  @media (max-width: 768px) {{
+    html, body {{
+      font-size: 13pt;
+      background-color: #ffffff;
+      padding: 0;
+      margin: 0;
+      width: 100vw;
+      max-width: 100vw;
+      overflow-x: hidden;
+    }}
+    .page-wrapper {{
+      width: 100% !important;
+      max-width: 100% !important;
+      padding: 12px 10px;
+      box-shadow: none;
+      border-radius: 0;
+      box-sizing: border-box;
+      overflow-x: hidden;
+    }}
+    .no-print {{
+      flex-direction: column;
+      align-items: stretch;
+      gap: 10px;
+      padding: 12px;
+      border-radius: 8px;
+      width: 100% !important;
+      max-width: 100% !important;
+      box-sizing: border-box;
+    }}
+    .no-print > div:first-child {{
+      text-align: center;
+    }}
+    .no-print div[style*="display:flex"] {{
+      justify-content: center;
+      gap: 6px;
+      width: 100%;
+      box-sizing: border-box;
+    }}
+    .btn-print-action {{
+      font-size: 9.5pt;
+      padding: 6px 10px;
+      flex: 1 1 calc(50% - 6px);
+      max-width: calc(50% - 6px);
+      justify-content: center;
+      text-align: center;
+      box-sizing: border-box;
+    }}
+    .doc-title {{
+      font-size: 16pt;
+      line-height: 1.4;
+      word-break: break-word;
+    }}
+    .church-brand {{
+      font-size: 9pt;
+      word-break: break-word;
+    }}
+    .doc-subtitle {{
+      font-size: 10.5pt;
+    }}
+    .meta-bar {{
+      flex-direction: column;
+      align-items: stretch;
+      gap: 6px;
+      width: 100%;
+      box-sizing: border-box;
+    }}
+    .axis-title {{
+      font-size: 13pt;
+      word-break: break-word;
+    }}
+    .ref-card {{
+      padding: 10px;
+      box-sizing: border-box;
+      max-width: 100%;
+    }}
+    .ref-item {{
+      padding: 10px;
+      box-sizing: border-box;
+      max-width: 100%;
+    }}
+    .toc-container {{
+      padding: 12px;
+      box-sizing: border-box;
+      max-width: 100%;
+    }}
+  }}
+
   /* Printing Overrides */
   @media print {{
     body {{

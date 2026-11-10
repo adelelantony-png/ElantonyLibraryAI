@@ -994,6 +994,64 @@ class DatabaseRepository:
             "plain_text": plain_text
         }
 
+
+    def merge_sessions(self, session_ids: List[str], target_title: Optional[str] = None, user_id: str = "scholar_master") -> Dict[str, Any]:
+        """
+        Merges multiple discussion sessions into a single new unified session:
+        - Retrieves all messages from the specified session_ids
+        - Creates a new session in chat_sessions
+        - Copies all messages (preserving their order and content) into the new session
+        - Returns the new session object and metadata
+        """
+        if not session_ids or len(session_ids) < 2:
+            return {"error": "يجب تحديد جلستي بحث على الأقل للدمج"}
+
+        valid_sessions = []
+        for sid in session_ids:
+            s = self.get_session(sid)
+            if s:
+                valid_sessions.append(s)
+
+        if len(valid_sessions) < 2:
+            return {"error": "تعذر العثور على الجلسات المطلوبة للدمج"}
+
+        # Determine target title
+        if not target_title or not target_title.strip():
+            target_title = "أطروحة لاهوتية مجمعة: " + " + ".join([s.get("title", "")[:25] for s in valid_sessions[:2]])
+
+        new_session_id = self.create_session(user_id=user_id, title=target_title.strip())
+
+        # Copy messages from all sessions in order
+        conn = get_connection()
+        cur = conn.cursor()
+        total_copied = 0
+
+        for sid in session_ids:
+            msgs = self.get_session_messages(sid, limit=500)
+            for m in msgs:
+                citations_json = json.dumps(m.get("citations", []), ensure_ascii=False) if m.get("citations") else None
+                cur.execute(
+                    """
+                    INSERT INTO chat_messages (session_id, role, content, citations, created_at)
+                    VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (new_session_id, m["role"], m["content"], citations_json, m.get("created_at") or datetime.now().isoformat())
+                )
+                total_copied += 1
+
+        conn.commit()
+        conn.close()
+
+        # Update session title and timestamp
+        self.update_session_title(new_session_id, target_title.strip())
+
+        return {
+            "session_id": new_session_id,
+            "title": target_title.strip(),
+            "messages_copied": total_copied,
+            "merged_sessions_count": len(valid_sessions)
+        }
+
     def run_maintenance(self) -> Dict[str, Any]:
         """Runs periodic SQLite maintenance: WAL checkpoint, FTS5 optimize, and schema analysis."""
         conn = get_connection()
