@@ -289,12 +289,16 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
         /* Sidebar */
         .sidebar {
             width: 290px;
+            min-width: 290px;
+            max-width: 290px;
+            flex-shrink: 0;
             background: var(--bg-sidebar);
             border-left: 1px solid var(--card-border);
             display: flex;
             flex-direction: column;
-            transition: all 0.3s ease;
+            transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1), min-width 0.3s ease, margin 0.3s ease, opacity 0.25s ease;
             z-index: 20;
+            overflow: hidden;
         }
         .sidebar-header {
             padding: 16px 18px;
@@ -1033,6 +1037,8 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             gap: 6px;
             overflow-x: auto;
             flex: 1;
+            direction: rtl;
+            justify-content: flex-start;
             scrollbar-width: none;
         }
         .chat-tabs-scroll::-webkit-scrollbar { display: none; }
@@ -1701,10 +1707,18 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             background: var(--accent);
             color: #fff;
         }
+        /* Clean desktop collapse: width 0, zero residual sliver */
         body.sidebar-collapsed .sidebar {
-            margin-right: -310px;
-            opacity: 0;
-            pointer-events: none;
+            width: 0 !important;
+            min-width: 0 !important;
+            max-width: 0 !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            border: none !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+            visibility: hidden !important;
+            overflow: hidden !important;
         }
         .mobile-sidebar-overlay {
             display: none;
@@ -1719,22 +1733,26 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
         }
 
         @media (max-width: 992px) {
-            .btn-mobile-sidebar { display: inline-flex !important; }
             .sidebar {
-                position: fixed;
-                right: 0;
-                top: 0;
-                bottom: 0;
-                width: 320px;
-                max-width: 85vw;
-                z-index: 999;
-                box-shadow: -5px 0 25px rgba(0,0,0,0.35);
-                transform: translateX(100%);
+                position: fixed !important;
+                right: 0 !important;
+                top: 0 !important;
+                bottom: 0 !important;
+                width: 320px !important;
+                min-width: 320px !important;
+                max-width: 85vw !important;
+                z-index: 1000 !important;
+                box-shadow: -5px 0 25px rgba(0,0,0,0.4) !important;
+                transform: translateX(100%) !important;
                 display: flex !important;
-                transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+                transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+                visibility: visible !important;
+                opacity: 1 !important;
+                pointer-events: auto !important;
+                margin: 0 !important;
             }
             .sidebar.mobile-open {
-                transform: translateX(0);
+                transform: translateX(0) !important;
             }
             .top-navbar { flex-direction: column; align-items: stretch; gap: 8px; padding: 10px; }
             .controls-wrapper { justify-content: center; }
@@ -2424,11 +2442,13 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                     list.appendChild(item);
                 });
 
-                // Populate Dynamic Tabs Bar
+                // Populate Dynamic Tabs Bar (clean tabs: show active session + sessions with actual research questions)
                 const tabsList = document.getElementById('chatTabsList');
                 if (tabsList) {
                     tabsList.innerHTML = '';
-                    sessions.forEach(s => {
+                    const meaningfulSessions = sessions.filter(s => s.id === currentSessionId || (s.questions_count && s.questions_count > 0) || (s.title && s.title !== 'بحث لاهوتي جديد'));
+                    const tabsToRender = meaningfulSessions.length > 0 ? meaningfulSessions : sessions.slice(0, 5);
+                    tabsToRender.forEach(s => {
                         const tab = document.createElement('div');
                         tab.className = 'chat-tab-chip' + (s.id === currentSessionId ? ' active' : '');
                         tab.id = 'tab_' + s.id;
@@ -3490,6 +3510,9 @@ ${url}`;
 
 
         window.onload = () => {
+            // Always open sidebar by default on desktop; clear any collapsed state
+            document.body.classList.remove('sidebar-collapsed');
+            localStorage.removeItem('elantony_sidebar_collapsed');
             // Restore saved theme
             const savedTheme = localStorage.getItem('elantony_theme') || 'sepia';
             setTheme(savedTheme);
