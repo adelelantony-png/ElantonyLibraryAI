@@ -722,50 +722,50 @@ def generate_session_html(comp_data: Dict[str, Any]) -> str:
 
 
 <script>
-  function downloadStandaloneHtml() {
+  function downloadStandaloneHtml() {{
     const clonedDoc = document.cloneNode(true);
-    const blob = new Blob([clonedDoc.documentElement.outerHTML], { type: 'text/html;charset=utf-8' });
+    const blob = new Blob([clonedDoc.documentElement.outerHTML], {{ type: 'text/html;charset=utf-8' }});
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     const safeTitle = (document.title || 'أطروحة_لاهوتية_موثقة').replace(/[\\/:*?"<>|]/g, '_');
     a.download = safeTitle + '.html';
     a.click();
-  }
+  }}
 
-  function downloadPdfFile() {
+  function downloadPdfFile() {{
     const parts = window.location.pathname.split('/');
     let sId = null;
-    for (let i = 0; i < parts.length; i++) {
-      if (parts[i] === 'sessions' && i + 1 < parts.length) {
+    for (let i = 0; i < parts.length; i++) {{
+      if (parts[i] === 'sessions' && i + 1 < parts.length) {{
         sId = parts[i + 1];
         break;
-      }
-    }
-    if (sId) {
+      }}
+    }}
+    if (sId) {{
       window.open('/api/sessions/' + sId + '/export?format=pdf', '_blank');
-    } else {
+    }} else {{
       window.print();
-    }
-  }
+    }}
+  }}
 
-  function copyPreviewLink() {
-    navigator.clipboard.writeText(window.location.href).then(() => {
+  function copyPreviewLink() {{
+    navigator.clipboard.writeText(window.location.href).then(() => {{
       alert("✅ تم نسخ رابط المعاينة بنجاح! يمكنك إرساله لأي شخص لتصفح الأطروحة والطباعة مباشرة.");
-    }).catch(() => {
+    }}).catch(() => {{
       prompt("انسخ الرابط التالي:", window.location.href);
-    });
-  }
+    }});
+  }}
 
-  function shareViaWhatsApp() {
+  function shareViaWhatsApp() {{
     const title = document.title || 'أطروحة لاهوتية موثقة';
     const text = encodeURIComponent('✠ ' + title + '\n' + window.location.href);
     window.open('https://api.whatsapp.com/send?text=' + text, '_blank');
-  }
+  }}
 
-  function shareViaTelegram() {
+  function shareViaTelegram() {{
     const title = document.title || 'أطروحة لاهوتية موثقة';
     window.open('https://t.me/share/url?url=' + encodeURIComponent(window.location.href) + '&text=' + encodeURIComponent('✠ ' + title), '_blank');
-  }
+  }}
 </script>
 </body>
 </html>"""
