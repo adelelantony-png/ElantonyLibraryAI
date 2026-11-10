@@ -1085,37 +1085,98 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             white-space: nowrap;
         }
 
-        /* Topic Sub-questions Pills Bar (Top of Chat) */
+        /* Topic Sub-questions Dropdown Navigator (Top of Chat) */
         .topic-subq-bar {
             background: var(--bg-card);
             border-bottom: 1px solid var(--card-border);
-            padding: 6px 18px;
+            padding: 7px 16px;
             display: flex;
             align-items: center;
-            gap: 8px;
-            overflow-x: auto;
-            font-size: 11.5px;
-            scrollbar-width: none;
             z-index: 4;
+            box-sizing: border-box;
+            width: 100%;
+            min-width: 0;
+            max-width: 100%;
         }
-        .topic-subq-bar::-webkit-scrollbar { display: none; }
-        .subq-pill {
-            background: var(--bg-darker);
-            border: 1px solid var(--card-border);
-            color: var(--text-main);
-            padding: 3px 10px;
-            border-radius: 12px;
-            cursor: pointer;
-            white-space: nowrap;
-            font-weight: 600;
-            transition: 0.15s;
+        .subq-nav-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+            min-width: 0;
+            flex-wrap: nowrap;
+        }
+        .subq-nav-label {
+            font-weight: 800;
+            color: var(--gold);
+            font-size: 12px;
             display: inline-flex;
             align-items: center;
-            gap: 4px;
+            gap: 5px;
+            white-space: nowrap;
+            flex-shrink: 0;
         }
-        .subq-pill:hover {
+        .subq-dropdown {
+            flex: 1;
+            min-width: 190px;
+            max-width: 580px;
+            height: 34px;
+            padding: 4px 10px;
+            border-radius: 7px;
+            border: 1px solid var(--card-border);
+            background: var(--bg-darker);
+            color: var(--text-main);
+            font-family: inherit;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            direction: rtl;
+        }
+        .subq-dropdown:focus {
             border-color: var(--accent);
+            box-shadow: 0 0 0 2px var(--accent-light);
+        }
+        .btn-subq-nav {
+            background: var(--bg-darker);
+            border: 1px solid var(--card-border);
+            color: var(--text-sub);
+            height: 34px;
+            padding: 0 12px;
+            border-radius: 6px;
+            font-size: 11.5px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.15s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            flex-shrink: 0;
+            font-family: inherit;
+            white-space: nowrap;
+        }
+        .btn-subq-nav:hover {
+            background: var(--card-hover);
             color: var(--accent);
+            border-color: var(--accent);
+        }
+        @media (max-width: 600px) {
+            .subq-nav-wrapper {
+                flex-wrap: wrap;
+                gap: 6px;
+            }
+            .subq-dropdown {
+                min-width: 100%;
+                order: 2;
+            }
+            .subq-nav-label {
+                order: 1;
+            }
+            .btn-subq-nav {
+                order: 3;
+            }
         }
 
         /* Dynamic Topic Tabs Bar */
@@ -2583,7 +2644,172 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             }
         }
 
-        async function loadSessions() {
+                let cachedSessions = [];
+        let openTabIds = [];
+        let currentNavigatedQIdx = 1;
+        let currentTotalUserQueries = 0;
+
+        function renderSubqDropdown(userQueries) {
+            const subqBar = document.getElementById('topicSubqBar');
+            if (!subqBar) return;
+            if (!userQueries || userQueries.length <= 1) {
+                subqBar.style.display = 'none';
+                currentTotalUserQueries = 0;
+                return;
+            }
+            currentTotalUserQueries = userQueries.length;
+            subqBar.style.display = 'flex';
+            subqBar.innerHTML = '';
+
+            const wrapper = document.createElement('div');
+            wrapper.className = 'subq-nav-wrapper';
+
+            // Label
+            const label = document.createElement('span');
+            label.className = 'subq-nav-label';
+            label.innerHTML = '<span>📍</span> <span>محاور وفصول البحث (' + userQueries.length + '):</span>';
+            wrapper.appendChild(label);
+
+            // Dropdown Select
+            const select = document.createElement('select');
+            select.className = 'subq-dropdown';
+            select.id = 'subqDropdownSelect';
+            select.title = 'انقر لاختيار أي سؤال أو محور بحثي والتنقل إليه مباشرة';
+            select.onchange = (e) => jumpToQuestion(parseInt(e.target.value, 10));
+
+            userQueries.forEach((qText, idx) => {
+                const opt = document.createElement('option');
+                opt.value = idx + 1;
+                const cleanText = String(qText || '').split(String.fromCharCode(10)).join(' ').split(String.fromCharCode(13)).join(' ').trim();
+                const preview = cleanText.length > 55 ? cleanText.substring(0, 52) + '...' : cleanText;
+                opt.textContent = String.fromCharCode(1587) + (idx + 1) + ': ' + preview;
+                opt.title = cleanText;
+                select.appendChild(opt);
+            });
+            wrapper.appendChild(select);
+
+            // Navigation Buttons
+            const prevBtn = document.createElement('button');
+            prevBtn.className = 'btn-subq-nav';
+            prevBtn.title = 'السؤال السابق';
+            prevBtn.innerHTML = '<span>◀</span> <span>السابق</span>';
+            prevBtn.onclick = () => navigateSubq(-1);
+            wrapper.appendChild(prevBtn);
+
+            const nextBtn = document.createElement('button');
+            nextBtn.className = 'btn-subq-nav';
+            nextBtn.title = 'السؤال التالي';
+            nextBtn.innerHTML = '<span>التالي</span> <span>▶</span>';
+            nextBtn.onclick = () => navigateSubq(1);
+            wrapper.appendChild(nextBtn);
+
+            subqBar.appendChild(wrapper);
+            currentNavigatedQIdx = 1;
+            select.value = 1;
+        }
+
+        function navigateSubq(direction) {
+            if (currentTotalUserQueries <= 1) return;
+            let nextIdx = currentNavigatedQIdx + direction;
+            if (nextIdx < 1) nextIdx = currentTotalUserQueries;
+            if (nextIdx > currentTotalUserQueries) nextIdx = 1;
+            jumpToQuestion(nextIdx);
+        }
+
+        function renderTabsBar(sessions) {
+            const tabsList = document.getElementById('chatTabsList');
+            if (!tabsList) return;
+            tabsList.innerHTML = '';
+
+            // If in new uncommitted search
+            if (!currentSessionId) {
+                const newTab = document.createElement('div');
+                newTab.className = 'chat-tab-chip active';
+                newTab.innerHTML = '<span class="tab-icon">➕</span><span class="tab-text">بحث لاهوتي جديد</span>';
+                tabsList.appendChild(newTab);
+            }
+
+            const validSessions = (sessions || []).filter(s => s && s.id);
+            const validIds = new Set(validSessions.map(s => s.id));
+            openTabIds = openTabIds.filter(id => validIds.has(id));
+
+            if (openTabIds.length === 0 && validSessions.length > 0) {
+                const seenTitles = new Set();
+                const uniqueSessions = [];
+                for (const s of validSessions) {
+                    const t = s.title || '';
+                    if (!seenTitles.has(t)) {
+                        seenTitles.add(t);
+                        uniqueSessions.push(s.id);
+                        if (uniqueSessions.length >= 4) break;
+                    }
+                }
+                openTabIds = uniqueSessions;
+            }
+
+            if (currentSessionId && !openTabIds.includes(currentSessionId)) {
+                if (openTabIds.length >= 4) {
+                    openTabIds.shift();
+                }
+                openTabIds.push(currentSessionId);
+            }
+
+            openTabIds.forEach(sid => {
+                const s = validSessions.find(item => item.id === sid);
+                if (!s) return;
+                const tab = document.createElement('div');
+                const isActive = s.id === currentSessionId;
+                tab.className = 'chat-tab-chip' + (isActive ? ' active' : '');
+                tab.id = 'tab_' + s.id;
+                tab.onclick = () => selectSession(s.id);
+                tab.title = s.title || 'بحث لاهوتي';
+
+                const isTg = s.user_id && !isNaN(Number(s.user_id));
+                const icon = document.createElement('span');
+                icon.className = 'tab-icon';
+                icon.textContent = isTg ? '📱' : '💬';
+
+                const text = document.createElement('span');
+                text.className = 'tab-text';
+                text.innerHTML = '<bdi dir="auto">' + escapeHtml(s.title || 'بحث لاهوتي') + '</bdi>';
+
+                const tabEditBtn = document.createElement('button');
+                tabEditBtn.className = 'tab-close-btn';
+                tabEditBtn.style.color = 'var(--accent)';
+                tabEditBtn.style.fontSize = '11px';
+                tabEditBtn.textContent = '✏️';
+                tabEditBtn.title = 'تعديل اسم البحث';
+                tabEditBtn.onclick = (e) => renameSession(e, s.id, s.title);
+
+                const closeBtn = document.createElement('button');
+                closeBtn.className = 'tab-close-btn';
+                closeBtn.textContent = '✕';
+                closeBtn.title = 'إغلاق هذا اللسان';
+                closeBtn.onclick = (e) => closeTab(e, s.id);
+
+                tab.appendChild(icon);
+                tab.appendChild(text);
+                tab.appendChild(tabEditBtn);
+                tab.appendChild(closeBtn);
+                tabsList.appendChild(tab);
+            });
+        }
+
+        function closeTab(e, sessionId) {
+            e.stopPropagation();
+            openTabIds = openTabIds.filter(id => id !== sessionId);
+            if (currentSessionId === sessionId) {
+                if (openTabIds.length > 0) {
+                    selectSession(openTabIds[openTabIds.length - 1]);
+                } else {
+                    startNewChat();
+                }
+            } else {
+                renderTabsBar(cachedSessions);
+            }
+        }
+
+async function loadSessions() {
             try {
                 // 1. Check if a shared session is requested via URL (?session=... or ?share=...)
                 const urlParams = new URLSearchParams(window.location.search);
@@ -2684,51 +2910,9 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                     list.appendChild(item);
                 });
 
-                // Populate Dynamic Tabs Bar (clean tabs: show active session + sessions with actual research questions)
-                const tabsList = document.getElementById('chatTabsList');
-                if (tabsList) {
-                    tabsList.innerHTML = '';
-                    const meaningfulSessions = sessions.filter(s => s.id === currentSessionId || (s.questions_count && s.questions_count > 0) || (s.title && s.title !== 'بحث لاهوتي جديد'));
-                    const tabsToRender = (meaningfulSessions.length > 0 ? meaningfulSessions : sessions).slice(0, 4);
-                    tabsToRender.forEach(s => {
-                        const tab = document.createElement('div');
-                        tab.className = 'chat-tab-chip' + (s.id === currentSessionId ? ' active' : '');
-                        tab.id = 'tab_' + s.id;
-                        tab.onclick = () => selectSession(s.id);
-                        tab.title = s.title || 'بحث لاهوتي';
-
-                        const icon = document.createElement('span');
-                        icon.className = 'tab-icon';
-                        icon.textContent = '💬';
-
-                        const text = document.createElement('span');
-                        text.className = 'tab-text';
-                        text.innerHTML = '<bdi dir="auto">' + escapeHtml(s.title || 'بحث لاهوتي') + '</bdi>';
-
-                        const tabEditBtn = document.createElement('button');
-                        tabEditBtn.className = 'tab-close-btn';
-                        tabEditBtn.style.color = 'var(--accent)';
-                        tabEditBtn.style.fontSize = '11px';
-                        tabEditBtn.style.marginRight = '2px';
-                        tabEditBtn.textContent = '✏️';
-                        tabEditBtn.title = 'تعديل اسم هذا البحث';
-                        tabEditBtn.onclick = (e) => renameSession(e, s.id, s.title);
-
-                        const closeBtn = document.createElement('button');
-                        closeBtn.className = 'tab-close-btn';
-                        closeBtn.textContent = '✕';
-                        closeBtn.title = 'حذف هذا الموضوع';
-                        closeBtn.onclick = (e) => deleteSession(e, s.id);
-
-                        text.ondblclick = (e) => renameSession(e, s.id, s.title);
-
-                        tab.appendChild(icon);
-                        tab.appendChild(text);
-                        tab.appendChild(tabEditBtn);
-                        tab.appendChild(closeBtn);
-                        tabsList.appendChild(tab);
-                    });
-                }
+                // Save cached sessions and render clean tabs bar
+                cachedSessions = sessions;
+                renderTabsBar(sessions);
 
                 if (!currentSessionId && sessions.length > 0) {
                     await selectSession(sessions[0].id);
@@ -2769,18 +2953,8 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                 if (titleDisp) titleDisp.textContent = sessionInfo.title || 'بحث لاهوتي';
                 const messages = data.messages || [];
 
-                // If not in tabs bar, add dynamic tab for this shared session!
-                if (!document.getElementById('tab_' + sessionId)) {
-                    const tabsList = document.getElementById('chatTabsList');
-                    if (tabsList) {
-                        const tab = document.createElement('div');
-                        tab.className = 'chat-tab-chip active';
-                        tab.id = 'tab_' + sessionId;
-                        tab.innerHTML = `<span class="tab-icon">🔗</span><span class="tab-text"><bdi dir="auto">${escapeHtml(sessionInfo.title || 'بحث تمت مشاركته')}</bdi></span>`;
-                        tab.onclick = () => selectSession(sessionId);
-                        tabsList.prepend(tab);
-                    }
-                }
+                // Keep tabs bar synchronized cleanly
+                renderTabsBar(cachedSessions);
 
                 chatMessages = [];
                 messagesContainer.innerHTML = '';
@@ -2807,24 +2981,8 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                         appendMessageBubble(m.role, m.content, m.citations || [], turnNum);
                     });
 
-                    // Render Sub-questions Navigation Bar at top of chat
-                    const subqBar = document.getElementById('topicSubqBar');
-                    if (subqBar) {
-                        if (userQueries.length > 1) {
-                            subqBar.style.display = 'flex';
-                            subqBar.innerHTML = `<span style="font-weight:700; color:var(--accent); flex-shrink:0;">📍 أسئلة هذا المبحث (${userQueries.length}):</span>`;
-                            userQueries.forEach((qText, qIdx) => {
-                                const pill = document.createElement('div');
-                                pill.className = 'subq-pill';
-                                pill.title = qText;
-                                pill.innerHTML = `<span>س${qIdx+1}:</span> <span>${escapeHtml(qText.substring(0, 32))}${qText.length > 32 ? '...' : ''}</span>`;
-                                pill.onclick = () => jumpToQuestion(qIdx + 1);
-                                subqBar.appendChild(pill);
-                            });
-                        } else {
-                            subqBar.style.display = 'none';
-                        }
-                    }
+                    // Render Sub-questions Navigation Dropdown at top of chat
+                    renderSubqDropdown(userQueries);
                 }
                 scrollToBottom();
             } catch (err) {
@@ -2850,36 +3008,25 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
 
         
         function updateTopicSubqBar() {
-            const subqBar = document.getElementById('topicSubqBar');
-            if (!subqBar) return;
             const userQueries = [];
             chatMessages.forEach(m => {
                 if (m.role === 'user') userQueries.push(m.content);
             });
-            if (userQueries.length > 1) {
-                subqBar.style.display = 'flex';
-                subqBar.innerHTML = `<span style="font-weight:700; color:var(--accent); flex-shrink:0;">📍 أسئلة هذا المبحث (${userQueries.length}):</span>`;
-                userQueries.forEach((qText, qIdx) => {
-                    const pill = document.createElement('div');
-                    pill.className = 'subq-pill';
-                    pill.title = qText;
-                    pill.innerHTML = `<span>س${qIdx+1}:</span> <span>${escapeHtml(qText.substring(0, 32))}${qText.length > 32 ? '...' : ''}</span>`;
-                    pill.onclick = () => jumpToQuestion(qIdx + 1);
-                    subqBar.appendChild(pill);
-                });
-            } else {
-                subqBar.style.display = 'none';
-            }
+            renderSubqDropdown(userQueries);
         }
 
         function jumpToQuestion(qIndex) {
+            currentNavigatedQIdx = qIndex;
+            const select = document.getElementById('subqDropdownSelect');
+            if (select) select.value = qIndex;
+
             const el = document.getElementById('user_msg_' + qIndex);
             if (el) {
                 const area = document.getElementById('messagesArea');
                 if (area) {
                     area.scrollTo({ top: el.offsetTop - 20, behavior: 'smooth' });
                 }
-                el.style.transition = 'box-shadow 0.3s ease';
+                el.style.transition = 'box-shadow 0.3s ease, border-color 0.3s ease';
                 el.style.boxShadow = '0 0 0 3px var(--accent)';
                 setTimeout(() => { el.style.boxShadow = 'none'; }, 2000);
             }
@@ -2934,7 +3081,11 @@ async function startNewChat() {
             chatInput.value = '';
             chatInput.focus();
             document.querySelectorAll('.chat-history-item').forEach(el => el.classList.remove('active'));
-            document.querySelectorAll('.chat-tab-chip').forEach(el => el.classList.remove('active'));
+            const subqBar = document.getElementById('topicSubqBar');
+            if (subqBar) subqBar.style.display = 'none';
+            const actHdr = document.getElementById('activeSessionHeader');
+            if (actHdr) actHdr.style.display = 'none';
+            renderTabsBar(cachedSessions || []);
             showTopicToast("✨ تم تفريغ الشاشة.. اكتب سؤالك وسيبدأ التوثيق فوراً دون جلسات فارغة.");
         }
 
@@ -4563,7 +4714,33 @@ async def api_ask(req: AskRequest):
 
 @app.get("/api/sessions")
 async def list_sessions(user_id: Optional[str] = "scholar_master", limit: int = 50, all: bool = True):
-    """Lists persistent discussion sessions for user or entire library."""
+    """Lists persistent discussion sessions for user or entire library.
+    Automatically purges empty (0-message) draft sessions and assigns descriptive titles."""
+    try:
+        with get_connection() as conn:
+            cur = conn.cursor()
+            # 1. Delete ghost sessions with 0 messages
+            cur.execute("""
+                DELETE FROM chat_sessions 
+                WHERE id NOT IN (SELECT DISTINCT session_id FROM chat_messages)
+            """)
+            # 2. Auto-title sessions whose title is still generic but have questions
+            cur.execute("""
+                UPDATE chat_sessions
+                SET title = (
+                    SELECT SUBSTR(content, 1, 65)
+                    FROM chat_messages
+                    WHERE session_id = chat_sessions.id AND role = 'user'
+                    ORDER BY id ASC
+                    LIMIT 1
+                )
+                WHERE (title = 'بحث لاهوتي جديد' OR title IS NULL OR title = '' OR title = 'بحث لاهوتي')
+                  AND id IN (SELECT DISTINCT session_id FROM chat_messages)
+            """)
+            conn.commit()
+    except Exception as e:
+        logger.warning(f"Error during sessions DB housekeeping: {e}")
+
     sessions = repo.list_user_sessions(user_id=user_id, limit=limit, all_sessions=all)
     return {"sessions": sessions}
 
