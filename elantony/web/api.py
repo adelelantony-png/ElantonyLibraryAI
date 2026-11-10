@@ -2136,13 +2136,14 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
 
     <script>
         // Scholar Identity & User Isolation
-        let currentUserId = localStorage.getItem('elantony_user_id');
+        // Scholar Identity & Unified Multi-Device Persistence
+        let currentUserId = localStorage.getItem('elantony_user_id') || 'scholar_master';
         let currentUserName = localStorage.getItem('elantony_user_name') || 'باحث لاهوتي';
-        if (!currentUserId) {
-            currentUserId = 'scholar_' + Math.random().toString(36).substring(2, 10);
-            localStorage.setItem('elantony_user_id', currentUserId);
-            localStorage.setItem('elantony_user_name', currentUserName);
-        }
+        localStorage.setItem('elantony_user_id', currentUserId);
+        localStorage.setItem('elantony_user_name', currentUserName);
+        try {
+            document.cookie = "elantony_user_id=" + encodeURIComponent(currentUserId) + "; path=/; max-age=315360000; SameSite=Lax";
+        } catch(e) {}
 
         let adminPinCache = sessionStorage.getItem('elantony_admin_pin') || '';
 
@@ -2230,7 +2231,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                 }
 
                 // 2. Fetch the user's personal session history
-                const res = await fetch('/api/sessions?user_id=' + encodeURIComponent(currentUserId));
+                const res = await fetch('/api/sessions?all=true&user_id=' + encodeURIComponent(currentUserId));
                 if (!res.ok) return;
                 const data = await res.json();
                 const list = document.getElementById('chatHistoryList');
@@ -2259,8 +2260,10 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                     textSpan.className = 'chat-item-text';
                     const safeSessTitle = escapeHtml(s.title || 'بحث لاهوتي');
                     const qCount = s.questions_count || 1;
+                    const isTg = s.user_id && /^\d+$/.test(s.user_id);
+                    const originBadge = isTg ? '<span class="sess-origin-badge" style="background:rgba(0,136,204,0.18);color:#0088cc;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600;margin-left:4px;">📱 تليجرام</span>' : '';
                     const countBadge = `<span class="sess-count-badge">${qCount} ${qCount > 1 ? 'أسئلة' : 'سؤال'}</span>`;
-                    textSpan.innerHTML = `<span style="flex-shrink:0;">💬</span> <bdi dir="auto">${safeSessTitle}</bdi> ${countBadge}`;
+                    textSpan.innerHTML = `<span style="flex-shrink:0;">💬</span> <bdi dir="auto">${safeSessTitle}</bdi> ${originBadge} ${countBadge}`;
                     textSpan.title = s.title || 'بحث لاهوتي';
                     textSpan.onclick = () => selectSession(s.id);
 
@@ -3350,7 +3353,7 @@ ${url}`;
             }
         }
 
-        async function inspectScholarSessions(targetUid) {
+        async async function inspectScholarSessions(targetUid) {
             if (!confirm("هل تريد استعراض واجهة المحادثات والتبويبات الخاصة بهذا الباحث؟")) return;
             currentUserId = targetUid;
             closeAdminConsole();
@@ -4030,9 +4033,9 @@ async def api_ask(req: AskRequest):
 
 
 @app.get("/api/sessions")
-async def list_sessions(user_id: str = "web", limit: int = 50):
-    """Lists persistent discussion sessions for user."""
-    sessions = repo.list_user_sessions(user_id=user_id, limit=limit)
+async def list_sessions(user_id: Optional[str] = "scholar_master", limit: int = 50, all: bool = True):
+    """Lists persistent discussion sessions for user or entire library."""
+    sessions = repo.list_user_sessions(user_id=user_id, limit=limit, all_sessions=all)
     return {"sessions": sessions}
 
 

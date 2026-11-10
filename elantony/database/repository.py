@@ -705,20 +705,40 @@ class DatabaseRepository:
             "updated_at": datetime.now().isoformat()
         }
 
-    def list_user_sessions(self, user_id: str, limit: int = 30) -> List[Dict[str, Any]]:
-        """Lists discussion sessions for a user ordered by most recently updated."""
+    def list_user_sessions(self, user_id: Optional[str] = None, limit: int = 50, all_sessions: bool = True) -> List[Dict[str, Any]]:
+        """Lists discussion sessions ordered by most recently updated.
+        Defaults to returning all library research sessions so sessions are never lost across IPs/origins.
+        If all_sessions is False and a specific user_id is given, returns that user's sessions,
+        falling back to all sessions if that user has no sessions yet."""
         conn = get_connection()
         cur = conn.cursor()
-        cur.execute("""
-            SELECT s.*, COUNT(m.id) as message_count
-            FROM chat_sessions s
-            LEFT JOIN chat_messages m ON s.id = m.session_id
-            WHERE s.user_id = ?
-            GROUP BY s.id
-            ORDER BY s.updated_at DESC
-            LIMIT ?
-        """, (str(user_id), limit))
-        rows = cur.fetchall()
+        
+        fetch_all = all_sessions or not user_id or str(user_id).lower() in ("all", "default", "scholar_master", "*", "web")
+        rows = []
+        if not fetch_all:
+            cur.execute("""
+                SELECT s.*, COUNT(m.id) as message_count
+                FROM chat_sessions s
+                LEFT JOIN chat_messages m ON s.id = m.session_id
+                WHERE s.user_id = ?
+                GROUP BY s.id
+                ORDER BY s.updated_at DESC
+                LIMIT ?
+            """, (str(user_id), limit))
+            rows = cur.fetchall()
+            if not rows:
+                fetch_all = True
+                
+        if fetch_all:
+            cur.execute("""
+                SELECT s.*, COUNT(m.id) as message_count
+                FROM chat_sessions s
+                LEFT JOIN chat_messages m ON s.id = m.session_id
+                GROUP BY s.id
+                ORDER BY s.updated_at DESC
+                LIMIT ?
+            """, (limit,))
+            rows = cur.fetchall()
         sessions = [dict(r) for r in rows]
         for s in sessions:
             cur.execute("""
