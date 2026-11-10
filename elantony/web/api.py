@@ -618,6 +618,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
         .messages-area {
             flex: 1;
             overflow-y: auto;
+            overflow-x: hidden;
             padding: 24px 20px;
             display: flex;
             flex-direction: column;
@@ -630,6 +631,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             display: flex;
             flex-direction: column;
             gap: 20px;
+            overflow-x: hidden;
         }
 
         /* Message Bubbles */
@@ -683,6 +685,13 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             word-break: break-word;
             font-family: var(--font-reader);
             box-shadow: var(--shadow-sm);
+            max-width: 100%;
+        }
+        .bubble pre {
+            max-width: 100%;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
         }
         .msg-row.user .bubble {
             background: var(--bg-bubble-user);
@@ -1132,7 +1141,14 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             cursor: pointer;
             outline: none;
             transition: border-color 0.2s, box-shadow 0.2s;
+            direction: ltr;
+            text-align: right;
+            text-align-last: right;
+        }
+        .subq-dropdown option {
             direction: rtl;
+            text-align: right;
+            padding: 6px 10px;
         }
         .subq-dropdown:focus {
             border-color: var(--accent);
@@ -2189,6 +2205,24 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                 <span id="currentSessionTitleDisplay" style="font-weight:800; font-size:14px; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:320px;">بحث لاهوتي</span>
                 <button class="btn-ctrl" onclick="renameSession(event, currentSessionId, document.getElementById('currentSessionTitleDisplay').textContent)" style="padding:2px 8px; font-size:11px;" title="تعديل عنوان البحث">✏️ تعديل العنوان</button>
             </div>
+        <!-- Real-Time Library Reference Discovery & Enrichment Alert Card -->
+        <div id="libraryEnrichmentCard" style="display:none; margin: 8px 16px; padding: 10px 16px; background: linear-gradient(135deg, rgba(217, 119, 6, 0.12), rgba(124, 45, 18, 0.08)); border: 1px solid var(--accent); border-radius: 8px; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; z-index: 4;">
+            <div style="display:flex; align-items:center; gap:10px;">
+                <span style="font-size:24px;">🔔📚</span>
+                <div>
+                    <div style="font-size:12.5px; font-weight:800; color:var(--text-main);">
+                        انتبه: تم رصد <span id="enrichBooksCount" style="color:var(--accent); font-size:14px;">0</span> مراجع كنسية متخصصة في مكتبتك لنفس هذا الموضوع!
+                    </div>
+                    <div id="enrichBooksList" style="font-size:11px; color:var(--text-sub); margin-top:3px; display:flex; gap:6px; flex-wrap:wrap;">
+                        <!-- Book Badges -->
+                    </div>
+                </div>
+            </div>
+            <button onclick="enrichCurrentMonographWithNewBooks()" class="btn-ctrl" style="background:#7c2d12; color:#fff; border-color:#7c2d12; font-weight:800; padding:6px 14px; font-size:12px; box-shadow:0 2px 6px rgba(124,45,18,0.3); display:inline-flex; align-items:center; gap:6px; cursor:pointer;" title="توسيع الأطروحة واستخراج الشواهد الآبائية من هذه المراجع">
+                <span>⚡</span> إثراء وتوسيع الأطروحة بهذه المراجع
+            </button>
+        </div>
+
             <div style="display:flex; align-items:center; gap:8px;">
                 <button class="btn-ctrl" onclick="recalibrateActiveMonograph()" style="background:#065f46; color:#fff; border-color:#065f46; font-weight:800; padding:6px 12px; font-size:12px; display:inline-flex; align-items:center; gap:5px;" title="إعادة معايرة وتوليف الأطروحة ودمج الأسئلة الجزئية في مفاهيم شاملة">
                     <span>⚖️</span> <span>معايرة وتوليف</span>
@@ -3002,6 +3036,7 @@ async function loadSessions() {
 
                 // Keep tabs bar synchronized cleanly
                 renderTabsBar(cachedSessions);
+                checkLibraryEnrichment(sessionId);
 
                 chatMessages = [];
                 messagesContainer.innerHTML = '';
@@ -3132,6 +3167,7 @@ async function startNewChat() {
             if (subqBar) subqBar.style.display = 'none';
             const actHdr = document.getElementById('activeSessionHeader');
             if (actHdr) actHdr.style.display = 'none';
+            const enrichCard = document.getElementById('libraryEnrichmentCard'); if (enrichCard) enrichCard.style.display = 'none';
             renderTabsBar(cachedSessions || []);
             showTopicToast("✨ تم تفريغ الشاشة.. اكتب سؤالك وسيبدأ التوثيق فوراً دون جلسات فارغة.");
         }
@@ -3317,10 +3353,18 @@ async function startNewChat() {
             const contentDiv = document.createElement('div');
             contentDiv.className = 'msg-content';
 
-            if (role === 'assistant' && turnNumber && turnNumber > 1) {
+            if (role === 'assistant' && turnNumber) {
                 const badge = document.createElement('div');
                 badge.className = 'turn-badge';
-                badge.textContent = `💬 المحور رقم ${turnNumber} في هذه المناقشة`;
+                badge.style.display = 'flex';
+                badge.style.alignItems = 'center';
+                badge.style.justifyContent = 'space-between';
+                badge.innerHTML = `
+                    <span>💬 المحور رقم ${turnNumber} في هذه المناقشة</span>
+                    <button onclick="deleteTurnByNumber(${turnNumber})" style="background:none; border:none; color:#ef4444; cursor:pointer; font-size:11px; font-weight:700; display:inline-flex; align-items:center; gap:2px; padding:0 4px;" title="حذف هذا المحور بالكامل">
+                        <span>🗑️</span> حذف
+                    </button>
+                `;
                 contentDiv.appendChild(badge);
             }
 
@@ -3333,6 +3377,20 @@ async function startNewChat() {
             }
 
             contentDiv.appendChild(bubble);
+
+            if (role === 'user') {
+                const userAct = document.createElement('div');
+                userAct.className = 'user-bubble-actions';
+                userAct.style.display = 'flex';
+                userAct.style.justifyContent = 'flex-start';
+                userAct.style.marginTop = '4px';
+                userAct.innerHTML = `
+                    <button onclick="deleteTurnByNumber(${userMsgCounter})" style="background:none; border:none; color:var(--text-sub); opacity:0.65; cursor:pointer; font-size:11px; font-weight:600; display:inline-flex; align-items:center; gap:3px; padding:2px 6px; border-radius:4px;" onmouseover="this.style.opacity='1'; this.style.color='#ef4444'; this.style.background='rgba(239,68,68,0.08)';" onmouseout="this.style.opacity='0.65'; this.style.color='var(--text-sub)'; this.style.background='none';" title="حذف هذا السؤال وإجابته من هذا المبحث">
+                        <span>🗑️</span> حذف هذا السؤال
+                    </button>
+                `;
+                contentDiv.appendChild(userAct);
+            }
 
             if (citations && citations.length > 0) {
                 const citeSection = document.createElement('div');
@@ -3414,6 +3472,9 @@ async function startNewChat() {
                     </button>
                     <button class="btn-msg-act" onclick="openCompilationModal()" title="تجميع هذا البحث مع سائر المحاور في أطروحة كاملة وتصديرها">
                         <span>📑</span> تجميع الأطروحة
+                    </button>
+                    <button class="btn-msg-act" onclick="deleteTurnByNumber(${turnNumber || 1})" style="color:#ef4444; border-color:rgba(239,68,68,0.35); background:rgba(239,68,68,0.06); font-weight:700;" title="استبعاد وحذف هذا السؤال وإجابته من هذا المبحث">
+                        <span>🗑️</span> حذف السؤال
                     </button>
                     <button class="btn-msg-act" onclick="openShareModal(${turnNumber || 'null'})" title="مشاركة رابط هذا المبحث والمراجع للتحقق منها">
                         <span>🔗</span> مشاركة
@@ -4686,16 +4747,14 @@ ${url}`;
         });
 
 
-        async function deleteCurrentQuestionPrompt() {
-            if (!currentSessionId) return;
-            const select = document.getElementById('subqDropdownSelect');
-            const qTurn = select ? parseInt(select.value, 10) : currentNavigatedQIdx;
-            if (!qTurn || qTurn < 1) return;
-
-            if (!confirm(`هل تريد بالتأكيد حذف السؤال رقم (${qTurn}) وإجابته من هذا المبحث؟`)) return;
+        async function deleteTurnByNumber(turnNumber) {
+            if (!currentSessionId || !turnNumber) return;
+            const tNum = parseInt(turnNumber, 10);
+            if (isNaN(tNum) || tNum < 1) return;
+            if (!confirm(`هل تريد بالتأكيد حذف السؤال رقم (${tNum}) وإجابته من هذا المبحث؟`)) return;
 
             try {
-                const res = await fetch('/api/sessions/' + currentSessionId + '/turns/' + qTurn, {
+                const res = await fetch('/api/sessions/' + currentSessionId + '/turns/' + tNum, {
                     method: 'DELETE'
                 });
                 if (!res.ok) {
@@ -4703,7 +4762,7 @@ ${url}`;
                     throw new Error(err.detail || "تعذر حذف السؤال");
                 }
                 const data = await res.json();
-                showTopicToast("✨ تم استبعاد السؤال بنجاح وتحديث فهرس الأطروحة.");
+                showTopicToast(`✨ تم استبعاد السؤال رقم (${tNum}) بنجاح وتحديث فهرس ومحاور الأطروحة.`);
                 await loadSessions();
                 if (data.remaining_questions_count > 0) {
                     await selectSession(currentSessionId);
@@ -4713,6 +4772,14 @@ ${url}`;
             } catch(e) {
                 alert("خطأ أثناء حذف السؤال: " + e.message);
             }
+        }
+
+        async function deleteCurrentQuestionPrompt() {
+            if (!currentSessionId) return;
+            const select = document.getElementById('subqDropdownSelect');
+            const qTurn = select ? parseInt(select.value, 10) : currentNavigatedQIdx;
+            if (!qTurn || qTurn < 1) return;
+            await deleteTurnByNumber(qTurn);
         }
 
         async function reorderActiveMonograph() {
@@ -4773,6 +4840,51 @@ ${url}`;
                 await loadSessions();
             } catch(e) {
                 alert("خطأ: " + e.message);
+            }
+        }
+
+
+        async function checkLibraryEnrichment(sessionId) {
+            const card = document.getElementById('libraryEnrichmentCard');
+            if (!card || !sessionId) return;
+            try {
+                const res = await fetch('/api/sessions/' + sessionId + '/relevant_books');
+                if (!res.ok) return;
+                const data = await res.json();
+                if (data.has_new_books && data.count > 0) {
+                    const countEl = document.getElementById('enrichBooksCount');
+                    if (countEl) countEl.textContent = data.count;
+                    const listEl = document.getElementById('enrichBooksList');
+                    if (listEl) {
+                        listEl.innerHTML = (data.books || []).map(b => 
+                            `<span style="background:var(--bg-card); border:1px solid var(--card-border); padding:2px 7px; border-radius:4px; font-weight:600; display:inline-flex; align-items:center; gap:3px;">📖 ${escapeHtml(b.title)}</span>`
+                        ).join('');
+                    }
+                    card.style.display = 'flex';
+                } else {
+                    card.style.display = 'none';
+                }
+            } catch(e) {
+                card.style.display = 'none';
+            }
+        }
+
+        async function enrichCurrentMonographWithNewBooks() {
+            if (!currentSessionId) return;
+            showTopicToast("⏳ جاري فحص واستخراج الشواهد الآبائية من مراجع المكتبة المكتشفة...");
+            try {
+                const res = await fetch('/api/sessions/' + currentSessionId + '/enrich', {
+                    method: 'POST'
+                });
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.detail || "تعذر إثراء الأطروحة");
+                }
+                const data = await res.json();
+                showTopicToast(`✨ تم إثراء وتوسيع الأطروحة بنجاح: تم إضافة (${data.added_citations_count}) شواهد توثيقية جديدة من مراجع المكتبة!`);
+                await selectSession(currentSessionId);
+            } catch(e) {
+                alert("خطأ أثناء إثراء الأطروحة: " + e.message);
             }
         }
 
@@ -4962,6 +5074,24 @@ async def recalibrate_session_endpoint(session_id: str):
 async def recalibrate_library_endpoint(user_id: Optional[str] = "scholar_master"):
     """Performs full library-wide recalibration, thematic classification, and clustering."""
     res = repo.recalibrate_entire_library(user_id=user_id or "scholar_master")
+    return res
+
+
+@app.get("/api/sessions/{session_id}/relevant_books")
+async def get_relevant_uncited_books_endpoint(session_id: str):
+    """Finds library books on the session's topic that have not yet been cited."""
+    books = repo.find_uncited_library_books(session_id)
+    return {
+        "has_new_books": len(books) > 0,
+        "count": len(books),
+        "books": books[:6]
+    }
+
+
+@app.post("/api/sessions/{session_id}/enrich")
+async def enrich_session_endpoint(session_id: str):
+    """Enriches monograph chapters with citations and patristic excerpts from discovered library books."""
+    res = repo.enrich_session_from_library(session_id)
     return res
 
 @app.post("/api/sessions/merge")
