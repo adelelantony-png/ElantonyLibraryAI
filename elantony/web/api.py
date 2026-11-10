@@ -361,17 +361,17 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             background: var(--bg-darker);
             border: 1px solid var(--card-border);
             color: var(--text-sub);
-            padding: 4px 10px;
+            padding: 5px 12px;
             border-radius: 8px;
-            font-size: 12px;
+            font-size: 12.5px;
             font-weight: 700;
             cursor: pointer;
             display: inline-flex;
             align-items: center;
             gap: 6px;
             white-space: nowrap;
-            max-width: 180px;
-            min-width: 80px;
+            max-width: 320px;
+            min-width: 100px;
             flex-shrink: 1;
             transition: 0.18s ease;
             overflow: hidden;
@@ -385,9 +385,9 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
 
         /* Sidebar */
         .sidebar {
-            width: 290px;
-            min-width: 290px;
-            max-width: 290px;
+            width: 320px;
+            min-width: 320px;
+            max-width: 320px;
             flex-shrink: 0;
             background: var(--bg-sidebar);
             border-left: 1px solid var(--card-border);
@@ -470,15 +470,24 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
         }
         .chat-item-text {
             flex: 1;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            min-width: 0;
             padding-left: 6px;
             direction: rtl;
             text-align: right;
             unicode-bidi: isolate;
         }
-        .chat-item-text bdi, .tab-text bdi {
+        .chat-item-text bdi {
+            unicode-bidi: isolate;
+            direction: rtl;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            line-height: 1.35;
+            word-break: break-word;
+            font-size: 12.5px;
+        }
+        .tab-text bdi {
             unicode-bidi: isolate;
             direction: rtl;
         }
@@ -2202,7 +2211,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
         <div class="active-session-header" id="activeSessionHeader" style="display:flex; align-items:center; justify-content:space-between; padding:8px 16px; background:var(--bg-card); border-bottom:1px solid var(--card-border); gap:10px; flex-wrap:wrap; z-index:4;">
             <div style="display:flex; align-items:center; gap:8px; overflow:hidden;">
                 <span style="font-size:16px;">📖</span>
-                <span id="currentSessionTitleDisplay" style="font-weight:800; font-size:14px; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:320px;">بحث لاهوتي</span>
+                <span id="currentSessionTitleDisplay" style="font-weight:800; font-size:14px; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:650px;">بحث لاهوتي</span>
                 <button class="btn-ctrl" onclick="renameSession(event, currentSessionId, document.getElementById('currentSessionTitleDisplay').textContent)" style="padding:2px 8px; font-size:11px;" title="تعديل عنوان البحث">✏️ تعديل العنوان</button>
             </div>
         <!-- Real-Time Library Reference Discovery & Enrichment Alert Card -->
@@ -2870,7 +2879,6 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
 
                 tab.appendChild(icon);
                 tab.appendChild(text);
-                tab.appendChild(tabEditBtn);
                 tab.appendChild(closeBtn);
                 tabsList.appendChild(tab);
             });
