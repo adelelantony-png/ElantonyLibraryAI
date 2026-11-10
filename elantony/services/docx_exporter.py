@@ -209,6 +209,7 @@ def generate_session_docx(comp_data: Dict[str, Any], output_path: str) -> str:
                 _set_run_font(r_txt, "Traditional Arabic", 14)
             else:
                 # Normal paragraph
+                p_line.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
                 r_txt = p_line.add_run(line_str)
                 _set_run_font(r_txt, "Traditional Arabic", 14)
 

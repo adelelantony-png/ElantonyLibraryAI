@@ -670,15 +670,30 @@ def generate_session_html(comp_data: Dict[str, Any]) -> str:
   <!-- Screen Floating Print Action -->
   <div class="no-print">
     <div>
-      <strong>✠ منظومة ELANTONY LIBRARY AI — معاينة النشر الأكاديمي</strong>
-      <div style="font-size: 10pt; opacity: 0.8;">معاينة جاهزة للطباعة والتصدير مباشرة</div>
+      <div style="font-size: 13pt; font-weight: 800; color: #f59e0b;">✠ أمانة التوثيق والبحث اللاهوتي الأكاديمي</div>
+      <div style="font-size: 10pt; opacity: 0.85;">معاينة جاهزة للطباعة بجودة النشر A4، أو الإرسال والمشاركة بنقرة واحدة</div>
     </div>
-    <div style="display:flex; gap:10px;">
-      <button class="btn-print-action" onclick="window.print()">
+    <div style="display:flex; flex-wrap:wrap; gap:8px;">
+      <button class="btn-print-action" onclick="window.print()" title="طباعة الأطروحة بنمط A4 الفاخر">
         <span>🖨️</span> طباعة فورية (Ctrl + P)
       </button>
-      <button class="btn-print-action" style="background:#0284c7;" onclick="window.close()">
-        <span>✕</span> إغلاق
+      <button class="btn-print-action" style="background:#dc2626;" onclick="downloadPdfFile()" title="تحميل ملف PDF مطبوع جاهز">
+        <span>📕</span> تحميل PDF
+      </button>
+      <button class="btn-print-action" style="background:#059669;" onclick="downloadStandaloneHtml()" title="حفظ المستند بالكامل كملف مستقل لإرساله عبر واتساب أو تليجرام أو فتحه دون إنترنت">
+        <span>📥</span> حفظ ملف المعاينة (.html)
+      </button>
+      <button class="btn-print-action" style="background:#0284c7;" onclick="copyPreviewLink()" title="نسخ رابط هذه المعاينة المباشر لمشاركته مع أي باحث">
+        <span>🔗</span> نسخ الرابط
+      </button>
+      <button class="btn-print-action" style="background:#16a34a;" onclick="shareViaWhatsApp()" title="إرسال رابط المعاينة عبر واتساب">
+        <span>💬</span> واتساب
+      </button>
+      <button class="btn-print-action" style="background:#2563eb;" onclick="shareViaTelegram()" title="إرسال رابط المعاينة عبر تليجرام">
+        <span>✈️</span> تليجرام
+      </button>
+      <button class="btn-print-action" style="background:#475569;" onclick="window.close()" title="إغلاق المعاينة">
+        <span>✕</span>
       </button>
     </div>
   </div>
@@ -705,5 +720,52 @@ def generate_session_html(comp_data: Dict[str, Any]) -> str:
   </main>
 </div>
 
+
+<script>
+  function downloadStandaloneHtml() {
+    const clonedDoc = document.cloneNode(true);
+    const blob = new Blob([clonedDoc.documentElement.outerHTML], { type: 'text/html;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    const safeTitle = (document.title || 'أطروحة_لاهوتية_موثقة').replace(/[\\/:*?"<>|]/g, '_');
+    a.download = safeTitle + '.html';
+    a.click();
+  }
+
+  function downloadPdfFile() {
+    const parts = window.location.pathname.split('/');
+    let sId = null;
+    for (let i = 0; i < parts.length; i++) {
+      if (parts[i] === 'sessions' && i + 1 < parts.length) {
+        sId = parts[i + 1];
+        break;
+      }
+    }
+    if (sId) {
+      window.open('/api/sessions/' + sId + '/export?format=pdf', '_blank');
+    } else {
+      window.print();
+    }
+  }
+
+  function copyPreviewLink() {
+    navigator.clipboard.writeText(window.location.href).then(() => {
+      alert("✅ تم نسخ رابط المعاينة بنجاح! يمكنك إرساله لأي شخص لتصفح الأطروحة والطباعة مباشرة.");
+    }).catch(() => {
+      prompt("انسخ الرابط التالي:", window.location.href);
+    });
+  }
+
+  function shareViaWhatsApp() {
+    const title = document.title || 'أطروحة لاهوتية موثقة';
+    const text = encodeURIComponent('✠ ' + title + '\n' + window.location.href);
+    window.open('https://api.whatsapp.com/send?text=' + text, '_blank');
+  }
+
+  function shareViaTelegram() {
+    const title = document.title || 'أطروحة لاهوتية موثقة';
+    window.open('https://t.me/share/url?url=' + encodeURIComponent(window.location.href) + '&text=' + encodeURIComponent('✠ ' + title), '_blank');
+  }
+</script>
 </body>
 </html>"""

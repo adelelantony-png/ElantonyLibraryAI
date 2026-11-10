@@ -249,26 +249,35 @@ class TelegramHandlerService:
         # 1. Send monograph in chat
         await self.send_long_message(client, chat_id, comp["plain_text"])
 
-        # 2. Generate clean research Word document (.docx) and send it directly
+        # 2. Generate clean research Word document (.docx)
         doc_dir = settings.base_dir / "data" / "compiled_researches"
         doc_dir.mkdir(parents=True, exist_ok=True)
         docx_path = doc_dir / f"research_{s_id}.docx"
         try:
             from elantony.services.docx_exporter import generate_session_docx
             generate_session_docx(comp, str(docx_path))
-            caption = f"📄 أطروحة بحثية لاهوتية مجمعة (ملف Word): «{comp.get('title', '')}» | منظومة ELANTONY AI"
-            await self.send_document(client, chat_id, str(docx_path), caption=caption)
+            caption_docx = f"📄 أطروحة بحثية لاهوتية مجمعة (ملف Word): «{comp.get('title', '')}» | منظومة ELANTONY AI"
+            await self.send_document(client, chat_id, str(docx_path), caption=caption_docx)
         except Exception as e:
             logger.warning(f"Could not generate or send compiled Word file: {e}")
-            txt_path = doc_dir / f"research_{s_id}.txt"
-            with open(txt_path, "w", encoding="utf-8") as f:
-                f.write(comp["plain_text"])
-            await self.send_document(client, chat_id, str(txt_path), caption=f"📄 أطروحة بحثية: «{comp.get('title', '')}»")
 
-        # 3. Action buttons
+        # 3. Generate pristine PDF publication via Edge DirectPrint
+        pdf_path = doc_dir / f"research_{s_id}.pdf"
+        try:
+            from elantony.services.pdf_exporter import generate_session_pdf
+            generate_session_pdf(comp, str(pdf_path))
+            caption_pdf = f"📕 أطروحة بحثية مطبوعة بجودة النشر (ملف PDF فاخر): «{comp.get('title', '')}»"
+            await self.send_document(client, chat_id, str(pdf_path), caption=caption_pdf)
+        except Exception as e:
+            logger.warning(f"Could not generate or send PDF file: {e}")
+
+        # 4. Action buttons with Web Preview & Clear Memory
         kb = [
             [
-                {"text": "🔄 بدء بحث جديد", "callback_data": "session:new"},
+                {"text": "🖨️ فتح ومعاينة الأطروحة للطباعة (ويب)", "url": f"{settings.public_base_url}/api/sessions/{s_id}/preview"}
+            ],
+            [
+                {"text": "🧹 تفريغ الذاكرة (سؤال جديد)", "callback_data": "session:new"},
                 {"text": "📂 أبحاثي السابقة", "callback_data": "session:history"}
             ],
             [
@@ -689,7 +698,7 @@ class TelegramHandlerService:
         if cmd in ["/new", "/session_new", "/reset", "/clear"] or text.lower() in [
             "/new", "/reset", "/clear", "reset", "clear",
             "🔄 بحث جديد", "بحث جديد", "محادثة جديدة", "جلسة جديدة",
-            "تصفير", "تصفير الذاكرة", "مسح الذاكرة", "مسح", "ابدأ من جديد", "🧹 تفريغ الذاكرة (بحث جديد)", "تفريغ الذاكرة", "تفريغ"
+            "تصفير", "تصفير الذاكرة", "مسح الذاكرة", "مسح", "ابدأ من جديد", "🧹 تفريغ الذاكرة (سؤال جديد)", "🧹 تفريغ الذاكرة (بحث جديد)", "تفريغ الذاكرة", "تفريغ", "سؤال جديد", "سؤال تانى", "تفريغ الذاكرة لسؤال جديد"
         ] or text.startswith("/new") or text.startswith("/reset") or text.startswith("/clear"):
             new_id = repo.create_session(str(user_id))
             _user_states.pop(user_id, None)
@@ -1061,13 +1070,14 @@ class TelegramHandlerService:
         # 3. Send Discussion Action Bar: [تجميع البحث كاملاً] & [Word] & [بحث جديد]
         session_actions_kb = [
             [
-                {"text": "📑 تجميع البحث كاملاً (ملف Word + شات)", "callback_data": "session:compile"}
+                {"text": "📑 تجميع الأطروحة (Word + PDF فخم)", "callback_data": "session:compile"}
             ],
             [
-                {"text": "🔗 فتح ومشاركة البحث على المتصفح", "url": f"{settings.public_base_url}/?session={session_id}"}
+                {"text": "🖨️ معاينة وطباعة الأطروحة (ويب)", "url": f"{settings.public_base_url}/api/sessions/{session_id}/preview"},
+                {"text": "🔗 فتح بالبوابة", "url": f"{settings.public_base_url}/?session={session_id}"}
             ],
             [
-                {"text": "🔄 بدء بحث جديد", "callback_data": "session:new"},
+                {"text": "🧹 تفريغ الذاكرة (سؤال جديد)", "callback_data": "session:new"},
                 {"text": "📂 أبحاثي السابقة", "callback_data": "session:history"}
             ],
             [
