@@ -337,3 +337,27 @@ def clean_citation_excerpt(text: str, max_length: int = 320) -> str:
     cleaned = clean_leading_ocr_noise(cleaned)
     cleaned = re.sub(r'^[\.\,\-\:\;\!\u061F\s]+', '', cleaned).strip()
     return extract_coherent_sentences(cleaned, max_length=max_length)
+
+def clean_book_title(filename: str) -> str:
+    """Cleans book titles from timestamps, numeric prefixes, and underscores."""
+    if not filename:
+        return "مرجع كنسي موثق"
+    t = filename.replace('.pdf', '').strip()
+    t = re.sub(r'^\d+[-_ ]*', '', t)
+    t = t.replace('_', ' ')
+    t = re.sub(r'\s+', ' ', t).strip()
+    return t or "مرجع كنسي موثق"
+
+
+def clean_ocr_arabic(text: str) -> str:
+    """Cleans OCR artifacts, collapses word-per-line newlines, and fixes Arabic punctuation."""
+    if not text:
+        return ""
+    # Collapse newlines to spaces so word-per-line OCR text doesn't become vertical
+    t = re.sub(r'[\r\n]+', ' ', text)
+    t = clean_leading_ocr_noise(t)
+    # Fix punctuation spacing
+    t = re.sub(r'\s+([،.؛:!؟»\)])', r'\1', t)
+    t = re.sub(r'([«\(])\s+', r'\1', t)
+    t = re.sub(r'\s+', ' ', t)
+    return t.strip()

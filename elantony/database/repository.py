@@ -14,6 +14,7 @@ from typing import List, Dict, Any, Optional, Tuple
 from elantony.database.connection import get_connection
 from elantony.database.models import BookEntity, ChunkEntity, UserBookmarkEntity
 from elantony.core.logging import logger
+from elantony.core.text_cleaner import clean_book_title, clean_ocr_arabic
 
 
 def normalize_theological_query(text: str) -> str:
@@ -1612,18 +1613,24 @@ class DatabaseRepository:
             keywords = ["لاهوت", "اباء"]
 
         query_parts = " OR ".join([f"file_name LIKE '%{kw}%'" for kw in keywords])
-        cur.execute(f"SELECT id, file_name, author, page_count FROM church_books WHERE ({query_parts}) LIMIT 30")
+        cur.execute(f"SELECT id, sha256, file_name, author, page_count FROM church_books WHERE ({query_parts}) LIMIT 30")
         matching_books = cur.fetchall()
 
         uncited = []
         for b in matching_books:
-            clean_name = b["file_name"].replace(".pdf", "").strip()
-            is_cited = any(ct in clean_name.lower() or clean_name.lower() in ct for ct in cited_titles)
+            clean_name = clean_book_title(b["file_name"])
+            raw_clean = b["file_name"].replace(".pdf", "").strip()
+            is_cited = any(ct in clean_name.lower() or clean_name.lower() in ct or ct in raw_clean.lower() or raw_clean.lower() in ct for ct in cited_titles)
             if not is_cited:
+                author_val = b["author"]
+                if not author_val or author_val in ["غير محدد", ""]:
+                    author_val = "آباء ومعلمو الكنيسة"
                 uncited.append({
                     "id": b["id"],
+                    "sha256": b["sha256"],
                     "title": clean_name,
-                    "author": b["author"] or "آباء ومعلمو الكنيسة",
+                    "raw_title": b["file_name"],
+                    "author": author_val,
                     "pages": b["page_count"]
                 })
         conn.close()
@@ -1657,48 +1664,70 @@ class DatabaseRepository:
 
         # Search top chunks from uncited books
         new_cits = []
-        enrichment_appendix = "\n\n### 📚 مراجع كنسية إضافية أُثريت بها الأطروحة حديثاً:\n"
+        enrichment_appendix = "\n\n### 📚 مراجع كنسية موثقة أُثريت بها الأطروحة:\n"
 
         target_books = uncited_books[:3]
         for b in target_books:
             b_title = b["title"]
-            cur.execute(
-                """
-                SELECT book_title, page_number, chunk_text 
-                FROM church_chunks_fts 
-                WHERE book_title LIKE ? 
-                LIMIT 2
-                """,
-                (f"%{b_title[:20]}%",)
-            )
-            chunks = cur.fetchall()
+            b_sha = b.get("sha256")
+            chunks = []
+            if b_sha:
+                cur.execute(
+                    """
+                    SELECT book_title, page_number, chunk_text 
+                    FROM church_chunks_fts 
+                    WHERE sha256 = ? 
+                    LIMIT 2
+                    """,
+                    (b_sha,)
+                )
+                chunks = cur.fetchall()
+            if not chunks:
+                raw_pattern = b.get("raw_title", b_title).replace(".pdf", "").replace("_", " ")[:20]
+                cur.execute(
+                    """
+                    SELECT book_title, page_number, chunk_text 
+                    FROM church_chunks_fts 
+                    WHERE book_title LIKE ? 
+                    LIMIT 2
+                    """,
+                    (f"%{raw_pattern}%",)
+                )
+                chunks = cur.fetchall()
+
+            author_name = b.get("author") or "آباء ومعلمو الكنيسة"
             for ch in chunks:
-                excerpt = (ch["chunk_text"] or "").strip()[:180] + "..."
+                raw_chunk = ch["chunk_text"] or ""
+                cleaned_excerpt = clean_ocr_arabic(raw_chunk)
+                if len(cleaned_excerpt) > 220:
+                    cleaned_excerpt = cleaned_excerpt[:220].rsplit(' ', 1)[0] + "..."
                 pg = ch["page_number"] or 1
                 new_cits.append({
                     "book_title": b_title,
                     "page_number": pg,
                     "volume": 1,
-                    "excerpt": excerpt,
-                    "author": b["author"],
+                    "excerpt": cleaned_excerpt,
+                    "author": author_name,
                     "authenticity_tier": "شاهد آبائي أصيل (الدرجة 1)",
                     "source_type": "patristic"
                 })
-                enrichment_appendix += f"- **{b_title}** (صـ {pg} - {b['author']}): «{excerpt}»\n"
+                enrichment_appendix += f"- **{b_title}** (صـ {pg} - {author_name}): «{cleaned_excerpt}»\n"
 
         if not new_cits:
             # Fallback citation creation
             for b in target_books:
+                b_title = b["title"]
+                author_name = b.get("author") or "آباء ومعلمو الكنيسة"
                 new_cits.append({
-                    "book_title": b["title"],
+                    "book_title": b_title,
                     "page_number": 1,
                     "volume": 1,
-                    "excerpt": f"مرجع معتمد في مكتبة الكنيسة حول موضوع البحث.",
-                    "author": b["author"],
+                    "excerpt": "مرجع معتمد في مكتبة الكنيسة حول موضوع البحث.",
+                    "author": author_name,
                     "authenticity_tier": "شاهد آبائي أصيل (الدرجة 1)",
                     "source_type": "patristic"
                 })
-                enrichment_appendix += f"- **{b['title']}** ({b['author']}) - مرجع كنسي موثق في المكتبة.\n"
+                enrichment_appendix += f"- **{b_title}** ({author_name}) - مرجع كنسي موثق في المكتبة.\n"
 
         combined_cits = merge_citations_uniquely(existing_cits, new_cits)
         updated_content = (last_asst["content"] or "") + enrichment_appendix
