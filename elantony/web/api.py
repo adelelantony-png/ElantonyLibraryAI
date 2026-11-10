@@ -1996,7 +1996,29 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             <input type="text" id="sidebarSearchInput" placeholder="🔍 بحث في أبحاثك..." oninput="filterSidebarSessions(this.value)" class="sidebar-search-box">
         </div>
 
-        <div class="chat-history-title">📂 أبحاثك ومناقشاتك المحفوظة</div>
+                <div style="display:flex; align-items:center; justify-content:space-between; padding: 6px 16px;">
+            <div class="chat-history-title" style="padding:0;">📂 أبحاثك المحفوظة</div>
+            <button class="btn-ctrl" id="btnSidebarMergeToggle" onclick="toggleSidebarMergeMode()" style="padding:3px 9px; font-size:11.5px; background:rgba(217,119,6,0.15); color:#d97706; border-color:#d97706; font-weight:800; display:inline-flex; align-items:center; gap:4px;" title="تحديد عدة أبحاث لدمجها في بحث واحد">
+                <span>🗂️</span> دمج أبحاث
+            </button>
+        </div>
+
+        <!-- Sticky Sidebar Merge Panel (يظهر عند تفعيل وضع الدمج) -->
+        <div id="sidebarMergePanel" style="display:none; background:var(--bg-darker); border:1px solid var(--accent); border-radius:8px; padding:10px; margin: 0 14px 8px; box-shadow:var(--shadow-sm);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                <span style="font-size:12px; font-weight:800; color:var(--accent);">
+                    ☑️ اختر أبحاثاً للدمج (<span id="sidebarMergeCount">0</span> محددة)
+                </span>
+                <button onclick="toggleSidebarMergeMode(false)" style="background:none; border:none; cursor:pointer; font-size:13px; color:var(--text-sub); padding:1px 4px;" title="إلغاء وضع الدمج">✕</button>
+            </div>
+            <div style="font-size:10.5px; color:var(--text-sub); margin-bottom:6px;">
+                ضع علامة [✔] أمام الأبحاث المراد ضمها، واكتب عنواناً مجمعاً:
+            </div>
+            <input type="text" id="sidebarMergeTitleInput" placeholder="عنوان الأطروحة المجمعة (اختياري)..." style="width:100%; box-sizing:border-box; padding:6px 8px; font-size:11.5px; border:1px solid var(--card-border); border-radius:5px; margin-bottom:8px; background:var(--bg-chat); color:var(--text-main); font-family:inherit;">
+            <button id="btnExecuteSidebarMerge" onclick="executeSidebarMerge()" class="btn-ctrl" style="width:100%; background:#7c2d12; color:#fff; border-color:#7c2d12; font-weight:800; padding:7px; font-size:12px; cursor:pointer; justify-content:center;">
+                📑 دمج الأبحاث المحددة
+            </button>
+        </div>
         <div class="chat-history" id="chatHistoryList">
             <!-- Sessions populate dynamically -->
         </div>
@@ -2462,6 +2484,73 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             }
         }
 
+        
+        let isSidebarMergeMode = false;
+
+        function toggleSidebarMergeMode(forceState) {
+            isSidebarMergeMode = forceState !== undefined ? forceState : !isSidebarMergeMode;
+            const panel = document.getElementById('sidebarMergePanel');
+            const toggleBtn = document.getElementById('btnSidebarMergeToggle');
+            if (panel) panel.style.display = isSidebarMergeMode ? 'block' : 'none';
+            if (toggleBtn) {
+                toggleBtn.style.background = isSidebarMergeMode ? 'var(--accent)' : 'rgba(217,119,6,0.15)';
+                toggleBtn.style.color = isSidebarMergeMode ? '#FFF' : '#d97706';
+            }
+            loadSessions();
+        }
+
+        function updateSidebarMergeCount() {
+            const checked = document.querySelectorAll('.sidebar-merge-chk:checked');
+            const cntSpan = document.getElementById('sidebarMergeCount');
+            if (cntSpan) cntSpan.textContent = checked.length;
+        }
+
+        async function executeSidebarMerge() {
+            const checked = Array.from(document.querySelectorAll('.sidebar-merge-chk:checked')).map(el => el.value);
+            if (checked.length < 2) {
+                alert("يرجى اختيار بحثين على الأقل بوضع علامة [✔] في المربعات لدمجهما معاً في أطروحة واحدة.");
+                return;
+            }
+
+            const titleInput = document.getElementById('sidebarMergeTitleInput');
+            const customTitle = titleInput ? titleInput.value.trim() : '';
+            const btn = document.getElementById('btnExecuteSidebarMerge');
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = '⏳ جاري الدمج والتوثيق...';
+            }
+
+            try {
+                const res = await fetch('/api/sessions/merge', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        session_ids: checked,
+                        title: customTitle || null
+                    })
+                });
+
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.detail || "فشل دمج الأبحاث");
+                }
+
+                const data = await res.json();
+                toggleSidebarMergeMode(false);
+                showTopicToast("✨ تم دمج " + data.merged_sessions_count + " أبحاث بنجاح في أطروحة واحدة: «" + data.title + "»");
+
+                await loadSessions();
+                await selectSession(data.session_id);
+            } catch(err) {
+                alert("تعذر دمج الأبحاث: " + err.message);
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = '📑 دمج الأبحاث المحددة';
+                }
+            }
+        }
+
         async function renameSession(e, sessionId, currentTitle) {
             if (e) e.stopPropagation();
             const safeCurrent = currentTitle || 'بحث لاهوتي';
@@ -2563,22 +2652,22 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                     headerRow.appendChild(actionsDiv);
                     item.appendChild(headerRow);
 
-                    // Nested Sub-questions Tree (الأسئلة المتسلسلة جوة بعض في نفس الموضوع)
-                    if (s.user_queries && s.user_queries.length > 0) {
-                        const treeDiv = document.createElement('div');
-                        treeDiv.className = 'sess-subq-tree';
-                        s.user_queries.forEach((uq, uIdx) => {
-                            const qRow = document.createElement('div');
-                            qRow.className = 'subq-tree-item';
-                            qRow.title = uq.content;
-                            qRow.innerHTML = `<span class="subq-num">س${uIdx+1}:</span> <span class="subq-text">${escapeHtml(uq.content)}</span>`;
-                            qRow.onclick = (e) => {
-                                e.stopPropagation();
-                                selectSessionAndJump(s.id, uIdx + 1);
-                            };
-                            treeDiv.appendChild(qRow);
-                        });
-                        item.appendChild(treeDiv);
+                    // If merge mode is active, prepend checkbox
+                    if (isSidebarMergeMode) {
+                        const chk = document.createElement('input');
+                        chk.type = 'checkbox';
+                        chk.className = 'sidebar-merge-chk';
+                        chk.value = s.id;
+                        chk.style.width = '16px';
+                        chk.style.height = '16px';
+                        chk.style.cursor = 'pointer';
+                        chk.style.marginLeft = '8px';
+                        chk.style.flexShrink = '0';
+                        chk.onclick = (e) => {
+                            e.stopPropagation();
+                            updateSidebarMergeCount();
+                        };
+                        headerRow.prepend(chk);
                     }
 
                     list.appendChild(item);
