@@ -1,4 +1,89 @@
 # -*- coding: utf-8 -*-
+PREVIEW_TOOLBAR_JS = r"""<script>
+  function downloadStandaloneHtml() {
+    try {
+      var parser = new DOMParser();
+      var cleanDoc = parser.parseFromString(document.documentElement.outerHTML, 'text/html');
+      var toolbar = cleanDoc.querySelector('.no-print');
+      if (toolbar) toolbar.remove();
+      var cleanHtml = '<!DOCTYPE html>\n' + cleanDoc.documentElement.outerHTML;
+      var blob = new Blob([cleanHtml], { type: 'text/html;charset=utf-8' });
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      var safeTitle = (document.title || 'أطروحة_لاهوتية_موثقة').replace(/[/\\:*?"<>|]/g, '_').trim();
+      a.download = safeTitle + '.html';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function() {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(a.href);
+      }, 1000);
+    } catch(e) {
+      alert('⚠️ تعذر حفظ ملف المعاينة: ' + e.message);
+    }
+  }
+
+  function downloadPdfFile() {
+    try {
+      var parts = window.location.pathname.split('/');
+      var sId = null;
+      for (var i = 0; i < parts.length; i++) {
+        if (parts[i] === 'sessions' && i + 1 < parts.length) {
+          sId = parts[i + 1];
+          break;
+        }
+      }
+      if (sId) {
+        window.location.href = '/api/sessions/' + sId + '/export?format=pdf';
+      } else {
+        window.print();
+      }
+    } catch(e) {
+      window.print();
+    }
+  }
+
+  function copyPreviewLink() {
+    var url = window.location.href;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(function() {
+        alert("✅ تم نسخ رابط المعاينة بنجاح!\n\n" + url + "\n\nيمكنك الآن إرساله أو مشاركته مع أي باحث.");
+      }).catch(function() {
+        fallbackCopy(url);
+      });
+    } else {
+      fallbackCopy(url);
+    }
+  }
+
+  function fallbackCopy(text) {
+    prompt("انسخ رابط المعاينة التالي لمشاركته:", text);
+  }
+
+  function shareViaWhatsApp() {
+    var title = document.title || 'أطروحة لاهوتية موثقة';
+    var text = encodeURIComponent('✠ ' + title + ' - ' + window.location.href);
+    window.open('https://api.whatsapp.com/send?text=' + text, '_blank');
+  }
+
+  function shareViaTelegram() {
+    var title = document.title || 'أطروحة لاهوتية موثقة';
+    var url = encodeURIComponent(window.location.href);
+    var text = encodeURIComponent('✠ ' + title);
+    window.open('https://t.me/share/url?url=' + url + '&text=' + text, '_blank');
+  }
+
+  function closePreview() {
+    if (window.opener) {
+      window.close();
+    } else if (window.history.length > 1) {
+      window.history.back();
+    } else {
+      window.location.href = '/';
+    }
+  }
+</script>"""
+
 """
 Official Ecclesiastical Monograph HTML & Print Publisher for ELANTONY LIBRARY AI.
 Generates publication-quality, beautifully styled theological research monographs
@@ -230,7 +315,7 @@ def generate_session_html(comp_data: Dict[str, Any]) -> str:
         )
 
     # Assemble Full Standalone Monograph HTML
-    return f"""<!DOCTYPE html>
+    html_body = f"""<!DOCTYPE html>
 <html dir="rtl" lang="ar">
 <head>
 <meta charset="utf-8">
@@ -700,7 +785,7 @@ def generate_session_html(comp_data: Dict[str, Any]) -> str:
       <button class="btn-print-action" style="background:#2563eb;" onclick="shareViaTelegram()" title="إرسال رابط المعاينة عبر تليجرام">
         <span>✈️</span> تليجرام
       </button>
-      <button class="btn-print-action" style="background:#475569;" onclick="window.close()" title="إغلاق المعاينة">
+      <button class="btn-print-action" style="background:#475569;" onclick="closePreview()" title="إغلاق المعاينة">
         <span>✕</span>
       </button>
     </div>
@@ -727,53 +812,7 @@ def generate_session_html(comp_data: Dict[str, Any]) -> str:
     {bib_section_html}
   </main>
 </div>
-
-
-<script>
-  function downloadStandaloneHtml() {{
-    const clonedDoc = document.cloneNode(true);
-    const blob = new Blob([clonedDoc.documentElement.outerHTML], {{ type: 'text/html;charset=utf-8' }});
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    const safeTitle = (document.title || 'أطروحة_لاهوتية_موثقة').replace(/[\\/:*?"<>|]/g, '_');
-    a.download = safeTitle + '.html';
-    a.click();
-  }}
-
-  function downloadPdfFile() {{
-    const parts = window.location.pathname.split('/');
-    let sId = null;
-    for (let i = 0; i < parts.length; i++) {{
-      if (parts[i] === 'sessions' && i + 1 < parts.length) {{
-        sId = parts[i + 1];
-        break;
-      }}
-    }}
-    if (sId) {{
-      window.open('/api/sessions/' + sId + '/export?format=pdf', '_blank');
-    }} else {{
-      window.print();
-    }}
-  }}
-
-  function copyPreviewLink() {{
-    navigator.clipboard.writeText(window.location.href).then(() => {{
-      alert("✅ تم نسخ رابط المعاينة بنجاح! يمكنك إرساله لأي شخص لتصفح الأطروحة والطباعة مباشرة.");
-    }}).catch(() => {{
-      prompt("انسخ الرابط التالي:", window.location.href);
-    }});
-  }}
-
-  function shareViaWhatsApp() {{
-    const title = document.title || 'أطروحة لاهوتية موثقة';
-    const text = encodeURIComponent('✠ ' + title + '\n' + window.location.href);
-    window.open('https://api.whatsapp.com/send?text=' + text, '_blank');
-  }}
-
-  function shareViaTelegram() {{
-    const title = document.title || 'أطروحة لاهوتية موثقة';
-    window.open('https://t.me/share/url?url=' + encodeURIComponent(window.location.href) + '&text=' + encodeURIComponent('✠ ' + title), '_blank');
-  }}
-</script>
+"""
+    return html_body + PREVIEW_TOOLBAR_JS + """
 </body>
 </html>"""
