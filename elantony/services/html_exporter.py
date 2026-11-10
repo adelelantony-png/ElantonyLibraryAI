@@ -160,7 +160,7 @@ def generate_session_html(comp_data: Dict[str, Any]) -> str:
                 key = (b_name, str(p_val))
                 if key not in seen_c:
                     seen_c.add(key)
-                    tier_label = "درجة 1 (إيداع أصيل)" if tier == 1 else "درجة 2 (آبائي معتمد)"
+                    tier_label = "نص كتابي مقدس" if tier == 1 else ("شاهد آبائي أصيل" if tier == 2 else "دراسة لاهوتية معتمدة")
                     cit_html_list.append(
                         f'<div class="ref-pill">'
                         f'<span class="ref-icon">📖</span>'
@@ -198,7 +198,7 @@ def generate_session_html(comp_data: Dict[str, Any]) -> str:
             author = html.escape(b.get("author") or "آباء الكنيسة القبطية")
             pages = html.escape(str(b.get("pages_cited") or "مواضع متعددة"))
             tier = b.get("tier", 2)
-            tier_badge = "توثيق كنسي معتمد (درجة أولى)" if tier == 1 else "مرجع لاهوتي آبائي موثق"
+            tier_badge = "نص كتابي مقدس" if tier == 1 else ("شاهد آبائي أصيل" if tier == 2 else "دراسات وبحوث لاهوتية")
 
             bib_cards_html.append(
                 f'<div class="biblio-card">'

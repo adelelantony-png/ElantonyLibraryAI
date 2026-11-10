@@ -109,7 +109,7 @@ class GeminiAIProvider(BaseAIProvider):
             context_blocks = []
             for idx, c in enumerate(context_chunks, 1):
                 clean_chunk = c.chunk_text.strip().replace("\n", " ")
-                tier_label = f"مرتبة التوثيق: {c.authenticity_tier}"
+                tier_label = "نص كتابي مقدس" if c.authenticity_tier == 1 else ("شاهد آبائي أصيل" if c.authenticity_tier == 2 else "دراسة لاهوتية معتمدة")
                 source_label = f"التصنيف: {c.source_types or 'عام'}"
                 context_blocks.append(
                     f"[{idx}] {c.source_reference} ({tier_label} | {source_label}):\n"

@@ -2778,7 +2778,7 @@ async function startNewChat() {
                             <span class="citation-title">📖 ${idx + 1}. ${c.book_title}</span>
                             <div style="display:flex; align-items:center; gap:6px;">
                                 <button class="btn-cite-fav" onclick='toggleSaveCitation(${JSON.stringify(c).replace(/'/g, "&#39;")})' title="إضافة الشاهد إلى كشكول الباحث والمفضلة">⭐ حفظ</button>
-                                <span class="citation-badge">مرتبة التوثيق ${c.authenticity_tier || 3}</span>
+                                <span class="citation-badge">${c.authenticity_tier === 1 ? "نص كتابي مقدس" : (c.authenticity_tier === 2 ? "شاهد آبائي أصيل" : "دراسة لاهوتية معتمدة")}</span>
                             </div>
                         </div>
                         <div class="citation-meta">
