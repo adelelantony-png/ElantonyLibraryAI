@@ -995,7 +995,7 @@ class DatabaseRepository:
         }
 
 
-    def merge_sessions(self, session_ids: List[str], target_title: Optional[str] = None, user_id: str = "scholar_master") -> Dict[str, Any]:
+    def merge_sessions(self, session_ids: List[str], target_title: Optional[str] = None, user_id: str = "scholar_master", delete_sources: bool = True) -> Dict[str, Any]:
         """
         Merges multiple discussion sessions into a single new unified session:
         - Retrieves all messages from the specified session_ids
@@ -1045,11 +1045,18 @@ class DatabaseRepository:
         # Update session title and timestamp
         self.update_session_title(new_session_id, target_title.strip())
 
+        # Purge source sessions if requested
+        if delete_sources:
+            for sid in session_ids:
+                if sid != new_session_id:
+                    self.delete_session(sid)
+
         return {
             "session_id": new_session_id,
             "title": target_title.strip(),
             "messages_copied": total_copied,
-            "merged_sessions_count": len(valid_sessions)
+            "merged_sessions_count": len(valid_sessions),
+            "sources_deleted": delete_sources
         }
 
     def run_maintenance(self) -> Dict[str, Any]:

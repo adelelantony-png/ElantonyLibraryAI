@@ -2015,6 +2015,10 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                 ضع علامة [✔] أمام الأبحاث المراد ضمها، واكتب عنواناً مجمعاً:
             </div>
             <input type="text" id="sidebarMergeTitleInput" placeholder="عنوان الأطروحة المجمعة (اختياري)..." style="width:100%; box-sizing:border-box; padding:6px 8px; font-size:11.5px; border:1px solid var(--card-border); border-radius:5px; margin-bottom:8px; background:var(--bg-chat); color:var(--text-main); font-family:inherit;">
+            <label style="display:flex; align-items:center; gap:6px; font-size:11px; color:var(--text-main); margin-bottom:8px; cursor:pointer; user-select:none;">
+                <input type="checkbox" id="sidebarMergeDeleteSources" checked style="width:15px; height:15px; cursor:pointer;">
+                <span>🗑️ مسح الأبحاث القديمة بعد الدمج (تنظيف السجل)</span>
+            </label>
             <button id="btnExecuteSidebarMerge" onclick="executeSidebarMerge()" class="btn-ctrl" style="width:100%; background:#7c2d12; color:#fff; border-color:#7c2d12; font-weight:800; padding:7px; font-size:12px; cursor:pointer; justify-content:center;">
                 📑 دمج الأبحاث المحددة
             </button>
@@ -2228,6 +2232,10 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                 </div>
                 <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
                     <input type="text" id="mergeNewTitleInput" placeholder="عنوان الأطروحة المجمعة الجديدة (اختياري)..." style="flex:1; min-width:240px; padding:8px 12px; border:1px solid var(--card-border); border-radius:6px; font-family:inherit; background:var(--bg-chat); color:var(--text-main);">
+                    <label style="display:inline-flex; align-items:center; gap:6px; font-size:11.5px; color:var(--text-main); cursor:pointer;">
+                        <input type="checkbox" id="modalMergeDeleteSources" checked style="width:15px; height:15px; cursor:pointer;">
+                        <span>🗑️ مسح الأبحاث الأصلية بعد الدمج</span>
+                    </label>
                     <button onclick="executeMergeSelectedSessions()" class="btn-ctrl" style="background:#7c2d12; color:#fff; border-color:#7c2d12; font-weight:800; padding:8px 18px; cursor:pointer;" id="btnExecuteMerge">
                         📑 دمج وتجميع الأبحاث المحددة
                     </button>
@@ -2514,6 +2522,8 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
 
             const titleInput = document.getElementById('sidebarMergeTitleInput');
             const customTitle = titleInput ? titleInput.value.trim() : '';
+            const delSourcesChk = document.getElementById('sidebarMergeDeleteSources');
+            const deleteSources = delSourcesChk ? delSourcesChk.checked : true;
             const btn = document.getElementById('btnExecuteSidebarMerge');
             if (btn) {
                 btn.disabled = true;
@@ -2526,7 +2536,8 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         session_ids: checked,
-                        title: customTitle || null
+                        title: customTitle || null,
+                        delete_sources: deleteSources
                     })
                 });
 
@@ -3354,6 +3365,8 @@ async function startNewChat() {
             }
 
             const customTitle = document.getElementById('mergeNewTitleInput').value.trim();
+            const modalDelChk = document.getElementById('modalMergeDeleteSources');
+            const deleteSources = modalDelChk ? modalDelChk.checked : true;
             const btn = document.getElementById('btnExecuteMerge');
             btn.disabled = true;
             btn.textContent = '⏳ جاري الدمج والتوثيق...';
@@ -3364,7 +3377,8 @@ async function startNewChat() {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         session_ids: checked,
-                        title: customTitle || null
+                        title: customTitle || null,
+                        delete_sources: deleteSources
                     })
                 });
 
@@ -4598,6 +4612,7 @@ class MergeSessionsRequest(BaseModel):
     session_ids: List[str]
     title: Optional[str] = None
     user_id: Optional[str] = "scholar_master"
+    delete_sources: bool = True
 
 
 @app.post("/api/sessions/merge")
@@ -4609,7 +4624,8 @@ async def merge_discussion_sessions(req: MergeSessionsRequest):
     result = repo.merge_sessions(
         session_ids=req.session_ids,
         target_title=req.title,
-        user_id=req.user_id or "scholar_master"
+        user_id=req.user_id or "scholar_master",
+        delete_sources=req.delete_sources
     )
     if "error" in result:
         raise HTTPException(status_code=400, detail=result["error"])
