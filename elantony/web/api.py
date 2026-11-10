@@ -276,6 +276,11 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body {
+            overflow-x: hidden !important;
+            max-width: 100vw !important;
+            width: 100% !important;
+        }
         body {
             background: var(--bg-darker);
             color: var(--text-main);
@@ -284,6 +289,98 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             display: flex;
             overflow: hidden;
             transition: background 0.25s ease, color 0.25s ease;
+        }
+
+        
+        html, body {
+            overflow-x: hidden !important;
+            max-width: 100vw !important;
+            width: 100vw !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            position: relative !important;
+        }
+        .main-container {
+            flex: 1;
+            min-width: 0 !important;
+            max-width: 100% !important;
+            overflow-x: hidden !important;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-chat);
+            position: relative;
+        }
+        .btn-top-preview {
+            background: #7c2d12 !important;
+            color: #ffffff !important;
+            border: 1px solid #7c2d12 !important;
+            font-weight: 800 !important;
+            padding: 6px 14px !important;
+            border-radius: 8px !important;
+            font-size: 13px !important;
+            cursor: pointer !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            gap: 6px !important;
+            box-shadow: 0 2px 6px rgba(124, 45, 18, 0.35) !important;
+            transition: all 0.2s ease !important;
+            white-space: nowrap !important;
+            flex-shrink: 0 !important;
+        }
+        .btn-top-preview:hover {
+            background: #991b1b !important;
+            transform: translateY(-1px) !important;
+            box-shadow: 0 4px 10px rgba(124, 45, 18, 0.45) !important;
+        }
+        .chat-tabs-bar {
+            background: var(--bg-sidebar);
+            border-bottom: 1px solid var(--card-border);
+            padding: 6px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            min-width: 0 !important;
+            max-width: 100% !important;
+            overflow: hidden !important;
+            z-index: 5;
+            box-sizing: border-box !important;
+        }
+        .chat-tabs-scroll {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            overflow: hidden !important;
+            flex: 1;
+            min-width: 0 !important;
+            direction: rtl;
+            justify-content: flex-start;
+            flex-wrap: nowrap;
+        }
+        .chat-tab-chip {
+            background: var(--bg-darker);
+            border: 1px solid var(--card-border);
+            color: var(--text-sub);
+            padding: 4px 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+            max-width: 180px;
+            min-width: 80px;
+            flex-shrink: 1;
+            transition: 0.18s ease;
+            overflow: hidden;
+        }
+        .chat-tab-chip .tab-text {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            flex: 1;
         }
 
         /* Sidebar */
@@ -421,10 +518,13 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
         /* Main Container */
         .main-container {
             flex: 1;
+            min-width: 0 !important;
+            max-width: 100%;
             display: flex;
             flex-direction: column;
             background: var(--bg-chat);
             position: relative;
+            overflow: hidden;
         }
         .top-navbar {
             min-height: 60px;
@@ -1027,7 +1127,9 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             align-items: center;
             justify-content: space-between;
             gap: 10px;
-            overflow-x: auto;
+            min-width: 0 !important;
+            max-width: 100% !important;
+            overflow: hidden !important;
             z-index: 5;
             transition: background 0.25s ease;
         }
@@ -1037,6 +1139,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             gap: 6px;
             overflow-x: auto;
             flex: 1;
+            min-width: 0 !important;
             direction: rtl;
             justify-content: flex-start;
             scrollbar-width: none;
@@ -1948,26 +2051,20 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             </div>
 
             <div class="nav-actions">
+                <button class="btn-top-preview" onclick="previewCurrentMonograph()" title="معاينة وطباعة الأطروحة بنمط النشر الأكاديمي وبجودة A4 الفائقة (Ctrl + P)">
+                    <span>🖨️</span> معاينة وطباعة الأطروحة (A4)
+                </button>
                 <button class="btn-nav btn-reset-nav" onclick="clearBotMemory()" title="تفريغ ذاكرة البوت ومسح سياق الأسئلة السابقة تماماً للبدء بصفحة بيضاء" style="background: rgba(239, 68, 68, 0.14); border-color: #ef4444; color: #dc2626; font-weight: 800;">
-                    <span>🧹</span> تفريغ ذاكرة البوت
-                </button>
-                <button class="btn-nav btn-preview-nav" onclick="previewCurrentMonograph()" title="معاينة وطباعة الأطروحة بنمط الويب الأنيق وبجودة A4 الفائقة" style="background: rgba(124, 45, 18, 0.14); border-color: #7c2d12; color: #7c2d12; font-weight: 700;">
-                    <span>🖨️</span> معاينة وطباعة
-                </button>
-                <button class="btn-nav btn-compile" onclick="openCompilationModal()" title="تجميع أسئلة وإجابات البحث مع الفهرس والمراجع">
-                    <span>📑</span> تجميع البحث
-                </button>
-                <button class="btn-nav btn-share-nav" onclick="openShareModal()" title="مشاركة رابط هذا البحث والمراجع مع أي شخص لفتحه وتصفحه" style="background: rgba(16, 185, 129, 0.14); border-color: #10b981; color: #047857; font-weight: 700;">
-                    <span>🔗</span> مشاركة البحث
+                    <span>🧹</span> سؤال جديد (تفريغ)
                 </button>
                 <button class="btn-nav btn-docx-nav" onclick="downloadCurrentExport('docx')" title="تنزيل أطروحة البحث كاملة كملف Microsoft Word منسق">
                     <span>📄</span> Word
                 </button>
-                <button class="btn-nav btn-pdf-nav" onclick="downloadCurrentExport('pdf')" title="تنزيل أطروحة البحث كملف PDF كنسي منسق" style="background: rgba(220, 38, 38, 0.12); border-color: #dc2626; color: #dc2626; font-weight: 700;">
-                    <span>📕</span> PDF
-                </button>
                 <button class="btn-nav btn-fav-nav" onclick="openScholarNotebookModal()" title="كشكول الباحث ومفضلة الشواهد وتدوين الهوامش" style="background: rgba(234, 179, 8, 0.15); border-color: #ca8a04; color: #a16207; font-weight: 700;">
                     <span>⭐</span> الكشكول (<span id="notebookBadge">0</span>)
+                </button>
+                <button class="btn-nav btn-share-nav" onclick="openShareModal()" title="مشاركة رابط هذا البحث والمراجع مع أي شخص لفتحه وتصفحه" style="background: rgba(16, 185, 129, 0.14); border-color: #10b981; color: #047857; font-weight: 700;">
+                    <span>🔗</span> مشاركة
                 </button>
                 <button class="btn-nav btn-upload-nav" onclick="openUploadBookModal()" title="رفع وإضافة كتاب جديد للمكتبة مع فهرسته فورياً" style="background: rgba(14, 165, 233, 0.14); border-color: #0284c7; color: #0369a1; font-weight: 700;">
                     <span>📥</span> إضافة كتاب
@@ -1991,6 +2088,26 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
         <!-- Topic Sub-questions Breadcrumb Navigator (فهرس الأسئلة المتسلسلة داخل نفس الموضوع) -->
         <div class="topic-subq-bar" id="topicSubqBar" style="display: none;">
             <!-- Dynamically populated from active discussion questions -->
+        </div>
+
+        <!-- Prominent Monograph Action Header (دائماً ظاهر وواضح للمعاينة والطباعة) -->
+        <div class="active-session-header" id="activeSessionHeader" style="display:flex; align-items:center; justify-content:space-between; padding:8px 16px; background:var(--bg-card); border-bottom:1px solid var(--card-border); gap:10px; flex-wrap:wrap; z-index:4;">
+            <div style="display:flex; align-items:center; gap:8px; overflow:hidden;">
+                <span style="font-size:16px;">📖</span>
+                <span id="currentSessionTitleDisplay" style="font-weight:800; font-size:14px; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:320px;">بحث لاهوتي</span>
+                <button class="btn-ctrl" onclick="renameSession(event, currentSessionId, document.getElementById('currentSessionTitleDisplay').textContent)" style="padding:2px 8px; font-size:11px;" title="تعديل عنوان البحث">✏️ تعديل العنوان</button>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <button class="btn-ctrl" onclick="previewCurrentMonograph()" style="background:#7c2d12; color:#fff; border-color:#7c2d12; font-weight:800; padding:6px 14px; font-size:12.5px; box-shadow:0 2px 5px rgba(124,45,18,0.25);" title="معاينة وطباعة الأطروحة بنمط النشر A4 المعتمد">
+                    🖨️ معاينة وطباعة الأطروحة
+                </button>
+                <button class="btn-ctrl" onclick="downloadCurrentSessionDocx()" style="background:rgba(2,132,199,0.12); color:#0284c7; border-color:#0284c7; font-weight:700; padding:6px 12px; font-size:12px;" title="تنزيل البحث كملف Word">
+                    📄 ملف Word
+                </button>
+                <button class="btn-ctrl" onclick="startNewChat()" style="background:rgba(239,68,68,0.1); color:#dc2626; border-color:#ef4444; font-weight:700; padding:6px 12px; font-size:12px;" title="تفريغ الذاكرة وبدء بحث جديد">
+                    🧹 تفريغ الذاكرة
+                </button>
+            </div>
         </div>
 
         <!-- Messages Area -->
@@ -2447,7 +2564,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                 if (tabsList) {
                     tabsList.innerHTML = '';
                     const meaningfulSessions = sessions.filter(s => s.id === currentSessionId || (s.questions_count && s.questions_count > 0) || (s.title && s.title !== 'بحث لاهوتي جديد'));
-                    const tabsToRender = meaningfulSessions.length > 0 ? meaningfulSessions : sessions.slice(0, 5);
+                    const tabsToRender = (meaningfulSessions.length > 0 ? meaningfulSessions : sessions).slice(0, 4);
                     tabsToRender.forEach(s => {
                         const tab = document.createElement('div');
                         tab.className = 'chat-tab-chip' + (s.id === currentSessionId ? ' active' : '');
@@ -2509,8 +2626,11 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             const activeTab = document.getElementById('tab_' + sessionId);
             if (activeTab) {
                 activeTab.classList.add('active');
-                activeTab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
             }
+            // Strict window lock: zero horizontal offset
+            window.scrollTo({ left: 0, behavior: 'instant' });
+            document.documentElement.scrollLeft = 0;
+            document.body.scrollLeft = 0;
 
             try {
                 const res = await fetch('/api/sessions/' + sessionId);
@@ -2520,6 +2640,8 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                 }
                 const data = await res.json();
                 const sessionInfo = data.session || { id: sessionId, title: 'بحث تمت مشاركته' };
+                const titleDisp = document.getElementById('currentSessionTitleDisplay');
+                if (titleDisp) titleDisp.textContent = sessionInfo.title || 'بحث لاهوتي';
                 const messages = data.messages || [];
 
                 // If not in tabs bar, add dynamic tab for this shared session!
@@ -2628,7 +2750,10 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
         function jumpToQuestion(qIndex) {
             const el = document.getElementById('user_msg_' + qIndex);
             if (el) {
-                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                const area = document.getElementById('messagesArea');
+                if (area) {
+                    area.scrollTo({ top: el.offsetTop - 20, behavior: 'smooth' });
+                }
                 el.style.transition = 'box-shadow 0.3s ease';
                 el.style.boxShadow = '0 0 0 3px var(--accent)';
                 setTimeout(() => { el.style.boxShadow = 'none'; }, 2000);
@@ -2655,6 +2780,14 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             showTopicToast("✨ تم تفريغ ذاكرة البوت بنجاح! الذاكرة الآن نقية ومستعدة لسؤالك الجديد.");
         }
 
+        function downloadCurrentSessionDocx() {
+            if (!currentSessionId) {
+                alert("يرجى اختيار جلسة بحث أولاً لتنزيل ملف Word.");
+                return;
+            }
+            window.open('/api/sessions/' + currentSessionId + '/export?format=docx', '_blank');
+        }
+
         function previewCurrentMonograph() {
             if (!currentSessionId) {
                 alert("يرجى اختيار جلسة بحث أولاً للمعاينة والطباعة.");
@@ -2663,26 +2796,21 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             window.open('/api/sessions/' + currentSessionId + '/preview', '_blank');
         }
 async function startNewChat() {
-            try {
-                const res = await fetch('/api/sessions', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ title: 'بحث لاهوتي جديد', user_id: currentUserId })
-                });
-                if (res.ok) {
-                    const data = await res.json();
-                    currentSessionId = data.session_id;
-                    chatMessages = [];
-                    messagesContainer.innerHTML = '';
-                    messagesContainer.appendChild(heroScreen);
-                    heroScreen.style.display = 'block';
-                    chatInput.value = '';
-                    chatInput.focus();
-                    await loadSessions();
-                }
-            } catch (err) {
-                console.error("Error creating session:", err);
+            // Lazy start: Clear the screen without polluting the database with empty sessions!
+            currentSessionId = null;
+            chatMessages = [];
+            messagesContainer.innerHTML = '';
+            if (heroScreen) {
+                heroScreen.style.display = 'block';
+                messagesContainer.appendChild(heroScreen);
             }
+            const titleDisp = document.getElementById('currentSessionTitleDisplay');
+            if (titleDisp) titleDisp.textContent = 'بحث لاهوتي جديد';
+            chatInput.value = '';
+            chatInput.focus();
+            document.querySelectorAll('.chat-history-item').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.chat-tab-chip').forEach(el => el.classList.remove('active'));
+            showTopicToast("✨ تم تفريغ الشاشة.. اكتب سؤالك وسيبدأ التوثيق فوراً دون جلسات فارغة.");
         }
 
         async function deleteSession(e, sessionId) {
@@ -2949,6 +3077,9 @@ async function startNewChat() {
                 const turnActions = document.createElement('div');
                 turnActions.className = 'msg-actions-bar';
                 turnActions.innerHTML = `
+                    <button class="btn-msg-act" onclick="previewCurrentMonograph()" style="color:#7c2d12; font-weight:800; border:1px solid #7c2d12; background:rgba(124,45,18,0.08);" title="معاينة وطباعة الأطروحة بنمط النشر A4">
+                        <span>🖨️</span> معاينة وطباعة الأطروحة
+                    </button>
                     <button class="btn-msg-act" onclick="copyTurnMarkdown(this)" title="نسخ نص هذا المبحث كاملاً">
                         <span>📋</span> نسخ النص
                     </button>
@@ -4095,7 +4226,10 @@ ${url}`;
                 setTimeout(() => {
                     const target = document.getElementById('turn_' + turnIdx);
                     if (target) {
-                        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        const area = document.getElementById('messagesArea');
+                        if (area) {
+                            area.scrollTo({ top: target.offsetTop - 20, behavior: 'smooth' });
+                        }
                         target.classList.add('turn-highlight-pulse');
                         setTimeout(() => target.classList.remove('turn-highlight-pulse'), 2000);
                     }
