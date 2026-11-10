@@ -237,7 +237,7 @@ def generate_session_docx(comp_data: Dict[str, Any], output_path: str) -> str:
             p_b.paragraph_format.space_before = Pt(5)
             p_b.paragraph_format.space_after = Pt(4)
 
-            b_title = _strip_emojis(b.get("title") or b.get("reference", "")).strip()
+            b_title = clean_book_title(_strip_emojis(b.get("title") or b.get("reference", "")))
             b_author = _strip_emojis(b.get("author") or "آباء الكنيسة").strip()
             b_pages = str(b.get("pages_cited") or "مواضع متعددة")
 

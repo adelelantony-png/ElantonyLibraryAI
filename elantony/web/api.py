@@ -4470,6 +4470,7 @@ ${url}`;
                 const result = await response.json();
                 if (response.ok && result.success) {
                     status.textContent = 'تمت الفهرسة بنجاح!';
+                    if (currentSessionId) { checkLibraryEnrichmentForActiveSession(currentSessionId); }
                     resCard.style.display = 'block';
                     resCard.style.background = 'rgba(16, 185, 129, 0.15)';
                     resCard.style.border = '1px solid #10b981';
@@ -4479,10 +4480,14 @@ ${url}`;
                         <div>📖 <strong>العنوان:</strong> ${result.book_title || selectedUploadFile.name}</div>
                         <div>📄 <strong>الصفحات المفهرسة:</strong> ${result.pages_extracted || result.page_count || 'تم بنجاح'}</div>
                         <div>🔍 <strong>المقاطع المستخرجة:</strong> ${result.chunks_indexed || 'مفهرس في FTS5'}</div>
-                        <div style="margin-top: 10px;">
+                        <div style="margin-top: 10px; display:flex; gap:8px; flex-wrap:wrap;">
                             <button class="btn-nav btn-compile" onclick="closeUploadBookModal(); askNewQuery('ابحث في كتاب ' + '${result.book_title || selectedUploadFile.name}');">
                                 🔍 ابحث في هذا الكتاب فوراً
                             </button>
+                            ${currentSessionId ? `
+                            <button class="btn-nav" style="background:#7c2d12; color:#fff; border-color:#7c2d12;" onclick="closeUploadBookModal(); enrichCurrentMonographWithNewBooks();">
+                                ⚡ إثراء الأطروحة المفتوحة حالياً بهذا الكتاب
+                            </button>` : ''}
                         </div>
                     `;
                 } else {

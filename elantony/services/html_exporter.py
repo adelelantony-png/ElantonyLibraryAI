@@ -93,6 +93,7 @@ Guarantees 100% clean RTL Arabic typography, card-based layout, and zero rigid t
 """
 
 import html
+from elantony.core.text_cleaner import clean_book_title, clean_ocr_arabic
 import re
 from datetime import datetime
 from typing import Dict, Any, List
@@ -279,7 +280,7 @@ def generate_session_html(comp_data: Dict[str, Any]) -> str:
     bib_cards_html = []
     if bibliography:
         for b_idx, b in enumerate(bibliography, 1):
-            ref_title = html.escape((b.get("title") or b.get("reference") or "مرجع كنسي").replace(".pdf", ""))
+            ref_title = html.escape(clean_book_title(b.get("title") or b.get("reference") or "مرجع كنسي"))
             author = html.escape(b.get("author") or "آباء الكنيسة القبطية")
             pages = html.escape(str(b.get("pages_cited") or "مواضع متعددة"))
             tier = b.get("tier", 2)
