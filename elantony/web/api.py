@@ -1682,23 +1682,29 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             transform: translateY(-1px);
         }
 
-        .btn-mobile-sidebar {
-            display: none;
+        .btn-toggle-sidebar {
+            display: inline-flex !important;
             align-items: center;
-            gap: 6px;
+            gap: 7px;
             padding: 6px 12px;
             background: var(--bg-card);
             border: 1px solid var(--accent);
             border-radius: 8px;
             color: var(--accent);
             font-weight: 700;
-            font-size: 13px;
+            font-size: 12.5px;
             cursor: pointer;
-            transition: 0.2s;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
         }
-        .btn-mobile-sidebar:hover {
+        .btn-toggle-sidebar:hover {
             background: var(--accent);
             color: #fff;
+        }
+        body.sidebar-collapsed .sidebar {
+            margin-right: -310px;
+            opacity: 0;
+            pointer-events: none;
         }
         .mobile-sidebar-overlay {
             display: none;
@@ -1889,8 +1895,8 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
         <div class="mobile-sidebar-overlay" id="mobileOverlay" onclick="closeMobileSidebar()"></div>
         <div class="top-navbar">
             <div style="display:flex; align-items:center; gap:10px;">
-                <button class="btn-mobile-sidebar" onclick="toggleMobileSidebar()" title="فتح قائمة الأبحاث والمحادثات">
-                    ☰ الأبحاث
+                <button class="btn-toggle-sidebar" id="btnToggleSidebar" onclick="toggleSidebar()" title="إظهار / إخفاء قائمة الأبحاث">
+                    📂 سجل الأبحاث
                 </button>
                 <div class="nav-title">
                     <span>✠</span> المساعد والباحث اللاهوتي الذكي
@@ -2272,18 +2278,49 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             return String(text).replace(/[&<>"']/g, function(m) { return map[m]; });
         }
 
-        function toggleMobileSidebar() {
-            const sidebar = document.querySelector('.sidebar');
-            const overlay = document.getElementById('mobileOverlay');
-            if (sidebar) sidebar.classList.toggle('mobile-open');
-            if (overlay) overlay.classList.toggle('active');
+        function toggleSidebar() {
+            if (window.innerWidth <= 992) {
+                const sidebar = document.querySelector('.sidebar');
+                const overlay = document.getElementById('mobileOverlay');
+                if (sidebar) sidebar.classList.toggle('mobile-open');
+                if (overlay) overlay.classList.toggle('active');
+            } else {
+                document.body.classList.toggle('sidebar-collapsed');
+                const isCollapsed = document.body.classList.contains('sidebar-collapsed');
+                localStorage.setItem('elantony_sidebar_collapsed', isCollapsed ? '1' : '0');
+            }
         }
 
+        function toggleMobileSidebar() { toggleSidebar(); }
+
         function closeMobileSidebar() {
-            const sidebar = document.querySelector('.sidebar');
-            const overlay = document.getElementById('mobileOverlay');
-            if (sidebar) sidebar.classList.remove('mobile-open');
-            if (overlay) overlay.classList.remove('active');
+            if (window.innerWidth <= 992) {
+                const sidebar = document.querySelector('.sidebar');
+                const overlay = document.getElementById('mobileOverlay');
+                if (sidebar) sidebar.classList.remove('mobile-open');
+                if (overlay) overlay.classList.remove('active');
+            }
+        }
+
+        async function renameSession(e, sessionId, currentTitle) {
+            if (e) e.stopPropagation();
+            const safeCurrent = currentTitle || 'بحث لاهوتي';
+            const newTitle = prompt("أدخل اسماً أو عنواناً مخصصاً لهذا البحث اللاهوتي:", safeCurrent);
+            if (newTitle && newTitle.trim() && newTitle.trim() !== safeCurrent) {
+                try {
+                    const res = await fetch('/api/sessions/' + sessionId + '/title', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ title: newTitle.trim() })
+                    });
+                    if (res.ok) {
+                        showTopicToast("✨ تم تعديل عنوان البحث إلى: «" + newTitle.trim() + "»");
+                        await loadSessions();
+                    }
+                } catch(err) {
+                    console.error("Error renaming session:", err);
+                }
+            }
         }
 
         async function loadSessions() {
@@ -2340,6 +2377,12 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                     const actionsDiv = document.createElement('div');
                     actionsDiv.className = 'chat-item-actions';
 
+                    const renameBtn = document.createElement('button');
+                    renameBtn.className = 'btn-sess-act';
+                    renameBtn.title = 'تعديل وتسمية هذا البحث';
+                    renameBtn.textContent = '✏️';
+                    renameBtn.onclick = (e) => renameSession(e, s.id, s.title);
+
                     const docxBtn = document.createElement('button');
                     docxBtn.className = 'btn-sess-act';
                     docxBtn.title = 'تنزيل كملف Word (.docx)';
@@ -2352,6 +2395,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                     delBtn.textContent = '✕';
                     delBtn.onclick = (e) => deleteSession(e, s.id);
 
+                    actionsDiv.appendChild(renameBtn);
                     actionsDiv.appendChild(docxBtn);
                     actionsDiv.appendChild(delBtn);
 
@@ -2399,14 +2443,26 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                         text.className = 'tab-text';
                         text.innerHTML = '<bdi dir="auto">' + escapeHtml(s.title || 'بحث لاهوتي') + '</bdi>';
 
+                        const tabEditBtn = document.createElement('button');
+                        tabEditBtn.className = 'tab-close-btn';
+                        tabEditBtn.style.color = 'var(--accent)';
+                        tabEditBtn.style.fontSize = '11px';
+                        tabEditBtn.style.marginRight = '2px';
+                        tabEditBtn.textContent = '✏️';
+                        tabEditBtn.title = 'تعديل اسم هذا البحث';
+                        tabEditBtn.onclick = (e) => renameSession(e, s.id, s.title);
+
                         const closeBtn = document.createElement('button');
                         closeBtn.className = 'tab-close-btn';
                         closeBtn.textContent = '✕';
                         closeBtn.title = 'حذف هذا الموضوع';
                         closeBtn.onclick = (e) => deleteSession(e, s.id);
 
+                        text.ondblclick = (e) => renameSession(e, s.id, s.title);
+
                         tab.appendChild(icon);
                         tab.appendChild(text);
+                        tab.appendChild(tabEditBtn);
                         tab.appendChild(closeBtn);
                         tabsList.appendChild(tab);
                     });
@@ -4134,6 +4190,19 @@ async def delete_discussion_session(session_id: str):
     """Deletes discussion session and all its messages."""
     ok = repo.delete_session(session_id)
     return {"success": ok}
+
+class UpdateTitleRequest(BaseModel):
+    title: str
+
+@app.put("/api/sessions/{session_id}/title")
+async def update_discussion_title(session_id: str, req: UpdateTitleRequest):
+    """Updates the title of a discussion session."""
+    clean_title = req.title.strip()
+    if not clean_title:
+        raise HTTPException(status_code=400, detail="العنوان لا يمكن أن يكون فارغاً")
+    repo.update_session_title(session_id, clean_title)
+    return {"success": True, "session_id": session_id, "title": clean_title}
+
 
 
 @app.post("/api/sessions/{session_id}/compile")
