@@ -985,7 +985,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             z-index: 1000;
             padding: 20px;
         }
-        .modal-overlay.open { display: flex; }
+        .modal-overlay.open, .modal-overlay.active { display: flex; }
         .modal-card {
             background: var(--modal-bg);
             border: 1px solid var(--card-border);
@@ -2218,6 +2218,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
 
             <!-- Quick Action Buttons -->
             <div style="display:flex; align-items:center; gap:4px; flex-shrink:0;">
+                <button class="btn-ctrl" onclick="openManualReorderModal()" style="background:#4338ca; color:#fff; border-color:#4338ca; font-weight:700; padding:2px 8px; font-size:11px; display:inline-flex; align-items:center; gap:3px;" title="ترتيب أسئلة ومحاور البحث يدوياً وتحديد تسلسلها برقم السؤال"><span>🔢</span> <span>ترتيب يدوي</span></button>
                 <button class="btn-ctrl" onclick="reorderActiveMonograph()" style="background:#1e40af; color:#fff; border-color:#1e40af; font-weight:700; padding:2px 8px; font-size:11px; display:inline-flex; align-items:center; gap:3px;" title="إعادة الترتيب المنطقي لأسئلة وفصول البحث تسلسلياً وفق المنطق الأكاديمي واللاهوتي"><span>🔀</span> <span>ترتيب منطقي</span></button>
                 <button class="btn-ctrl" onclick="recalibrateActiveMonograph()" style="background:#065f46; color:#fff; border-color:#065f46; font-weight:700; padding:2px 7px; font-size:11px; display:inline-flex; align-items:center; gap:3px;" title="إعادة معايرة وتوليف الأطروحة ودمج الأسئلة الجزئية في مفاهيم شاملة"><span>⚖️</span> <span>معايرة</span></button>
                 <button class="btn-ctrl" onclick="previewCurrentMonograph()" style="background:#7c2d12; color:#fff; border-color:#7c2d12; font-weight:800; padding:2px 8px; font-size:11px; display:inline-flex; align-items:center; gap:3px;" title="معاينة وطباعة الأطروحة A4"><span>🖨️</span> <span>طباعة</span></button>
@@ -2782,6 +2783,15 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             delBtn.innerHTML = '<span>🗑️</span> <span>حذف السؤال</span>';
             delBtn.onclick = () => deleteCurrentQuestionPrompt();
             wrapper.appendChild(delBtn);
+
+            const reorderManualSubqBtn = document.createElement('button');
+            reorderManualSubqBtn.className = 'btn-subq-nav';
+            reorderManualSubqBtn.style.color = '#4338ca';
+            reorderManualSubqBtn.style.borderColor = 'rgba(67,56,202,0.3)';
+            reorderManualSubqBtn.title = 'ترتيب أسئلة ومحاور البحث يدوياً وتحديد تسلسلها برقم السؤال';
+            reorderManualSubqBtn.innerHTML = '<span>🔢</span> <span>ترتيب يدوي</span>';
+            reorderManualSubqBtn.onclick = () => openManualReorderModal();
+            wrapper.appendChild(reorderManualSubqBtn);
 
             const reorderSubqBtn = document.createElement('button');
             reorderSubqBtn.className = 'btn-subq-nav';
@@ -4365,6 +4375,42 @@ ${url}`;
         </div>
     </div>
 
+    <!-- 4. Manual Question Reordering Modal (الترتيب اليدوي لأسئلة ومحاور البحث) -->
+    <div class="modal-overlay" id="manualReorderModal">
+        <div class="modal-card" style="max-width: 720px; width: 94vw; max-height: 86vh; display: flex; flex-direction: column; box-shadow: 0 25px 60px rgba(0,0,0,0.45);">
+            <div class="ref-modal-header" style="flex-shrink: 0; padding: 14px 20px; border-bottom: 1px solid var(--card-border);">
+                <div class="ref-modal-title-wrap">
+                    <span class="ref-icon">🔢</span>
+                    <span class="ref-book-name" style="color:var(--accent); font-size: 16px;">الترتيب اليدوي لأسئلة ومحاور البحث</span>
+                    <span class="ref-badge-page" id="reorderTotalCountBadge" style="background: rgba(67,56,202,0.12); color:#4338ca; border: 1px solid rgba(67,56,202,0.3); font-weight: 800;">3 أسئلة</span>
+                </div>
+                <button class="btn-modal-close-ref" onclick="closeManualReorderModal()">✕ إغلاق</button>
+            </div>
+            
+            <div style="padding: 12px 20px; background: rgba(217, 119, 6, 0.08); border-bottom: 1px solid var(--card-border); font-size: 12.5px; color: var(--text-sub); line-height: 1.6; flex-shrink: 0;">
+                💡 <b>طريقة الترتيب:</b> يمكنك كتابة رقم الترتيب المطلوب في المربع أمام كل سؤال مباشرة (مثلاً: 1، 2، 3...)، أو استخدام أزرار الأسهم (<b>▲ لأعلى</b> / <b>▼ لأسفل</b>) لتغيير موقع المحور. عند الانتهاء اضغط «<b>حفظ وتطبيق الترتيب</b>».
+            </div>
+
+            <div class="modal-body" id="manualReorderList" style="flex: 1; overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 10px; background: var(--bg-chat);">
+                <!-- Dynamically populated question cards -->
+            </div>
+
+            <div style="padding: 12px 20px; border-top: 1px solid var(--card-border); background: var(--bg-card); display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-shrink: 0;">
+                <button type="button" class="btn-ctrl" onclick="resetManualReorderOrder()" style="padding: 7px 16px; font-size: 12px; background: var(--bg-bubble-user); color: var(--text-sub); border: 1px solid var(--card-border); cursor: pointer; border-radius: 8px;" title="إعادة ترتيب الأسئلة إلى وضعها الأصلي قبل التعديل">
+                    🔄 استعادة الترتيب الأصلي
+                </button>
+                <div style="display: flex; gap: 10px;">
+                    <button type="button" class="btn-ctrl" onclick="closeManualReorderModal()" style="padding: 7px 16px; font-size: 12px; background: transparent; color: var(--text-sub); border: 1px solid var(--card-border); cursor: pointer; border-radius: 8px;">
+                        إلغاء
+                    </button>
+                    <button type="button" class="btn-primary" onclick="saveManualReorder()" style="padding: 7px 22px; font-size: 13.5px; font-weight: 800; background: #059669; color: #fff; border: none; border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(5,150,105,0.3);">
+                        <span>💾</span> <span>حفظ وتطبيق الترتيب</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
 <script>
 
         // ==========================================
@@ -4802,6 +4848,203 @@ ${url}`;
             await deleteTurnByNumber(qTurn);
         }
 
+        let currentReorderItems = [];
+        let originalReorderItems = [];
+
+        async function openManualReorderModal() {
+            if (!currentSessionId) {
+                showTopicToast("⚠️ يرجى اختيار جلسة بحث أولاً لترتيب أسئلتها.");
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/sessions/' + encodeURIComponent(currentSessionId));
+                if (!res.ok) {
+                    showTopicToast("⚠️ تعذر تحميل أسئلة الجلسة.");
+                    return;
+                }
+                const data = await res.json();
+                const messages = data.messages || [];
+
+                const items = [];
+                let userTurnCount = 0;
+                messages.forEach(m => {
+                    if (m.role === 'user') {
+                        userTurnCount++;
+                        items.push({
+                            origTurn: userTurnCount,
+                            text: m.content || '',
+                            desiredOrder: userTurnCount
+                        });
+                    }
+                });
+
+                if (items.length <= 1) {
+                    showTopicToast("ℹ️ يحتوي هذا المبحث على سؤال واحد فقط (أو لا توجد أسئلة)، لا توجد محاور كافية لإعادة ترتيبها.");
+                    return;
+                }
+
+                currentReorderItems = JSON.parse(JSON.stringify(items));
+                originalReorderItems = JSON.parse(JSON.stringify(items));
+
+                const countBadge = document.getElementById('reorderTotalCountBadge');
+                if (countBadge) countBadge.textContent = currentReorderItems.length + ' أسئلة ومحاور';
+
+                renderManualReorderList();
+
+                const modal = document.getElementById('manualReorderModal');
+                if (modal) {
+                    modal.classList.add('open');
+                    modal.classList.add('active');
+                }
+            } catch(err) {
+                console.error("Error opening manual reorder modal:", err);
+                showTopicToast("⚠️ خطأ أثناء فتح نافذة الترتيب: " + err.message);
+            }
+        }
+
+        function closeManualReorderModal() {
+            const modal = document.getElementById('manualReorderModal');
+            if (modal) {
+                modal.classList.remove('open');
+                modal.classList.remove('active');
+            }
+        }
+
+        function renderManualReorderList() {
+            const container = document.getElementById('manualReorderList');
+            if (!container) return;
+
+            container.innerHTML = '';
+            const totalCount = currentReorderItems.length;
+
+            currentReorderItems.forEach((item, idx) => {
+                const card = document.createElement('div');
+                card.className = 'reorder-item-card';
+                card.setAttribute('data-idx', idx);
+                card.style.cssText = 'display:flex; align-items:center; gap:12px; padding:10px 14px; background:var(--bg-card); border:1px solid var(--card-border); border-radius:10px; transition:all 0.2s ease; box-shadow:0 1px 3px rgba(0,0,0,0.05);';
+
+                const cleanText = (item.text || '').replace(/\s+/g, ' ').trim();
+                const preview = cleanText.length > 120 ? cleanText.substring(0, 117) + '...' : cleanText;
+                const inputVal = (typeof item.desiredOrder === 'number' && !isNaN(item.desiredOrder)) ? item.desiredOrder : (idx + 1);
+
+                card.innerHTML = `
+                    <div style="display:flex; flex-direction:column; align-items:center; gap:3px; flex-shrink:0;">
+                        <span style="font-size:10px; font-weight:800; color:var(--gold); text-transform:uppercase;">رقم الترتيب</span>
+                        <input type="number" min="1" max="${totalCount}" value="${inputVal}"
+                               class="reorder-input-num"
+                               data-idx="${idx}"
+                               title="اكتب رقم الترتيب المطلوب لهذا السؤال (مثلاً 1، 2، 3)"
+                               oninput="onReorderInputDirect(${idx}, this.value)"
+                               style="width:52px; height:34px; text-align:center; font-size:16px; font-weight:800; border-radius:6px; border:1.5px solid var(--gold); background:var(--input-bg); color:var(--accent); outline:none;">
+                    </div>
+                    <div style="display:flex; flex-direction:column; gap:3px; flex-shrink:0;">
+                        <button type="button" onclick="moveReorderItem(${idx}, -1)" ${idx === 0 ? 'disabled style="opacity:0.3; cursor:not-allowed; width:28px; height:20px; font-size:10px; border-radius:4px;"' : 'style="width:28px; height:20px; font-size:10px; background:var(--bg-bubble-user); border:1px solid var(--card-border); border-radius:4px; cursor:pointer; color:var(--text-main); line-height:1;"'} title="تقديم هذا السؤال للأعلى">▲</button>
+                        <button type="button" onclick="moveReorderItem(${idx}, 1)" ${idx === totalCount - 1 ? 'disabled style="opacity:0.3; cursor:not-allowed; width:28px; height:20px; font-size:10px; border-radius:4px;"' : 'style="width:28px; height:20px; font-size:10px; background:var(--bg-bubble-user); border:1px solid var(--card-border); border-radius:4px; cursor:pointer; color:var(--text-main); line-height:1;"'} title="تأخير هذا السؤال للأسفل">▼</button>
+                    </div>
+                    <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:4px;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span style="font-size:11px; font-weight:800; color:var(--text-muted); background:rgba(0,0,0,0.06); padding:1px 7px; border-radius:4px;">
+                                (الأصل: محور ${item.origTurn})
+                            </span>
+                            <span style="font-size:12px; font-weight:700; color:var(--accent);">الموقع في البحث: س${idx + 1}</span>
+                        </div>
+                        <div style="font-size:13.5px; font-weight:600; color:var(--text-main); line-height:1.5; word-break:break-word;">
+                            ${escapeHtml(preview)}
+                        </div>
+                    </div>
+                `;
+
+                container.appendChild(card);
+            });
+        }
+
+        function onReorderInputDirect(idx, val) {
+            const parsed = parseInt(val, 10);
+            if (!isNaN(parsed) && currentReorderItems[idx]) {
+                currentReorderItems[idx].desiredOrder = parsed;
+            }
+        }
+
+        function moveReorderItem(idx, delta) {
+            const newIdx = idx + delta;
+            if (newIdx < 0 || newIdx >= currentReorderItems.length) return;
+
+            syncCurrentOrderInputs();
+
+            const item = currentReorderItems.splice(idx, 1)[0];
+            currentReorderItems.splice(newIdx, 0, item);
+
+            currentReorderItems.forEach((it, i) => {
+                it.desiredOrder = i + 1;
+            });
+
+            renderManualReorderList();
+        }
+
+        function syncCurrentOrderInputs() {
+            const inputs = document.querySelectorAll('.reorder-input-num');
+            inputs.forEach((input, i) => {
+                if (currentReorderItems[i]) {
+                    const val = parseInt(input.value, 10);
+                    if (!isNaN(val)) {
+                        currentReorderItems[i].desiredOrder = val;
+                    }
+                }
+            });
+        }
+
+        function resetManualReorderOrder() {
+            currentReorderItems = JSON.parse(JSON.stringify(originalReorderItems));
+            currentReorderItems.forEach((it, i) => {
+                it.desiredOrder = i + 1;
+            });
+            renderManualReorderList();
+        }
+
+        async function saveManualReorder() {
+            if (!currentSessionId || currentReorderItems.length <= 1) {
+                closeManualReorderModal();
+                return;
+            }
+
+            syncCurrentOrderInputs();
+
+            const indexed = currentReorderItems.map((item, idx) => {
+                let desired = (typeof item.desiredOrder === 'number' && !isNaN(item.desiredOrder)) ? item.desiredOrder : (idx + 1);
+                return {
+                    origTurn: item.origTurn,
+                    desiredOrder: desired,
+                    currentIdx: idx
+                };
+            });
+
+            // Sort by user's desired order number, breaking ties with current index
+            indexed.sort((a, b) => (a.desiredOrder - b.desiredOrder) || (a.currentIdx - b.currentIdx));
+
+            const finalOrder = indexed.map(x => x.origTurn);
+
+            try {
+                const res = await fetch('/api/sessions/' + encodeURIComponent(currentSessionId) + '/reorder_custom', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ order: finalOrder })
+                });
+
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.detail || "فشل حفظ الترتيب");
+                }
+
+                closeManualReorderModal();
+                showTopicToast("✨ تم تطبيق الترتيب اليدوي لأسئلة ومحاور الأطروحة بنجاح.");
+                await selectSession(currentSessionId);
+            } catch(err) {
+                console.error("Error saving manual reorder:", err);
+                alert("خطأ أثناء حفظ الترتيب: " + err.message);
+            }
+        }
+
         async function reorderActiveMonograph() {
             if (!currentSessionId) return;
             if (!confirm("هل تريد إعادة ترتيب أسئلة وفصول هذا المبحث تسلسلياً وفق المنطق الأكاديمي واللاهوتي؟")) return;
@@ -5080,6 +5323,19 @@ async def delete_turn_endpoint(session_id: str, turn_index: int):
 async def reorder_session_turns_endpoint(session_id: str):
     """Reorders questions in active monograph logically by academic progression."""
     res = repo.reorder_session_turns(session_id)
+    if "error" in res:
+        raise HTTPException(status_code=400, detail=res["error"])
+    return res
+
+
+class CustomReorderRequest(BaseModel):
+    order: List[int]
+
+
+@app.post("/api/sessions/{session_id}/reorder_custom")
+async def reorder_session_turns_custom_endpoint(session_id: str, req: CustomReorderRequest):
+    """Manually reorders questions in active monograph by custom turn indices."""
+    res = repo.reorder_session_turns_custom(session_id, req.order)
     if "error" in res:
         raise HTTPException(status_code=400, detail=res["error"])
     return res

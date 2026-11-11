@@ -1347,6 +1347,73 @@ class DatabaseRepository:
             "turns_count": len(sorted_turns)
         }
 
+    def reorder_session_turns_custom(self, session_id: str, new_order: List[int]) -> Dict[str, Any]:
+        """
+        Manually reorders questions in an active monograph according to a user-specified sequence of 1-based turn indices.
+        e.g., new_order = [3, 1, 2] places the 3rd question first, then the 1st, then the 2nd.
+        """
+        msgs = self.get_session_messages(session_id, limit=500)
+        if not msgs:
+            return {"error": "المبحث فارغ"}
+
+        # Group messages by user question turn
+        turns = []
+        current_turn = []
+        for m in msgs:
+            if m["role"] == "user":
+                if current_turn:
+                    turns.append(current_turn)
+                current_turn = [m]
+            else:
+                current_turn.append(m)
+        if current_turn:
+            turns.append(current_turn)
+
+        total_turns = len(turns)
+        if total_turns <= 1:
+            return {"status": "unchanged", "turns_count": total_turns, "message": "لا توجد أسئلة كافية لإعادة الترتيب"}
+
+        # Validate and build the new turns sequence
+        reordered_turns = []
+        seen_indices = set()
+        for idx in new_order:
+            if isinstance(idx, int) and 1 <= idx <= total_turns and idx not in seen_indices:
+                reordered_turns.append(turns[idx - 1])
+                seen_indices.add(idx)
+
+        # Append any remaining turns that weren't explicitly listed
+        for i in range(1, total_turns + 1):
+            if i not in seen_indices:
+                reordered_turns.append(turns[i - 1])
+
+        # Write to DB atomically
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM chat_messages WHERE session_id = ?", (session_id,))
+        for turn_msgs in reordered_turns:
+            for m in turn_msgs:
+                cits = m.get("citations")
+                if isinstance(cits, list):
+                    cits_json = json.dumps(cits, ensure_ascii=False)
+                elif cits and not isinstance(cits, str):
+                    cits_json = str(cits)
+                else:
+                    cits_json = cits
+
+                cur.execute(
+                    "INSERT INTO chat_messages (session_id, role, content, citations, created_at) VALUES (?, ?, ?, ?, ?)",
+                    (session_id, m["role"], m["content"], cits_json, m.get("created_at") or datetime.now().isoformat())
+                )
+        cur.execute("UPDATE chat_sessions SET updated_at = CURRENT_TIMESTAMP WHERE id = ?", (session_id,))
+        conn.commit()
+        conn.close()
+
+        return {
+            "status": "reordered",
+            "turns_count": len(reordered_turns),
+            "new_order": [turns.index(t) + 1 for t in reordered_turns]
+        }
+
     def recalibrate_session_turns(self, session_id: str) -> Dict[str, Any]:
         """
         Academic Monograph Recalibration & Umbrella Synthesis:
