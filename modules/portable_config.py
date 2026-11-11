@@ -1,4 +1,5 @@
 import os
+import sys
 import json
 from PyQt5.QtCore import QSettings
 
@@ -6,6 +7,14 @@ CONFIG_FILENAME = "portable_config.json"
 
 def get_app_dir():
     """Returns the base directory of the ArchiveMaster application."""
+    if getattr(sys, "frozen", False):
+        app_dir = os.path.dirname(sys.executable)
+        cfg_candidate = os.path.join(app_dir, CONFIG_FILENAME)
+        if not os.path.exists(cfg_candidate):
+            for candidate_dir in [os.path.dirname(app_dir), os.path.dirname(os.path.dirname(app_dir))]:
+                if os.path.exists(os.path.join(candidate_dir, CONFIG_FILENAME)):
+                    return candidate_dir
+        return app_dir
     return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 def get_config_path():

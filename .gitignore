@@ -34,6 +34,10 @@ archive_master.db
 
 
 # Storage & Extracted Data
+scratch/
+data/
+tools/
+tessdata/
 /extracted_text/
 /processed_text/
 /books/local/
@@ -46,6 +50,8 @@ archive_master.db
 # Logs
 logs/
 *.log
+log.txt
+error_log.txt
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -68,6 +74,11 @@ env/
 .pytest_cache/
 .coverage
 htmlcov/
+
+# PyInstaller build outputs
+build/
+dist/
+*.spec.bak
 
 # Portable Binaries & Setup Installers
 tesseract/

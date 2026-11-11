@@ -24,7 +24,18 @@ HEADERS = {
     "Accept-Language": "ar,en-US;q=0.9,en;q=0.8"
 }
 
-DB_PATH = "D:/Prog/ArchiveMasterFinal/file_archive.db"
+if getattr(sys, "frozen", False):
+    app_dir = os.path.dirname(sys.executable)
+    db_candidate = os.path.join(app_dir, "file_archive.db")
+    if not os.path.exists(db_candidate):
+        for candidate_dir in [os.path.dirname(app_dir), os.path.dirname(os.path.dirname(app_dir))]:
+            p = os.path.join(candidate_dir, "file_archive.db")
+            if os.path.exists(p):
+                db_candidate = p
+                break
+    DB_PATH = db_candidate
+else:
+    DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "file_archive.db")
 
 # -------------------------------------------------------------
 # CURATED PACKS - باقات النهضة الروحية والتعليمية الكنسية الجاهزة
