@@ -1280,6 +1280,97 @@ class DatabaseRepository:
             "remaining_questions_count": len(remaining)
         }
 
+    def detach_session_turn(self, session_id: str, turn_index: int, new_title: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Detaches/Forks a specific Q&A turn (1-based index) into its own independent, standalone research monograph/session:
+        - Creates a new session in chat_sessions with the question or specified title
+        - Atomically migrates all messages (user query + assistant monograph + patristic citations) to the new session
+        - Updates the remaining original session cleanly
+        - Returns the new_session_id so the UI can immediately switch or notify the user
+        """
+        conn = get_connection()
+        cur = conn.cursor()
+
+        # Get parent session info to retain same user_id
+        cur.execute("SELECT id, user_id, title FROM chat_sessions WHERE id = ?", (session_id,))
+        parent_sess = cur.fetchone()
+        if not parent_sess:
+            conn.close()
+            return {"error": "جلسة البحث الأصلية غير موجودة"}
+        user_id = parent_sess["user_id"] or "scholar_master"
+
+        cur.execute("SELECT id, role, content, citations, created_at FROM chat_messages WHERE session_id = ? ORDER BY id ASC", (session_id,))
+        msgs = cur.fetchall()
+
+        turns = []
+        current_turn = []
+        for m in msgs:
+            if m["role"] == "user":
+                if current_turn:
+                    turns.append(current_turn)
+                current_turn = [m]
+            else:
+                current_turn.append(m)
+        if current_turn:
+            turns.append(current_turn)
+
+        if turn_index < 1 or turn_index > len(turns):
+            conn.close()
+            return {"error": f"رقم السؤال غير صحيح: {turn_index}"}
+
+        target_turn = turns[turn_index - 1]
+        target_q_text = target_turn[0]["content"] if target_turn else ""
+
+        # Determine title for the new standalone monograph
+        if new_title and new_title.strip():
+            derived_title = new_title.strip()
+        else:
+            clean_q = target_q_text.replace("\n", " ").strip()
+            prefixes_to_strip = ["كيف أستطيع ", "كيف أرد على ", "كيف يمكن ", "ما هو ", "ما هي ", "هل قال ", "هل ورد ", "هل توجد ", "أريد بحثاً عن ", "دراسة في "]
+            for p in prefixes_to_strip:
+                if clean_q.startswith(p):
+                    clean_q = clean_q[len(p):].strip()
+                    break
+            derived_title = clean_q[:70] if len(clean_q) > 70 else clean_q
+
+        # Create new independent session
+        new_session_id = uuid.uuid4().hex[:12]
+        cur.execute(
+            "INSERT INTO chat_sessions (id, user_id, title, created_at, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+            (new_session_id, str(user_id), derived_title)
+        )
+
+        # Migrate target turn messages to new session
+        for m in target_turn:
+            cur.execute("UPDATE chat_messages SET session_id = ? WHERE id = ?", (new_session_id, m["id"]))
+
+        # Check remaining questions in the original session
+        cur.execute("SELECT id, content FROM chat_messages WHERE session_id = ? AND role = 'user' ORDER BY id ASC", (session_id,))
+        remaining = cur.fetchall()
+
+        if remaining:
+            # If the detached question was turn 1, update original session title to reflect remaining content
+            if turn_index == 1:
+                orig_new_title = remaining[0]["content"][:60]
+                cur.execute("UPDATE chat_sessions SET title = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", (orig_new_title, session_id))
+            else:
+                cur.execute("UPDATE chat_sessions SET updated_at = CURRENT_TIMESTAMP WHERE id = ?", (session_id,))
+        else:
+            # If nothing remains, delete empty session
+            cur.execute("DELETE FROM chat_sessions WHERE id = ?", (session_id,))
+
+        conn.commit()
+        conn.close()
+
+        return {
+            "status": "detached",
+            "new_session_id": new_session_id,
+            "new_session_title": derived_title,
+            "original_session_id": session_id,
+            "remaining_questions_count": len(remaining),
+            "detached_question": target_q_text[:70]
+        }
+
     def reorder_session_turns(self, session_id: str) -> Dict[str, Any]:
         """
         Reorders questions in an active monograph logically:

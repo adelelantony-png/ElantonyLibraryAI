@@ -2775,6 +2775,15 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             nextBtn.onclick = () => navigateSubq(1);
             wrapper.appendChild(nextBtn);
 
+            const detachSubqBtn = document.createElement('button');
+            detachSubqBtn.className = 'btn-subq-nav';
+            detachSubqBtn.style.color = '#4338ca';
+            detachSubqBtn.style.borderColor = 'rgba(67,56,202,0.3)';
+            detachSubqBtn.title = 'فصل هذا السؤال والمحور المختار ليصبح أطروحة وبحثاً مستقلاً بذاته';
+            detachSubqBtn.innerHTML = '<span>📑</span> <span>فصل كبحث مستقل</span>';
+            detachSubqBtn.onclick = () => detachCurrentQuestionPrompt();
+            wrapper.appendChild(detachSubqBtn);
+
             const delBtn = document.createElement('button');
             delBtn.className = 'btn-subq-nav';
             delBtn.style.color = '#ef4444';
@@ -3407,9 +3416,15 @@ async function startNewChat() {
                 const userAct = document.createElement('div');
                 userAct.className = 'user-bubble-actions';
                 userAct.style.display = 'flex';
+                userAct.style.alignItems = 'center';
                 userAct.style.justifyContent = 'flex-start';
                 userAct.style.marginTop = '4px';
+                userAct.style.gap = '8px';
                 userAct.innerHTML = `
+                    <button onclick="detachTurnByNumber(${userMsgCounter})" style="background:none; border:none; color:#4338ca; opacity:0.85; cursor:pointer; font-size:11px; font-weight:700; display:inline-flex; align-items:center; gap:3px; padding:2px 7px; border-radius:4px;" onmouseover="this.style.opacity='1'; this.style.background='rgba(67,56,202,0.08)';" onmouseout="this.style.opacity='0.85'; this.style.background='none';" title="فصل هذا السؤال وإجابته كأطروحة وبحث مستقل في جلسة خاصة">
+                        <span>📑</span> فصل كبحث مستقل
+                    </button>
+                    <span style="color:var(--card-border); opacity:0.6;">•</span>
                     <button onclick="deleteTurnByNumber(${userMsgCounter})" style="background:none; border:none; color:var(--text-sub); opacity:0.65; cursor:pointer; font-size:11px; font-weight:600; display:inline-flex; align-items:center; gap:3px; padding:2px 6px; border-radius:4px;" onmouseover="this.style.opacity='1'; this.style.color='#ef4444'; this.style.background='rgba(239,68,68,0.08)';" onmouseout="this.style.opacity='0.65'; this.style.color='var(--text-sub)'; this.style.background='none';" title="حذف هذا السؤال وإجابته من هذا المبحث">
                         <span>🗑️</span> حذف هذا السؤال
                     </button>
@@ -3497,6 +3512,9 @@ async function startNewChat() {
                     </button>
                     <button class="btn-msg-act" onclick="openCompilationModal()" title="تجميع هذا البحث مع سائر المحاور في أطروحة كاملة وتصديرها">
                         <span>📑</span> تجميع الأطروحة
+                    </button>
+                    <button class="btn-msg-act" onclick="detachTurnByNumber(${turnNumber || 1})" style="color:#4338ca; border-color:rgba(67,56,202,0.35); background:rgba(67,56,202,0.06); font-weight:700;" title="فصل هذا السؤال وإجابته كأطروحة وبحث لاهوتي مستقل في جلسة خاصة">
+                        <span>📑</span> فصل كبحث مستقل
                     </button>
                     <button class="btn-msg-act" onclick="deleteTurnByNumber(${turnNumber || 1})" style="color:#ef4444; border-color:rgba(239,68,68,0.35); background:rgba(239,68,68,0.06); font-weight:700;" title="استبعاد وحذف هذا السؤال وإجابته من هذا المبحث">
                         <span>🗑️</span> حذف السؤال
@@ -4848,6 +4866,72 @@ ${url}`;
             await deleteTurnByNumber(qTurn);
         }
 
+        async function detachTurnByNumber(turnNumber, qText = '') {
+            if (!currentSessionId || !turnNumber) return;
+            const tNum = parseInt(turnNumber, 10);
+            if (isNaN(tNum) || tNum < 1) return;
+
+            if (!qText) {
+                const turnRow = document.getElementById('user-turn-' + tNum);
+                if (turnRow) {
+                    const textEl = turnRow.querySelector('.message-body') || turnRow;
+                    qText = textEl.textContent.trim();
+                }
+            }
+
+            const cleanSnippet = (qText || '').replace(/\s+/g, ' ').trim();
+            const preview = cleanSnippet.length > 55 ? cleanSnippet.substring(0, 52) + '...' : cleanSnippet;
+            const defaultTitle = preview || ('بحث لاهوتي - محور ' + tNum);
+
+            const promptMsg = "هل تريد فصل هذا السؤال وإجابته ومراجعه ليصبح أطروحة وبحثاً مستقلاً بذاته؟\\n\\nالسؤال: «" + (preview || 'المحور رقم ' + tNum) + "»\\n\\nاكتب أو عدل عنوان البحث المستقل الجديد:";
+            const chosenTitle = prompt(promptMsg, defaultTitle);
+            if (chosenTitle === null) return; // User pressed Cancel
+
+            try {
+                showTopicToast("⏳ جاري فصل السؤال وإنشاء المبحث المستقل...");
+                const res = await fetch('/api/sessions/' + encodeURIComponent(currentSessionId) + '/turns/' + tNum + '/detach', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title: chosenTitle.trim() || defaultTitle })
+                });
+
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.detail || "تعذر فصل السؤال");
+                }
+
+                const data = await res.json();
+                const newSessId = data.new_session_id;
+                const newTitle = data.new_session_title || chosenTitle;
+
+                showTopicToast(`✨ تم فصل السؤال بنجاح كبحث مستقل بعنوان: «${newTitle}»`);
+                await loadSessions();
+
+                if (newSessId) {
+                    await selectSession(newSessId);
+                }
+            } catch(e) {
+                alert("خطأ أثناء فصل السؤال: " + e.message);
+            }
+        }
+
+        async function detachCurrentQuestionPrompt() {
+            if (!currentSessionId) return;
+            const select = document.getElementById('subqDropdownSelect');
+            const qTurn = select ? parseInt(select.value, 10) : currentNavigatedQIdx;
+            if (!qTurn || qTurn < 1) return;
+            const selectedOpt = select && select.selectedOptions && select.selectedOptions[0];
+            const qText = selectedOpt ? selectedOpt.textContent : '';
+            await detachTurnByNumber(qTurn, qText);
+        }
+
+        async function detachTurnFromModal(origTurn) {
+            closeManualReorderModal();
+            const item = currentReorderItems.find(it => it.origTurn === origTurn);
+            const qText = item ? item.text : '';
+            await detachTurnByNumber(origTurn, qText);
+        }
+
         let currentReorderItems = [];
         let originalReorderItems = [];
 
@@ -4943,11 +5027,16 @@ ${url}`;
                         <button type="button" onclick="moveReorderItem(${idx}, 1)" ${idx === totalCount - 1 ? 'disabled style="opacity:0.3; cursor:not-allowed; width:28px; height:20px; font-size:10px; border-radius:4px;"' : 'style="width:28px; height:20px; font-size:10px; background:var(--bg-bubble-user); border:1px solid var(--card-border); border-radius:4px; cursor:pointer; color:var(--text-main); line-height:1;"'} title="تأخير هذا السؤال للأسفل">▼</button>
                     </div>
                     <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:4px;">
-                        <div style="display:flex; align-items:center; gap:8px;">
-                            <span style="font-size:11px; font-weight:800; color:var(--text-muted); background:rgba(0,0,0,0.06); padding:1px 7px; border-radius:4px;">
-                                (الأصل: محور ${item.origTurn})
-                            </span>
-                            <span style="font-size:12px; font-weight:700; color:var(--accent);">الموقع في البحث: س${idx + 1}</span>
+                        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <span style="font-size:11px; font-weight:800; color:var(--text-muted); background:rgba(0,0,0,0.06); padding:1px 7px; border-radius:4px;">
+                                    (الأصل: محور ${item.origTurn})
+                                </span>
+                                <span style="font-size:12px; font-weight:700; color:var(--accent);">الموقع في البحث: س${idx + 1}</span>
+                            </div>
+                            <button type="button" onclick="detachTurnFromModal(${item.origTurn})" style="background:rgba(67,56,202,0.08); border:1px solid rgba(67,56,202,0.25); color:#4338ca; cursor:pointer; font-size:11px; font-weight:700; padding:2px 7px; border-radius:4px;" title="فصل هذا السؤال وإجابته كأطروحة بحثية مستقلة بذاتها">
+                                📑 فصل كبحث مستقل
+                            </button>
                         </div>
                         <div style="font-size:13.5px; font-weight:600; color:var(--text-main); line-height:1.5; word-break:break-word;">
                             ${escapeHtml(preview)}
@@ -5314,6 +5403,20 @@ class MergeSessionsRequest(BaseModel):
 async def delete_turn_endpoint(session_id: str, turn_index: int):
     """Deletes a specific user question turn and its answer from a monograph."""
     res = repo.delete_session_turn(session_id, turn_index)
+    if "error" in res:
+        raise HTTPException(status_code=400, detail=res["error"])
+    return res
+
+
+class DetachTurnRequest(BaseModel):
+    title: Optional[str] = None
+
+
+@app.post("/api/sessions/{session_id}/turns/{turn_index}/detach")
+async def detach_turn_endpoint(session_id: str, turn_index: int, req: Optional[DetachTurnRequest] = None):
+    """Detaches a specific question turn from a session into an independent standalone research monograph session."""
+    title = req.title if req else None
+    res = repo.detach_session_turn(session_id, turn_index, new_title=title)
     if "error" in res:
         raise HTTPException(status_code=400, detail=res["error"])
     return res
