@@ -22,6 +22,8 @@ portable_config.json
 # Databases & Large Local Storage
 *.db
 *.db-journal
+*.db-shm
+*.db-wal
 *.sqlite3
 *.sqlite
 /database/*.db
