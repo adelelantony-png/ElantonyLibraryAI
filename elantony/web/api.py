@@ -2276,10 +2276,42 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             </div>
 
             <!-- Quick Action Buttons -->
-            <div style="display:flex; align-items:center; gap:4px; flex-shrink:0;">
-                <button class="btn-ctrl" onclick="openManualReorderModal()" style="background:#4338ca; color:#fff; border-color:#4338ca; font-weight:700; padding:2px 8px; font-size:11px; display:inline-flex; align-items:center; gap:3px;" title="ترتيب أسئلة ومحاور البحث يدوياً وتحديد تسلسلها برقم السؤال"><span>🔢</span> <span>ترتيب يدوي</span></button>
-                <button class="btn-ctrl" onclick="reorderActiveMonograph()" style="background:#1e40af; color:#fff; border-color:#1e40af; font-weight:700; padding:2px 8px; font-size:11px; display:inline-flex; align-items:center; gap:3px;" title="إعادة الترتيب المنطقي لأسئلة وفصول البحث تسلسلياً وفق المنطق الأكاديمي واللاهوتي"><span>🔀</span> <span>ترتيب منطقي</span></button>
-                <button class="btn-ctrl" onclick="recalibrateActiveMonograph()" style="background:#065f46; color:#fff; border-color:#065f46; font-weight:700; padding:2px 7px; font-size:11px; display:inline-flex; align-items:center; gap:3px;" title="إعادة معايرة وتوليف الأطروحة ودمج الأسئلة الجزئية في مفاهيم شاملة"><span>⚖️</span> <span>معايرة</span></button>
+            <div style="display:flex; align-items:center; gap:5px; flex-shrink:0;">
+                <!-- On-demand Enrichment Trigger Button -->
+                <button id="btnToggleEnrichment" class="btn-ctrl" onclick="toggleLibraryEnrichmentCard()" style="display:none; background:rgba(217, 119, 6, 0.14); color:#d97706; border:1px solid rgba(217, 119, 6, 0.4); font-weight:700; padding:2px 8px; font-size:11px; align-items:center; gap:4px; cursor:pointer; border-radius:5px;" title="عرض مراجع المكتبة المقترحة لإثراء الأطروحة">
+                    <span>⚡</span> <span id="enrichBtnLabel">مراجع مقترحة (0)</span>
+                </button>
+
+                <!-- Monograph Organization Dropdown -->
+                <div id="reorderDropdownContainer" style="position:relative; display:inline-block;">
+                    <button class="btn-ctrl" onclick="toggleReorderDropdown(event)" id="btnReorderDropdown" style="background:#312e81; color:#fff; border-color:#4338ca; font-weight:700; padding:2px 9px; font-size:11px; display:inline-flex; align-items:center; gap:4px; cursor:pointer;" title="إدارة وترتيب ومعايرة محاور وأسئلة الأطروحة">
+                        <span>⚙️</span> <span>تنظيم الأطروحة</span> <span style="font-size:8px;">▼</span>
+                    </button>
+                    <div id="reorderDropdownMenu" style="display:none; position:absolute; top:calc(100% + 4px); left:0; background:var(--bg-card); border:1px solid var(--card-border); border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,0.35); min-width:235px; z-index:100; padding:5px; font-size:11.5px; text-align:right;">
+                        <div onclick="closeReorderDropdown(); openManualReorderModal();" style="display:flex; align-items:center; gap:8px; padding:7px 10px; border-radius:6px; cursor:pointer; color:var(--text-main); font-weight:600;" onmouseover="this.style.background='var(--hover-bg, rgba(255,255,255,0.07))'" onmouseout="this.style.background='transparent'">
+                            <span style="font-size:14px;">🔢</span>
+                            <div style="display:flex; flex-direction:column;">
+                                <span style="font-size:11.5px;">ترتيب يدوي للأسئلة</span>
+                                <span style="font-size:10px; color:var(--text-sub); font-weight:normal;">تحديد أرقام وتسلسل الأسئلة والفصول يدوياً</span>
+                            </div>
+                        </div>
+                        <div onclick="closeReorderDropdown(); reorderActiveMonograph();" style="display:flex; align-items:center; gap:8px; padding:7px 10px; border-radius:6px; cursor:pointer; color:var(--text-main); font-weight:600;" onmouseover="this.style.background='var(--hover-bg, rgba(255,255,255,0.07))'" onmouseout="this.style.background='transparent'">
+                            <span style="font-size:14px;">🔀</span>
+                            <div style="display:flex; flex-direction:column;">
+                                <span style="font-size:11.5px;">إعادة الترتيب المنطقي</span>
+                                <span style="font-size:10px; color:var(--text-sub); font-weight:normal;">إعادة الصياغة المنطقية للأطروحة وفق التسلسل الأكاديمي</span>
+                            </div>
+                        </div>
+                        <div onclick="closeReorderDropdown(); recalibrateActiveMonograph();" style="display:flex; align-items:center; gap:8px; padding:7px 10px; border-radius:6px; cursor:pointer; color:var(--text-main); font-weight:600;" onmouseover="this.style.background='var(--hover-bg, rgba(255,255,255,0.07))'" onmouseout="this.style.background='transparent'">
+                            <span style="font-size:14px;">⚖️</span>
+                            <div style="display:flex; flex-direction:column;">
+                                <span style="font-size:11.5px;">إعادة معايرة وتوليف الأطروحة</span>
+                                <span style="font-size:10px; color:var(--text-sub); font-weight:normal;">دمج الأسئلة الجزئية في مفاهيم شاملة ومترابطة</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <button class="btn-ctrl" onclick="downloadCurrentExport('docx')" style="background:#2563eb; color:#fff; border-color:#2563eb; font-weight:700; padding:2px 8px; font-size:11px; display:inline-flex; align-items:center; gap:3px;" title="تنزيل الأطروحة كاملة كملف Word"><span>📄</span> <span>Word</span></button>
                 <button class="btn-ctrl" onclick="previewCurrentMonograph()" style="background:#7c2d12; color:#fff; border-color:#7c2d12; font-weight:800; padding:2px 8px; font-size:11px; display:inline-flex; align-items:center; gap:3px;" title="معاينة وطباعة الأطروحة A4"><span>🖨️</span> <span>طباعة A4</span></button>
             </div>
@@ -3236,6 +3268,7 @@ async function startNewChat() {
             const actHdr = document.getElementById('activeSessionHeader');
             if (actHdr) actHdr.style.display = 'none';
             const enrichCard = document.getElementById('libraryEnrichmentCard'); if (enrichCard) enrichCard.style.display = 'none';
+            const btnEnrich = document.getElementById('btnToggleEnrichment'); if (btnEnrich) btnEnrich.style.display = 'none';
             renderTabsBar(cachedSessions || []);
             showTopicToast("✨ تم تفريغ الشاشة.. اكتب سؤالك وسيبدأ التوثيق فوراً دون جلسات فارغة.");
         }
@@ -5224,8 +5257,35 @@ ${url}`;
         }
 
 
+        function toggleReorderDropdown(e) {
+            if (e) e.stopPropagation();
+            const menu = document.getElementById('reorderDropdownMenu');
+            if (!menu) return;
+            menu.style.display = (menu.style.display === 'none' || !menu.style.display) ? 'block' : 'none';
+        }
+
+        function closeReorderDropdown() {
+            const menu = document.getElementById('reorderDropdownMenu');
+            if (menu) menu.style.display = 'none';
+        }
+
+        function toggleLibraryEnrichmentCard() {
+            const card = document.getElementById('libraryEnrichmentCard');
+            if (!card) return;
+            card.style.display = (card.style.display === 'none' || !card.style.display) ? 'flex' : 'none';
+        }
+
+        document.addEventListener('click', function(e) {
+            const container = document.getElementById('reorderDropdownContainer');
+            if (container && !container.contains(e.target)) {
+                closeReorderDropdown();
+            }
+        });
+
         async function checkLibraryEnrichment(sessionId) {
             const card = document.getElementById('libraryEnrichmentCard');
+            const btn = document.getElementById('btnToggleEnrichment');
+            const label = document.getElementById('enrichBtnLabel');
             if (!card || !sessionId) return;
             const mc = document.getElementById('messagesContainer');
             if (mc && card.parentElement !== mc) {
@@ -5238,17 +5298,20 @@ ${url}`;
                 if (data.has_new_books && data.count > 0) {
                     const countEl = document.getElementById('enrichBooksCount');
                     if (countEl) countEl.textContent = data.count;
+                    if (label) label.textContent = `مراجع مقترحة (${data.count})`;
                     const listEl = document.getElementById('enrichBooksList');
                     if (listEl) {
                         listEl.innerHTML = (data.books || []).map(b => 
                             `<span style="background:var(--bg-card); border:1px solid var(--card-border); padding:1px 6px; border-radius:4px; font-size:11px; font-weight:600; display:inline-flex; align-items:center; gap:3px; white-space:nowrap;">📖 ${escapeHtml(b.title)}</span>`
                         ).join('');
                     }
-                    card.style.display = 'flex';
+                    if (btn) btn.style.display = 'inline-flex';
                 } else {
+                    if (btn) btn.style.display = 'none';
                     card.style.display = 'none';
                 }
             } catch(e) {
+                if (btn) btn.style.display = 'none';
                 card.style.display = 'none';
             }
         }
