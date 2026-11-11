@@ -2218,8 +2218,9 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
 
             <!-- Quick Action Buttons -->
             <div style="display:flex; align-items:center; gap:4px; flex-shrink:0;">
-                <button class="btn-ctrl" onclick="recalibrateActiveMonograph()" style="background:#065f46; color:#fff; border-color:#065f46; font-weight:700; padding:2px 7px; font-size:11px;" title="إعادة معايرة وتوليف الأطروحة">⚖️ معايرة</button>
-                <button class="btn-ctrl" onclick="previewCurrentMonograph()" style="background:#7c2d12; color:#fff; border-color:#7c2d12; font-weight:800; padding:2px 8px; font-size:11px;" title="معاينة وطباعة الأطروحة A4">🖨️ طباعة</button>
+                <button class="btn-ctrl" onclick="reorderActiveMonograph()" style="background:#1e40af; color:#fff; border-color:#1e40af; font-weight:700; padding:2px 8px; font-size:11px; display:inline-flex; align-items:center; gap:3px;" title="إعادة الترتيب المنطقي لأسئلة وفصول البحث تسلسلياً وفق المنطق الأكاديمي واللاهوتي"><span>🔀</span> <span>ترتيب منطقي</span></button>
+                <button class="btn-ctrl" onclick="recalibrateActiveMonograph()" style="background:#065f46; color:#fff; border-color:#065f46; font-weight:700; padding:2px 7px; font-size:11px; display:inline-flex; align-items:center; gap:3px;" title="إعادة معايرة وتوليف الأطروحة ودمج الأسئلة الجزئية في مفاهيم شاملة"><span>⚖️</span> <span>معايرة</span></button>
+                <button class="btn-ctrl" onclick="previewCurrentMonograph()" style="background:#7c2d12; color:#fff; border-color:#7c2d12; font-weight:800; padding:2px 8px; font-size:11px; display:inline-flex; align-items:center; gap:3px;" title="معاينة وطباعة الأطروحة A4"><span>🖨️</span> <span>طباعة</span></button>
             </div>
         </div>
 
@@ -2781,6 +2782,15 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             delBtn.innerHTML = '<span>🗑️</span> <span>حذف السؤال</span>';
             delBtn.onclick = () => deleteCurrentQuestionPrompt();
             wrapper.appendChild(delBtn);
+
+            const reorderSubqBtn = document.createElement('button');
+            reorderSubqBtn.className = 'btn-subq-nav';
+            reorderSubqBtn.style.color = '#1e40af';
+            reorderSubqBtn.style.borderColor = 'rgba(30,64,175,0.3)';
+            reorderSubqBtn.title = 'إعادة ترتيب أسئلة ومحاور البحث تسلسلياً وفق المنطق الأكاديمي';
+            reorderSubqBtn.innerHTML = '<span>🔀</span> <span>ترتيب منطقي</span>';
+            reorderSubqBtn.onclick = () => reorderActiveMonograph();
+            wrapper.appendChild(reorderSubqBtn);
 
             subqBar.appendChild(wrapper);
             currentNavigatedQIdx = queryToOriginalTurn[0];
