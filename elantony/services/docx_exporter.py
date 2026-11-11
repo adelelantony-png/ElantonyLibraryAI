@@ -164,8 +164,22 @@ def generate_session_docx(comp_data: Dict[str, Any], output_path: str) -> str:
         raw_ans = t.get("ai_response", "") or t.get("answer", "")
         clean_ans = _strip_emojis(raw_ans)
 
+        in_docx_code = False
         for line in clean_ans.split("\n"):
             line_str = line.strip()
+            if line_str.startswith("```"):
+                in_docx_code = not in_docx_code
+                continue
+
+            if in_docx_code:
+                p_c = doc.add_paragraph()
+                p_c.alignment = WD_ALIGN_PARAGRAPH.LEFT
+                p_c.paragraph_format.line_spacing = 1.1
+                p_c.paragraph_format.space_after = Pt(1)
+                r_c = p_c.add_run(line)
+                _set_run_font(r_c, "Consolas", 9.5, color_rgb=RGBColor(30, 41, 59))
+                continue
+
             if not line_str or line_str == "---":
                 continue
 

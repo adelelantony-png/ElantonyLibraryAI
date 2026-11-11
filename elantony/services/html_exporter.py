@@ -112,6 +112,29 @@ def _clean_markdown_to_html(text: str) -> str:
     in_quote = False
     quote_lines = []
     in_bullet_list = False
+    in_code_block = False
+    code_lines = []
+
+    def flush_code():
+        nonlocal in_code_block, code_lines
+        if code_lines:
+            raw_code = "\n".join(code_lines)
+            has_box_art = any(ch in raw_code for ch in ['┌', '─', '┐', '└', '┬', '┘', '├', '┤', '│', '┼', '▼', '►'])
+            if has_box_art:
+                html_parts.append(
+                    f'<div style="margin: 16px 0; padding: 14px 18px; background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 10px; overflow-x: auto; box-shadow: inset 0 1px 3px rgba(0,0,0,0.04);">'
+                    f'<div style="font-size: 11px; font-weight: 800; color: #64748b; margin-bottom: 8px; text-transform: uppercase;">📊 مخطط هيكلي / توضيحي:</div>'
+                    f'<pre style="direction: ltr; text-align: left; font-family: \'Consolas\', \'Courier New\', monospace; font-size: 12px; line-height: 1.35; margin: 0; white-space: pre; color: #0f172a;">{html.escape(raw_code)}</pre>'
+                    f'</div>'
+                )
+            else:
+                html_parts.append(
+                    f'<div style="margin: 14px 0; padding: 12px 16px; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 8px; overflow-x: auto;">'
+                    f'<pre style="direction: ltr; text-align: left; font-family: \'Consolas\', monospace; font-size: 12px; margin: 0; white-space: pre; color: #1e293b;">{html.escape(raw_code)}</pre>'
+                    f'</div>'
+                )
+            code_lines = []
+            in_code_block = False
 
     def flush_quote():
         nonlocal in_quote, quote_lines
@@ -145,6 +168,20 @@ def _clean_markdown_to_html(text: str) -> str:
 
     for line in lines:
         line_s = line.strip()
+
+        # Handle Code Blocks (```)
+        if line_s.startswith("```"):
+            flush_quote()
+            flush_bullets()
+            if in_code_block:
+                flush_code()
+            else:
+                in_code_block = True
+            continue
+
+        if in_code_block:
+            code_lines.append(line)
+            continue
 
         # Handle Empty Lines
         if not line_s:
@@ -211,6 +248,7 @@ def _clean_markdown_to_html(text: str) -> str:
 
     flush_quote()
     flush_bullets()
+    flush_code()
     return "\n".join(html_parts)
 
 
