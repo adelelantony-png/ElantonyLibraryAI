@@ -6,9 +6,31 @@ interactive page navigation, book action cards, and one-click social sharing.
 All callback_data payloads strictly respect Telegram's 64-byte hard limit.
 """
 
+import os
+import re
 import urllib.parse
+from pathlib import Path
 from typing import List, Dict, Any, Optional
 from elantony.core.config import settings
+
+
+def get_live_portal_url() -> str:
+    """Dynamically retrieves the current live remote portal URL from link files."""
+    candidates = [
+        Path(r"D:\Prog\ArchiveMasterFinal\رابط_المساعد_عن_بعد.txt"),
+        Path(r"I:\2021\2020\✠ Cross Coptic Library ✠\ArchiveMaster\رابط_المساعد_عن_بعد.txt"),
+        Path("رابط_المساعد_عن_بعد.txt")
+    ]
+    for p in candidates:
+        if p.exists():
+            try:
+                txt = p.read_text(encoding="utf-8")
+                m = re.search(r"https?://[^\s\r\n]+", txt)
+                if m:
+                    return m.group(0).rstrip('/')
+            except Exception:
+                pass
+    return "https://70d1d33e5ee545.lhr.life"
 
 
 def get_main_menu_reply_keyboard() -> Dict[str, Any]:
@@ -38,7 +60,7 @@ def get_main_menu_inline_keyboard() -> Dict[str, Any]:
     return {
         "inline_keyboard": [
             [
-                {"text": "🌐 فتح بوابة ومكتبة الأبحاث (اضغط هنا)", "url": "https://technical-cute-innovative-combat.trycloudflare.com"}
+                {"text": "🌐 فتح بوابة ومكتبة الأبحاث (اضغط هنا)", "url": get_live_portal_url()}
             ],
             [
                 {"text": "🧠 المساعد اللاهوتي الفائق (ذاكرة مستمرة)", "callback_data": "menu:ask_ai"},
@@ -87,7 +109,7 @@ def get_depth_selection_inline_keyboard(current_mode: str = "academic") -> Dict[
     return {
         "inline_keyboard": [
             [
-                {"text": "🌐 فتح بوابة ومكتبة الأبحاث (اضغط هنا)", "url": "https://technical-cute-innovative-combat.trycloudflare.com"}
+                {"text": "🌐 فتح بوابة ومكتبة الأبحاث (اضغط هنا)", "url": get_live_portal_url()}
             ],
             [{"text": f"{academic_check}🎓 نمط أكاديمي موسع (نصوص أصلية + مراجع دقيقة)", "callback_data": "depth:academic"}],
             [{"text": f"{pastoral_check}🕊️ نمط رعوي وروحي (مباشر ومبسط للشباب)", "callback_data": "depth:pastoral"}],
@@ -104,7 +126,7 @@ def get_fathers_topics_inline_keyboard() -> Dict[str, Any]:
     return {
         "inline_keyboard": [
             [
-                {"text": "🌐 فتح بوابة ومكتبة الأبحاث (اضغط هنا)", "url": "https://technical-cute-innovative-combat.trycloudflare.com"}
+                {"text": "🌐 فتح بوابة ومكتبة الأبحاث (اضغط هنا)", "url": get_live_portal_url()}
             ],
             [
                 {"text": "🙏 عن الصلاة والهدوء", "callback_data": "topic:prayer"},
@@ -133,7 +155,7 @@ def get_quick_books_inline_keyboard() -> Dict[str, Any]:
     return {
         "inline_keyboard": [
             [
-                {"text": "🌐 فتح بوابة ومكتبة الأبحاث (اضغط هنا)", "url": "https://technical-cute-innovative-combat.trycloudflare.com"}
+                {"text": "🌐 فتح بوابة ومكتبة الأبحاث (اضغط هنا)", "url": get_live_portal_url()}
             ],
             [
                 {"text": "📖 تجسد الكلمة (أثناسيوس)", "callback_data": "binfo:17addeee0ec0"},
@@ -168,7 +190,7 @@ def get_book_card_inline_keyboard(ref: str) -> Dict[str, Any]:
     return {
         "inline_keyboard": [
             [
-                {"text": "🌐 فتح بوابة ومكتبة الأبحاث (اضغط هنا)", "url": "https://technical-cute-innovative-combat.trycloudflare.com"}
+                {"text": "🌐 فتح بوابة ومكتبة الأبحاث (اضغط هنا)", "url": get_live_portal_url()}
             ],
             [
                 {"text": "📥 تنزيل الكتاب كاملاً (PDF)", "callback_data": f"pdf:{sref}"}
@@ -290,7 +312,7 @@ def get_back_to_main_inline_keyboard() -> Dict[str, Any]:
     return {
         "inline_keyboard": [
             [
-                {"text": "🌐 فتح بوابة ومكتبة الأبحاث (اضغط هنا)", "url": "https://technical-cute-innovative-combat.trycloudflare.com"}
+                {"text": "🌐 فتح بوابة ومكتبة الأبحاث (اضغط هنا)", "url": get_live_portal_url()}
             ],
             [{"text": "🔙 العودة للقائمة الرئيسية", "callback_data": "nav:main"}]
         ]
@@ -302,7 +324,7 @@ def get_catalog_hub_inline_keyboard() -> Dict[str, Any]:
     return {
         "inline_keyboard": [
             [
-                {"text": "🌐 فتح بوابة ومكتبة الأبحاث (اضغط هنا)", "url": "https://technical-cute-innovative-combat.trycloudflare.com"}
+                {"text": "🌐 فتح بوابة ومكتبة الأبحاث (اضغط هنا)", "url": get_live_portal_url()}
             ],
             [{"text": "📂 تصفح حسب الموضوع والتصنيف", "callback_data": "cat:topics"}],
             [{"text": "✍️ تصفح حسب المؤلفين والآباء", "callback_data": "cat:authors"}],
@@ -407,7 +429,7 @@ def get_random_book_inline_keyboard(sha256: str) -> Dict[str, Any]:
     return {
         "inline_keyboard": [
             [
-                {"text": "🌐 فتح بوابة ومكتبة الأبحاث (اضغط هنا)", "url": "https://technical-cute-innovative-combat.trycloudflare.com"}
+                {"text": "🌐 فتح بوابة ومكتبة الأبحاث (اضغط هنا)", "url": get_live_portal_url()}
             ],
             [{"text": "📥 تنزيل الكتاب كاملاً (PDF)", "callback_data": f"pdf:{sref}"}],
             [
@@ -529,7 +551,7 @@ def get_special_commands_inline_keyboard() -> Dict[str, Any]:
     return {
         "inline_keyboard": [
             [
-                {"text": "🌐 فتح بوابة ومكتبة الأبحاث (اضغط هنا)", "url": "https://technical-cute-innovative-combat.trycloudflare.com"}
+                {"text": "🌐 فتح بوابة ومكتبة الأبحاث (اضغط هنا)", "url": get_live_portal_url()}
             ],
             [
                 {"text": "🌐 سحب وفهرسة Google Drive", "callback_data": "menu:harvest_drive"},

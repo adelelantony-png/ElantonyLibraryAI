@@ -10,6 +10,7 @@ Features:
 """
 
 import sys
+import ssl
 import asyncio
 from typing import Optional, Dict, Any
 import httpx
@@ -17,6 +18,13 @@ import httpx
 from elantony.core.config import settings
 from elantony.core.logging import logger
 from elantony.telegram.handlers import TelegramHandlerService
+
+
+def get_ssl_context():
+    """Builds SSL context with legacy server connect for bulletproof Telegram API connectivity."""
+    ctx = ssl.create_default_context()
+    ctx.options |= getattr(ssl, "OP_LEGACY_SERVER_CONNECT", 0x4)
+    return ctx
 
 
 class TelegramBotEngine:
@@ -47,7 +55,7 @@ class TelegramBotEngine:
             {"command": "help", "description": "ℹ️ دليل استخدام المساعد والمكتبة"}
         ]
         try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
+            async with httpx.AsyncClient(verify=get_ssl_context(), timeout=10.0) as client:
                 res = await client.post(f"{self.api_base}/setMyCommands", json={"commands": commands})
                 if res.status_code == 200:
                     logger.info("Successfully registered 13 official Telegram bot commands menu.")
@@ -75,7 +83,7 @@ class TelegramBotEngine:
 
         while self.running:
             try:
-                async with httpx.AsyncClient(timeout=client_timeout, limits=limits) as client:
+                async with httpx.AsyncClient(verify=get_ssl_context(), timeout=client_timeout, limits=limits) as client:
                     while self.running:
                         loop_counter += 1
                         try:

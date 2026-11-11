@@ -44,9 +44,9 @@ class CloudflareTunnelWatchdog:
             if lf.exists():
                 try:
                     txt = lf.read_text(encoding="utf-8")
-                    m = re.search(r"https://[a-zA-Z0-9\-]+\.trycloudflare\.com", txt)
+                    m = re.search(r"https?://[^\s\r\n]+", txt)
                     if m:
-                        return m.group(0)
+                        return m.group(0).rstrip('/')
                 except Exception:
                     pass
         return None

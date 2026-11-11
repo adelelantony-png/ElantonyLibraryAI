@@ -55,7 +55,8 @@ from elantony.telegram.keyboards import (
     get_encyclopedias_inline_keyboard,
     get_reference_card_keyboard,
     get_source_filter_keyboard,
-    format_reference_card
+    format_reference_card,
+    get_live_portal_url
 )
 
 # User state tracker for conversational flow
@@ -274,7 +275,7 @@ class TelegramHandlerService:
         # 4. Action buttons with Web Preview & Clear Memory
         kb = [
             [
-                {"text": "🖨️ فتح ومعاينة الأطروحة للطباعة (ويب)", "url": f"{settings.public_base_url}/api/sessions/{s_id}/preview"}
+                {"text": "🖨️ فتح ومعاينة الأطروحة للطباعة (ويب)", "url": f"{get_live_portal_url()}/api/sessions/{s_id}/preview"}
             ],
             [
                 {"text": "🧹 تفريغ الذاكرة (سؤال جديد)", "callback_data": "session:new"},
@@ -593,9 +594,10 @@ class TelegramHandlerService:
         # 0. /commands or special commands menu
         # Link to Web Portal
         if cmd in ["/link", "/portal", "/web", "/site", "/url"] or text in ["رابط الموقع", "الموقع", "الرابط", "🌐 رابط موقع الأبحاث", "بوابة الابحاث", "بوابة الأبحاث"]:
+            live_url = get_live_portal_url()
             portal_msg = (
                 "🌐 *رابط بوابة ومكتبة الأبحاث اللاهوتية المباشر:* ✠\n\n"
-                "🔗 https://technical-cute-innovative-combat.trycloudflare.com\n\n"
+                f"🔗 {live_url}\n\n"
                 "🏠 *الرابط المحلي (على شبكة الراوتر المنزلية):*\n"
                 "http://192.168.1.167:8000\n\n"
                 "✨ *المميزات المتوفرة في المنصة الآن:*\n"
@@ -608,7 +610,7 @@ class TelegramHandlerService:
             await self.send_message(
                 client, chat_id, portal_msg,
                 reply_markup={"inline_keyboard": [
-                    [{"text": "🌐 فتح منصة الأبحاث في المتصفح فوراً", "url": "https://technical-cute-innovative-combat.trycloudflare.com"}]
+                    [{"text": "🌐 فتح منصة الأبحاث في المتصفح فوراً", "url": live_url}]
                 ]}
             )
             return
