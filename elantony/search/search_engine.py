@@ -640,13 +640,14 @@ class ChurchSearchEngine:
                     continue
 
                 try:
+                    scoped_fts_expr = f"sha256: {b_sha} AND {book_fts_expr}"
                     cur.execute("""
                         SELECT sha256, book_title, page_number, chunk_index, source_reference, chunk_text, rank
                         FROM church_chunks_fts
-                        WHERE sha256 = ? AND church_chunks_fts MATCH ? AND page_number > 1
+                        WHERE church_chunks_fts MATCH ? AND page_number > 1
                         ORDER BY rank
                         LIMIT 2
-                    """, (b_sha, book_fts_expr))
+                    """, (scoped_fts_expr,))
                     for r in cur.fetchall():
                         ref = r["source_reference"]
                         if ref not in seen_refs and is_chunk_high_quality(r["chunk_text"]) and is_theologically_substantive(r["chunk_text"]):
@@ -936,13 +937,14 @@ class ChurchSearchEngine:
         fts_query = " OR ".join([f'"{k}"' for k in list(expanded_terms)[:8]])
         conn = get_connection()
         cur = conn.cursor()
+        scoped_fts = f"sha256: {sha256} AND ({fts_query})"
         cur.execute("""
             SELECT sha256, book_title, page_number, chunk_index, source_reference, chunk_text, rank
             FROM church_chunks_fts
-            WHERE sha256 = ? AND church_chunks_fts MATCH ?
+            WHERE church_chunks_fts MATCH ?
             ORDER BY rank
             LIMIT ?
-        """, (sha256, fts_query, limit))
+        """, (scoped_fts, limit))
         rows = cur.fetchall()
         conn.close()
 
