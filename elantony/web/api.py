@@ -649,6 +649,62 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             overflow-x: hidden;
         }
 
+        /* Focus & Reading Mode */
+        body.focus-reading-mode .sidebar,
+        body.focus-reading-mode .top-navbar,
+        body.focus-reading-mode .chat-tabs-bar,
+        body.focus-reading-mode .input-area,
+        body.focus-reading-mode .active-session-header,
+        body.focus-reading-mode .user-bubble-actions,
+        body.focus-reading-mode .msg-actions-bar {
+            display: none !important;
+        }
+        body.focus-reading-mode .main-container {
+            margin: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            max-width: 100vw !important;
+            background: var(--bg-chat) !important;
+        }
+        body.focus-reading-mode .messages-area {
+            padding: 40px 20px 80px 20px !important;
+            max-width: 880px !important;
+            margin: 0 auto !important;
+            width: 100% !important;
+        }
+        body.focus-reading-mode .msg-row.ai .bubble {
+            font-size: calc(var(--font-size) + 1.5px) !important;
+            line-height: 2 !important;
+            padding: 24px 32px !important;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.06) !important;
+        }
+        #exitFocusModeChip {
+            display: none;
+            position: fixed;
+            top: 14px;
+            left: 20px;
+            z-index: 99999;
+            background: var(--accent);
+            color: #fff;
+            padding: 7px 16px;
+            border-radius: 20px;
+            font-size: 12.5px;
+            font-weight: 800;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.25);
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s ease;
+        }
+        #exitFocusModeChip:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+        }
+        body.focus-reading-mode #exitFocusModeChip {
+            display: inline-flex !important;
+        }
+
         /* Message Bubbles */
         .msg-row {
             display: flex;
@@ -1143,16 +1199,16 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
         }
         .subq-dropdown {
             flex: 1;
-            min-width: 190px;
-            max-width: 580px;
-            height: 34px;
-            padding: 4px 10px;
-            border-radius: 7px;
+            min-width: 120px;
+            max-width: 230px;
+            height: 24px;
+            padding: 2px 6px;
+            border-radius: 5px;
             border: 1px solid var(--card-border);
             background: var(--bg-darker);
             color: var(--text-main);
             font-family: inherit;
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 700;
             cursor: pointer;
             outline: none;
@@ -1164,7 +1220,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
         .subq-dropdown option {
             direction: rtl;
             text-align: right;
-            padding: 6px 10px;
+            padding: 4px 8px;
         }
         .subq-dropdown:focus {
             border-color: var(--accent);
@@ -1174,17 +1230,17 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             background: var(--bg-darker);
             border: 1px solid var(--card-border);
             color: var(--text-sub);
-            height: 34px;
-            padding: 0 12px;
-            border-radius: 6px;
-            font-size: 11.5px;
+            height: 24px;
+            padding: 0 7px;
+            border-radius: 5px;
+            font-size: 11px;
             font-weight: 700;
             cursor: pointer;
             transition: 0.15s ease;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            gap: 4px;
+            gap: 3px;
             flex-shrink: 0;
             font-family: inherit;
             white-space: nowrap;
@@ -2049,6 +2105,12 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
     </style>
 </head>
 <body data-theme="sepia">
+    <!-- Focus / Reading Mode Exit Chip (Floating button visible only in focus mode) -->
+    <div id="exitFocusModeChip" onclick="toggleFocusReadingMode()" title="الخروج من وضع القراءة والعودة للشاشة المعتادة (أو اضغط Esc)">
+        <span>✕</span>
+        <span>إنهاء وضع القراءة</span>
+        <span style="opacity:0.75; font-size:10px; margin-right:4px;">(Esc)</span>
+    </div>
     <!-- Sidebar -->
     <aside class="sidebar">
         <div class="sidebar-header">
@@ -2175,11 +2237,8 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             </div>
 
             <div class="nav-actions">
-                <button class="btn-top-preview" onclick="previewCurrentMonograph()" title="معاينة وطباعة الأطروحة (Ctrl + P)" style="padding:3px 9px; font-size:11px; font-weight:800;">
-                    <span>🖨️</span> طباعة (A4)
-                </button>
-                <button class="btn-nav btn-docx-nav" onclick="downloadCurrentExport('docx')" title="تنزيل كملف Word" style="padding:3px 8px; font-size:11px;">
-                    <span>📄</span> Word
+                <button class="btn-ctrl" onclick="toggleFocusReadingMode()" id="btnFocusMode" title="تفعيل وضع القراءة والتركيز (إخفاء الأشرطة والقوائم للقراءة الهادئة)" style="padding:3px 9px; font-size:11px; font-weight:700; background:rgba(37,99,235,0.12); color:#2563eb; border-color:#2563eb; display:inline-flex; align-items:center; gap:4px;">
+                    <span>📖</span> <span>وضع القراءة</span>
                 </button>
                 <button class="btn-nav btn-fav-nav" onclick="openScholarNotebookModal()" title="كشكول الباحث" style="background:rgba(234, 179, 8, 0.15); border-color:#ca8a04; color:#a16207; font-weight:700; padding:3px 8px; font-size:11px;">
                     <span>⭐</span> (<span id="notebookBadge">0</span>)
@@ -2205,14 +2264,14 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
 
         <!-- Unified Monograph & Chapters Navigator (34px Single Line) -->
         <div class="active-session-header" id="activeSessionHeader" style="display:flex; align-items:center; justify-content:space-between; height:34px; min-height:34px; max-height:34px; padding:0 12px; background:var(--bg-card); border-bottom:1px solid var(--card-border); gap:8px; z-index:4;">
-            <div style="display:flex; align-items:center; gap:6px; min-width:0; flex:1; max-width:650px;">
+            <div style="display:flex; align-items:center; gap:6px; min-width:120px; max-width:240px; flex-shrink:1;">
                 <span style="font-size:14px; flex-shrink:0;">📖</span>
                 <span id="currentSessionTitleDisplay" style="font-weight:800; font-size:12px; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="عنوان الأطروحة">بحث لاهوتي</span>
                 <button class="btn-ctrl" onclick="renameSession(event, currentSessionId, document.getElementById('currentSessionTitleDisplay').textContent)" style="padding:1px 5px; font-size:10px; flex-shrink:0;" title="تعديل عنوان البحث">✏️</button>
             </div>
 
             <!-- Inline Sub-questions Navigator (س1، س2..) -->
-            <div id="topicSubqBar" style="display:none; align-items:center; gap:4px; flex:1; justify-content:center; min-width:0; max-width:50%;">
+            <div id="topicSubqBar" style="display:none; align-items:center; gap:4px; flex-shrink:0;">
                 <!-- Injected via renderSubqDropdown -->
             </div>
 
@@ -2221,31 +2280,28 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                 <button class="btn-ctrl" onclick="openManualReorderModal()" style="background:#4338ca; color:#fff; border-color:#4338ca; font-weight:700; padding:2px 8px; font-size:11px; display:inline-flex; align-items:center; gap:3px;" title="ترتيب أسئلة ومحاور البحث يدوياً وتحديد تسلسلها برقم السؤال"><span>🔢</span> <span>ترتيب يدوي</span></button>
                 <button class="btn-ctrl" onclick="reorderActiveMonograph()" style="background:#1e40af; color:#fff; border-color:#1e40af; font-weight:700; padding:2px 8px; font-size:11px; display:inline-flex; align-items:center; gap:3px;" title="إعادة الترتيب المنطقي لأسئلة وفصول البحث تسلسلياً وفق المنطق الأكاديمي واللاهوتي"><span>🔀</span> <span>ترتيب منطقي</span></button>
                 <button class="btn-ctrl" onclick="recalibrateActiveMonograph()" style="background:#065f46; color:#fff; border-color:#065f46; font-weight:700; padding:2px 7px; font-size:11px; display:inline-flex; align-items:center; gap:3px;" title="إعادة معايرة وتوليف الأطروحة ودمج الأسئلة الجزئية في مفاهيم شاملة"><span>⚖️</span> <span>معايرة</span></button>
-                <button class="btn-ctrl" onclick="previewCurrentMonograph()" style="background:#7c2d12; color:#fff; border-color:#7c2d12; font-weight:800; padding:2px 8px; font-size:11px; display:inline-flex; align-items:center; gap:3px;" title="معاينة وطباعة الأطروحة A4"><span>🖨️</span> <span>طباعة</span></button>
+                <button class="btn-ctrl" onclick="downloadCurrentExport('docx')" style="background:#2563eb; color:#fff; border-color:#2563eb; font-weight:700; padding:2px 8px; font-size:11px; display:inline-flex; align-items:center; gap:3px;" title="تنزيل الأطروحة كاملة كملف Word"><span>📄</span> <span>Word</span></button>
+                <button class="btn-ctrl" onclick="previewCurrentMonograph()" style="background:#7c2d12; color:#fff; border-color:#7c2d12; font-weight:800; padding:2px 8px; font-size:11px; display:inline-flex; align-items:center; gap:3px;" title="معاينة وطباعة الأطروحة A4"><span>🖨️</span> <span>طباعة A4</span></button>
             </div>
         </div>
 
         <!-- Messages Area (VAST & EXPANSIVE - OVER 80% SCREEN HEIGHT) -->
         <div class="messages-area" id="messagesArea">
             <div class="messages-container" id="messagesContainer">
-                <!-- Real-Time Library Reference Discovery & Enrichment Alert Card (Inside scrollable content!) -->
-                <div id="libraryEnrichmentCard" style="display:none; margin: 8px 0 14px 0; padding: 10px 14px; background: linear-gradient(135deg, rgba(217, 119, 6, 0.12), rgba(124, 45, 18, 0.08)); border: 1px solid var(--accent); border-radius: 8px; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
-                    <div style="display:flex; align-items:center; gap:10px;">
-                        <span style="font-size:22px;">🔔📚</span>
-                        <div>
-                            <div style="font-size:12px; font-weight:800; color:var(--text-main);">
-                                انتبه: تم رصد <span id="enrichBooksCount" style="color:var(--accent); font-size:13.5px;">0</span> مراجع كنسية متخصصة في مكتبتك لنفس هذا الموضوع!
-                            </div>
-                            <div id="enrichBooksList" style="font-size:11px; color:var(--text-sub); margin-top:3px; display:flex; gap:5px; flex-wrap:wrap; max-height:60px; overflow-y:auto;">
-                                <!-- Book Badges -->
-                            </div>
+                <!-- Real-Time Library Reference Discovery & Enrichment Alert (Slim notification banner) -->
+                <div id="libraryEnrichmentCard" style="display:none; margin: 4px 0 10px 0; padding: 4px 10px; background: rgba(217, 119, 6, 0.1); border: 1px solid rgba(217, 119, 6, 0.35); border-radius: 6px; align-items: center; justify-content: space-between; gap: 8px; font-size: 11.5px;">
+                    <div style="display:flex; align-items:center; gap:6px; min-width:0; overflow:hidden;">
+                        <span style="font-size:14px; flex-shrink:0;">📚</span>
+                        <span style="font-weight:700; color:var(--text-main); white-space:nowrap;">مراجع جديدة بالمكتبة (<span id="enrichBooksCount" style="color:var(--accent); font-weight:800;">0</span>):</span>
+                        <div id="enrichBooksList" style="display:flex; gap:4px; overflow-x:auto; white-space:nowrap; padding-bottom:1px;">
+                            <!-- Book Badges -->
                         </div>
                     </div>
-                    <div style="display:flex; align-items:center; gap:6px;">
-                        <button onclick="enrichCurrentMonographWithNewBooks()" class="btn-ctrl" style="background:#7c2d12; color:#fff; border-color:#7c2d12; font-weight:800; padding:5px 12px; font-size:11.5px; box-shadow:0 2px 5px rgba(124,45,18,0.25); display:inline-flex; align-items:center; gap:5px; cursor:pointer;" title="توسيع الأطروحة واستخراج الشواهد الآبائية من هذه المراجع">
-                            <span>⚡</span> إثراء وتوسيع الأطروحة بهذه المراجع
+                    <div style="display:flex; align-items:center; gap:4px; flex-shrink:0;">
+                        <button onclick="enrichCurrentMonographWithNewBooks()" class="btn-ctrl" style="background:#7c2d12; color:#fff; border-color:#7c2d12; font-weight:700; padding:2px 8px; font-size:11px; display:inline-flex; align-items:center; gap:4px; cursor:pointer;" title="توسيع الأطروحة واستخراج الشواهد الآبائية من هذه المراجع">
+                            <span>⚡</span> إثراء الأطروحة
                         </button>
-                        <button onclick="document.getElementById('libraryEnrichmentCard').style.display='none'" style="background:none; border:none; cursor:pointer; font-size:14px; color:var(--text-sub); padding:2px 6px; border-radius:4px;" title="إغلاق التنبيه">✕</button>
+                        <button onclick="document.getElementById('libraryEnrichmentCard').style.display='none'" style="background:none; border:none; cursor:pointer; font-size:12px; color:var(--text-sub); padding:1px 4px;" title="إغلاق">✕</button>
                     </div>
                 </div>
 
@@ -2278,13 +2334,6 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
 
         <!-- Input Area -->
         <div class="input-area">
-            <div class="topic-flow-toolbar">
-                <span class="topic-flow-label">مسار الحوار:</span>
-                <button type="button" class="topic-mode-pill active" id="btnModeContinue" onclick="setTopicMode('continue')" title="إدراج هذا السؤال كسؤال متسلسل في نفس موضوع وبحث التبويب الحالي (افتراضي)">🔗 استكمال في نفس المبحث</button>
-                <button type="button" class="topic-mode-pill" id="btnModeNew" onclick="setTopicMode('new')" title="فتح تبويب ومبحث مستقل وجديد كلياً في القائمة الجانبية">➕ فتح بحث مستقل جديد</button>
-                <button type="button" class="topic-mode-pill" id="btnModeAuto" onclick="setTopicMode('auto')" title="تصنيف ذكي: استكمال نفس المبحث إذا كان متصلاً أو فتح موضوع جديد إذا اختلف">⚡ ذكي تلقائي</button>
-                <button type="button" class="topic-mode-pill" onclick="clearBotMemory()" title="تفريغ ذاكرة البوت ومسح سياق الأسئلة السابقة للبدء بصفحة بيضاء" style="background:rgba(239, 68, 68, 0.12); border-color:#ef4444; color:#dc2626; font-weight:700; margin-right:auto;">🧹 تفريغ الذاكرة</button>
-            </div>
             <div class="input-box-wrapper">
                 <textarea 
                     id="chatInput" 
@@ -2298,8 +2347,11 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                     ➤
                 </button>
             </div>
-            <div class="input-disclaimer">
-                المساعد مستند بالكامل إلى نصوص المراجع الكنسية المعتمدة ومحمي بضوابط منع الهلوسة والتوثيق الحرفي.
+            <div class="input-disclaimer" style="display:flex; justify-content:space-between; align-items:center;">
+                <span>المساعد مستند بالكامل إلى نصوص المراجع الكنسية المعتمدة ومحمي بضوابط منع الهلوسة والتوثيق الحرفي.</span>
+                <button type="button" onclick="clearBotMemory()" title="تفريغ ذاكرة المساعد ومسح سياق الأسئلة السابقة" style="background:none; border:none; color:var(--text-sub); opacity:0.75; cursor:pointer; font-size:11px; display:inline-flex; align-items:center; gap:3px;" onmouseover="this.style.opacity='1'; this.style.color='#dc2626';" onmouseout="this.style.opacity='0.75'; this.style.color='var(--text-sub)';">
+                    <span>🧹</span> <span>تفريغ الذاكرة</span>
+                </button>
             </div>
         </div>
     </main>
@@ -2763,15 +2815,15 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             // Navigation Buttons
             const prevBtn = document.createElement('button');
             prevBtn.className = 'btn-subq-nav';
-            prevBtn.title = 'السؤال السابق';
-            prevBtn.innerHTML = '<span>◀</span> <span>السابق</span>';
+            prevBtn.title = 'المحور السابق';
+            prevBtn.innerHTML = '<span>◀</span>';
             prevBtn.onclick = () => navigateSubq(-1);
             wrapper.appendChild(prevBtn);
 
             const nextBtn = document.createElement('button');
             nextBtn.className = 'btn-subq-nav';
-            nextBtn.title = 'السؤال التالي';
-            nextBtn.innerHTML = '<span>التالي</span> <span>▶</span>';
+            nextBtn.title = 'المحور التالي';
+            nextBtn.innerHTML = '<span>▶</span>';
             nextBtn.onclick = () => navigateSubq(1);
             wrapper.appendChild(nextBtn);
 
@@ -2780,7 +2832,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             detachSubqBtn.style.color = '#4338ca';
             detachSubqBtn.style.borderColor = 'rgba(67,56,202,0.3)';
             detachSubqBtn.title = 'فصل هذا السؤال والمحور المختار ليصبح أطروحة وبحثاً مستقلاً بذاته';
-            detachSubqBtn.innerHTML = '<span>📑</span> <span>فصل كبحث مستقل</span>';
+            detachSubqBtn.innerHTML = '<span>📑</span> <span>فصل</span>';
             detachSubqBtn.onclick = () => detachCurrentQuestionPrompt();
             wrapper.appendChild(detachSubqBtn);
 
@@ -2789,27 +2841,9 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             delBtn.style.color = '#ef4444';
             delBtn.style.borderColor = 'rgba(239,68,68,0.3)';
             delBtn.title = 'حذف هذا السؤال الجانبي من الأطروحة';
-            delBtn.innerHTML = '<span>🗑️</span> <span>حذف السؤال</span>';
+            delBtn.innerHTML = '<span>🗑️</span>';
             delBtn.onclick = () => deleteCurrentQuestionPrompt();
             wrapper.appendChild(delBtn);
-
-            const reorderManualSubqBtn = document.createElement('button');
-            reorderManualSubqBtn.className = 'btn-subq-nav';
-            reorderManualSubqBtn.style.color = '#4338ca';
-            reorderManualSubqBtn.style.borderColor = 'rgba(67,56,202,0.3)';
-            reorderManualSubqBtn.title = 'ترتيب أسئلة ومحاور البحث يدوياً وتحديد تسلسلها برقم السؤال';
-            reorderManualSubqBtn.innerHTML = '<span>🔢</span> <span>ترتيب يدوي</span>';
-            reorderManualSubqBtn.onclick = () => openManualReorderModal();
-            wrapper.appendChild(reorderManualSubqBtn);
-
-            const reorderSubqBtn = document.createElement('button');
-            reorderSubqBtn.className = 'btn-subq-nav';
-            reorderSubqBtn.style.color = '#1e40af';
-            reorderSubqBtn.style.borderColor = 'rgba(30,64,175,0.3)';
-            reorderSubqBtn.title = 'إعادة ترتيب أسئلة ومحاور البحث تسلسلياً وفق المنطق الأكاديمي';
-            reorderSubqBtn.innerHTML = '<span>🔀</span> <span>ترتيب منطقي</span>';
-            reorderSubqBtn.onclick = () => reorderActiveMonograph();
-            wrapper.appendChild(reorderSubqBtn);
 
             subqBar.appendChild(wrapper);
             currentNavigatedQIdx = queryToOriginalTurn[0];
@@ -3498,9 +3532,6 @@ async function startNewChat() {
                 const turnActions = document.createElement('div');
                 turnActions.className = 'msg-actions-bar';
                 turnActions.innerHTML = `
-                    <button class="btn-msg-act" onclick="previewCurrentMonograph()" style="color:#7c2d12; font-weight:800; border:1px solid #7c2d12; background:rgba(124,45,18,0.08);" title="معاينة وطباعة الأطروحة بنمط النشر A4">
-                        <span>🖨️</span> معاينة وطباعة الأطروحة
-                    </button>
                     <button class="btn-msg-act" onclick="copyTurnMarkdown(this)" title="نسخ نص هذا المبحث كاملاً">
                         <span>📋</span> نسخ النص
                     </button>
@@ -3509,9 +3540,6 @@ async function startNewChat() {
                     </button>
                     <button class="btn-msg-act" onclick="exportSingleTurnPdf(${turnNumber || 1})" title="تصدير هذا المبحث تحديداً كملف PDF عالي الجودة">
                         <span>📕</span> تصدير PDF للمبحث
-                    </button>
-                    <button class="btn-msg-act" onclick="openCompilationModal()" title="تجميع هذا البحث مع سائر المحاور في أطروحة كاملة وتصديرها">
-                        <span>📑</span> تجميع الأطروحة
                     </button>
                     <button class="btn-msg-act" onclick="detachTurnByNumber(${turnNumber || 1})" style="color:#4338ca; border-color:rgba(67,56,202,0.35); background:rgba(67,56,202,0.06); font-weight:700;" title="فصل هذا السؤال وإجابته كأطروحة وبحث لاهوتي مستقل في جلسة خاصة">
                         <span>📑</span> فصل كبحث مستقل
@@ -5213,7 +5241,7 @@ ${url}`;
                     const listEl = document.getElementById('enrichBooksList');
                     if (listEl) {
                         listEl.innerHTML = (data.books || []).map(b => 
-                            `<span style="background:var(--bg-card); border:1px solid var(--card-border); padding:2px 7px; border-radius:4px; font-weight:600; display:inline-flex; align-items:center; gap:3px;">📖 ${escapeHtml(b.title)}</span>`
+                            `<span style="background:var(--bg-card); border:1px solid var(--card-border); padding:1px 6px; border-radius:4px; font-size:11px; font-weight:600; display:inline-flex; align-items:center; gap:3px; white-space:nowrap;">📖 ${escapeHtml(b.title)}</span>`
                         ).join('');
                     }
                     card.style.display = 'flex';
@@ -5243,6 +5271,31 @@ ${url}`;
                 alert("خطأ أثناء إثراء الأطروحة: " + e.message);
             }
         }
+
+        function toggleFocusReadingMode() {
+            const isFocus = document.body.classList.toggle('focus-reading-mode');
+            const btn = document.getElementById('btnFocusMode');
+            if (btn) {
+                if (isFocus) {
+                    btn.classList.add('active');
+                    btn.style.background = '#2563eb';
+                    btn.style.color = '#fff';
+                } else {
+                    btn.classList.remove('active');
+                    btn.style.background = 'rgba(37,99,235,0.12)';
+                    btn.style.color = '#2563eb';
+                }
+            }
+            if (isFocus) {
+                showTopicToast("📖 تم تفعيل وضع القراءة والتركيز (اضغط Esc للعودة)");
+            }
+        }
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && document.body.classList.contains('focus-reading-mode')) {
+                toggleFocusReadingMode();
+            }
+        });
 
 </script>
 </body>
