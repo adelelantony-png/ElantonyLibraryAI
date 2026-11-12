@@ -2481,6 +2481,43 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                     </div>
                 </div>
 
+                <!-- Dedicated Multi-Style Re-synthesis Standalone Button in Main Web UI Header -->
+                <div id="standaloneResynthContainer" style="position:relative; display:inline-block;">
+                    <button class="btn-ctrl" onclick="toggleStandaloneResynthDropdown(event)" id="btnStandaloneResynth" style="background:#4338ca; color:#fff; border-color:#6366f1; font-weight:700; padding:2px 9px; font-size:11px; display:inline-flex; align-items:center; gap:4px; cursor:pointer;" title="إعادة صياغة الأطروحة بنمط لاهوتي مخصص (أكاديمي، دفاعي، رعوي، أو لغة شبابية مبسطة)">
+                        <span>🔄</span> <span>إعادة صياغة البحث</span> <span style="font-size:8px;">▼</span>
+                    </button>
+                    <div id="standaloneResynthMenu" style="display:none; position:absolute; top:calc(100% + 4px); left:0; background:var(--bg-modal, #ffffff) !important; border:1px solid var(--card-border, #cbd5e1); border-radius:8px; box-shadow:0 12px 32px rgba(0,0,0,0.5); min-width:240px; z-index:100; padding:6px; font-size:11.5px; text-align:right; opacity:1 !important;">
+                        <div onclick="closeStandaloneResynthDropdown(); triggerResynthesize('academic');" style="display:flex; align-items:center; gap:8px; padding:7px 10px; border-radius:6px; cursor:pointer; color:var(--text-main); font-weight:600;" onmouseover="this.style.background='var(--hover-bg, rgba(255,255,255,0.07))'" onmouseout="this.style.background='transparent'">
+                            <span style="font-size:14px;">🎓</span>
+                            <div style="display:flex; flex-direction:column;">
+                                <span style="font-size:11.5px;">تحويل إلى نمط أكاديمي موسع</span>
+                                <span style="font-size:9.5px; color:var(--text-sub); font-weight:normal;">تحقيق نصوص أصلية ولغات قديمة ومقارنة مدارس</span>
+                            </div>
+                        </div>
+                        <div onclick="closeStandaloneResynthDropdown(); triggerResynthesize('apologetic');" style="display:flex; align-items:center; gap:8px; padding:7px 10px; border-radius:6px; cursor:pointer; color:var(--text-main); font-weight:600;" onmouseover="this.style.background='var(--hover-bg, rgba(255,255,255,0.07))'" onmouseout="this.style.background='transparent'">
+                            <span style="font-size:14px;">⚖️</span>
+                            <div style="display:flex; flex-direction:column;">
+                                <span style="font-size:11.5px;">تحويل إلى نمط دفاعي مقارن</span>
+                                <span style="font-size:9.5px; color:var(--text-sub); font-weight:normal;">تفنيد الشبهات وبراهين المجامع المسكونية</span>
+                            </div>
+                        </div>
+                        <div onclick="closeStandaloneResynthDropdown(); triggerResynthesize('pastoral');" style="display:flex; align-items:center; gap:8px; padding:7px 10px; border-radius:6px; cursor:pointer; color:var(--text-main); font-weight:600;" onmouseover="this.style.background='var(--hover-bg, rgba(255,255,255,0.07))'" onmouseout="this.style.background='transparent'">
+                            <span style="font-size:14px;">🕊️</span>
+                            <div style="display:flex; flex-direction:column;">
+                                <span style="font-size:11.5px;">تحويل إلى نمط رعوي وروحي</span>
+                                <span style="font-size:9.5px; color:var(--text-sub); font-weight:normal;">تطبيق معاش وحياة الصلاة والوعظ الكنسي</span>
+                            </div>
+                        </div>
+                        <div onclick="closeStandaloneResynthDropdown(); triggerResynthesize('youth');" style="display:flex; align-items:center; gap:8px; padding:7px 10px; border-radius:6px; cursor:pointer; color:var(--text-main); font-weight:600;" onmouseover="this.style.background='var(--hover-bg, rgba(255,255,255,0.07))'" onmouseout="this.style.background='transparent'">
+                            <span style="font-size:14px;">🌱</span>
+                            <div style="display:flex; flex-direction:column;">
+                                <span style="font-size:11.5px;">تحويل إلى لغة شبابية بسيطة</span>
+                                <span style="font-size:9.5px; color:var(--text-sub); font-weight:normal;">تبسيط المفاهيم بأمثلة حية وتيسير لغير المتخصصين</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <button class="btn-ctrl" onclick="downloadCurrentExport('docx')" style="background:#2563eb; color:#fff; border-color:#2563eb; font-weight:700; padding:2px 8px; font-size:11px; display:inline-flex; align-items:center; gap:3px;" title="تنزيل الأطروحة كاملة كملف Word منسق"><span>📄</span> <span>Word</span></button>
                 <button class="btn-ctrl" onclick="downloadCurrentExport('pdf')" style="background:#dc2626; color:#fff; border-color:#dc2626; font-weight:700; padding:2px 8px; font-size:11px; display:inline-flex; align-items:center; gap:3px;" title="تنزيل الأطروحة كاملة كملف PDF عالي الجودة للطباعة"><span>📕</span> <span>PDF</span></button>
                 <button class="btn-ctrl" onclick="previewCurrentMonograph()" style="background:#7c2d12; color:#fff; border-color:#7c2d12; font-weight:800; padding:2px 8px; font-size:11px; display:inline-flex; align-items:center; gap:3px;" title="معاينة الأطروحة كصفحة ويب كاملة (Web View) وطباعتها بنمط A4 الفاخر"><span>🌐</span> <span>معاينة ويب</span></button>
@@ -5500,6 +5537,18 @@ ${url}`;
             if (menu) menu.style.display = 'none';
         }
 
+        function toggleStandaloneResynthDropdown(e) {
+            if (e) e.stopPropagation();
+            const menu = document.getElementById('standaloneResynthMenu');
+            if (!menu) return;
+            menu.style.display = (menu.style.display === 'none' || !menu.style.display) ? 'block' : 'none';
+        }
+
+        function closeStandaloneResynthDropdown() {
+            const menu = document.getElementById('standaloneResynthMenu');
+            if (menu) menu.style.display = 'none';
+        }
+
         function toggleLibraryEnrichmentCard() {
             const card = document.getElementById('libraryEnrichmentCard');
             if (!card) return;
@@ -5510,6 +5559,10 @@ ${url}`;
             const container = document.getElementById('reorderDropdownContainer');
             if (container && !container.contains(e.target)) {
                 closeReorderDropdown();
+            }
+            const resynthContainer = document.getElementById('standaloneResynthContainer');
+            if (resynthContainer && !resynthContainer.contains(e.target)) {
+                closeStandaloneResynthDropdown();
             }
         });
 

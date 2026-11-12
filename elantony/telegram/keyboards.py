@@ -40,7 +40,7 @@ def get_main_menu_reply_keyboard() -> Dict[str, Any]:
     return {
         "keyboard": [
             [{"text": "🌐 رابط موقع الأبحاث"}, {"text": "🤖 اسأل المساعد الذكي"}],
-            [{"text": "📑 تجميع الأطروحة (Word + PDF)"}],
+            [{"text": "📑 تجميع الأطروحة (Word + PDF)"}, {"text": "🔄 إعادة صياغة البحث"}],
             [{"text": "📜 سنكسار اليوم"}, {"text": "📖 آية وتفسير آبائي"}],
             [{"text": "🌐 سحب جوجل درايف"}, {"text": "📡 قنوات تليجرام"}],
             [{"text": "📊 لوحة الإشراف (Admin)"}, {"text": "⚡ قائمة الأوامر الخاصة"}],
@@ -65,6 +65,9 @@ def get_main_menu_inline_keyboard() -> Dict[str, Any]:
             [
                 {"text": "🧠 المساعد اللاهوتي الفائق (ذاكرة مستمرة)", "callback_data": "menu:ask_ai"},
                 {"text": "📑 تجميع البحث (Word)", "callback_data": "session:compile"}
+            ],
+            [
+                {"text": "🔄 إعادة صياغة البحث بنمط مخصص", "callback_data": "menu:resynth_active"}
             ],
             [
                 {"text": "📜 سنكسار اليوم القبطي", "callback_data": "menu:synaxarium"},

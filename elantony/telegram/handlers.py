@@ -724,7 +724,7 @@ class TelegramHandlerService:
 
         # 3.15 Handle Research Re-synthesis Command
         if cmd in ["/resynthesize", "/rewrite", "/style", "/resynth"] or text in [
-            "إعادة صياغة", "إعادة صياغة البحث", "صياغة الأطروحة", "صياغة بنمط آخر", "🔄 إعادة صياغة بنمط آخر"
+            "إعادة صياغة", "إعادة صياغة البحث", "صياغة الأطروحة", "صياغة بنمط آخر", "🔄 إعادة صياغة بنمط آخر", "🔄 إعادة صياغة البحث"
         ]:
             active_sess = repo.get_or_create_active_session(str(user_id))
             s_id = active_sess["id"]
@@ -1153,7 +1153,18 @@ class TelegramHandlerService:
             await self.send_welcome_dashboard(client, chat_id, user_name)
             return
 
-                # 1.01 Session Callbacks
+        # 1.01 Session Callbacks
+        if data == "menu:resynth_active":
+            active_sess = repo.get_or_create_active_session(str(user_id))
+            s_id = active_sess["id"]
+            await self.send_message(
+                client, chat_id,
+                "🔄 *إعادة صياغة الأطروحة بنمط لاهوتي مخصص:* ✠\n\n"
+                "اختر النمط المطلوب لتحويل وصياغة بحثك كاملاً مع **الحفاظ التام على 100% من الشواهد والمراجع والصفحات الأصلية**:",
+                reply_markup=get_resynthesize_menu_keyboard(s_id)
+            )
+            return
+
         if data.startswith("resynth_menu:"):
             s_id = data.split(":", 1)[1]
             await self.send_message(

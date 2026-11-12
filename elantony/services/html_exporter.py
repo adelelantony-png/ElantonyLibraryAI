@@ -82,6 +82,64 @@ PREVIEW_TOOLBAR_JS = r"""<script>
       window.location.href = '/';
     }
   }
+
+  function togglePreviewResynthMenu(e) {
+    if (e) e.stopPropagation();
+    var menu = document.getElementById('previewResynthMenu');
+    if (!menu) return;
+    menu.style.display = (menu.style.display === 'block') ? 'none' : 'block';
+  }
+
+  document.addEventListener('click', function() {
+    var menu = document.getElementById('previewResynthMenu');
+    if (menu) menu.style.display = 'none';
+  });
+
+  async function executePreviewResynth(targetMode) {
+    var parts = window.location.pathname.split('/');
+    var sId = null;
+    for (var i = 0; i < parts.length; i++) {
+      if (parts[i] === 'sessions' && i + 1 < parts.length) {
+        sId = parts[i + 1];
+        break;
+      }
+    }
+    if (!sId) {
+      alert("تعذر تحديد جلسة البحث من الرابط الحالي.");
+      return;
+    }
+    var modeLabels = {
+      'academic': 'أكاديمي موسع',
+      'apologetic': 'دفاعي مقارن',
+      'pastoral': 'رعوي وروحي',
+      'youth': 'لغة شبابية بسيطة'
+    };
+    var label = modeLabels[targetMode] || targetMode;
+    var confirmMsg = "هل تريد إعادة صياغة هذا البحث بالكامل بنمط «" + label + "»؟\n\n" +
+      "• سيتم الحفاظ التام على 100% من الشواهد والمراجع وأرقام الصفحات.\n" +
+      "• سيتم فتح نسخة الأطروحة المصاغة فور اكتمال التوليف.";
+    if (!confirm(confirmMsg)) return;
+
+    var overlay = document.getElementById('resynthLoadingOverlay');
+    if (overlay) overlay.style.display = 'flex';
+
+    try {
+      var res = await fetch('/api/sessions/' + sId + '/resynthesize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target_mode: targetMode, create_new_copy: true })
+      });
+      if (!res.ok) {
+        var errData = await res.json().catch(function() { return {}; });
+        throw new Error(errData.detail || ('HTTP ' + res.status));
+      }
+      var data = await res.json();
+      window.location.href = '/api/sessions/' + data.session_id + '/preview';
+    } catch(err) {
+      if (overlay) overlay.style.display = 'none';
+      alert("تعذر إعادة الصياغة: " + err.message);
+    }
+  }
 </script>"""
 
 """
@@ -1052,6 +1110,43 @@ def generate_session_html(comp_data: Dict[str, Any]) -> str:
       <button class="btn-print-action" style="background:#dc2626;" onclick="downloadPdfFile()" title="تحميل ملف PDF مطبوع جاهز">
         <span>📕</span> تحميل PDF
       </button>
+
+      <!-- Dedicated Multi-Style Resynthesis Button in Web Preview Floating Bar -->
+      <div style="position:relative; display:inline-block;">
+        <button class="btn-print-action" style="background:#4338ca; border:1px solid #6366f1; font-weight:800;" onclick="togglePreviewResynthMenu(event)" title="إعادة صياغة الأطروحة بنمط لاهوتي مخصص مع صون كافة الشواهد والصفحات">
+          <span>🔄</span> إعادة صياغة بنمط مخصص ▼
+        </button>
+        <div id="previewResynthMenu" style="display:none; position:absolute; top:calc(100% + 6px); right:0; background:#0f172a; border:1px solid #334155; border-radius:8px; box-shadow:0 12px 28px rgba(0,0,0,0.6); min-width:240px; z-index:9999; padding:6px; text-align:right;">
+          <div onclick="executePreviewResynth('academic')" style="display:flex; align-items:center; gap:8px; padding:7px 10px; border-radius:6px; cursor:pointer; color:#f8fafc; font-size:10.5pt; font-weight:700;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'">
+            <span style="font-size:13pt;">🎓</span>
+            <div style="display:flex; flex-direction:column;">
+              <span>نمط أكاديمي موسع</span>
+              <span style="font-size:8.5pt; color:#94a3b8; font-weight:normal;">تحقيق نصوص ولغات قديمة</span>
+            </div>
+          </div>
+          <div onclick="executePreviewResynth('apologetic')" style="display:flex; align-items:center; gap:8px; padding:7px 10px; border-radius:6px; cursor:pointer; color:#f8fafc; font-size:10.5pt; font-weight:700;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'">
+            <span style="font-size:13pt;">⚖️</span>
+            <div style="display:flex; flex-direction:column;">
+              <span>نمط دفاعي مقارن</span>
+              <span style="font-size:8.5pt; color:#94a3b8; font-weight:normal;">تفنيد الشبهات وبراهين المجامع</span>
+            </div>
+          </div>
+          <div onclick="executePreviewResynth('pastoral')" style="display:flex; align-items:center; gap:8px; padding:7px 10px; border-radius:6px; cursor:pointer; color:#f8fafc; font-size:10.5pt; font-weight:700;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'">
+            <span style="font-size:13pt;">🕊️</span>
+            <div style="display:flex; flex-direction:column;">
+              <span>نمط رعوي وروحي</span>
+              <span style="font-size:8.5pt; color:#94a3b8; font-weight:normal;">تطبيق معاش وحياة الصلاة</span>
+            </div>
+          </div>
+          <div onclick="executePreviewResynth('youth')" style="display:flex; align-items:center; gap:8px; padding:7px 10px; border-radius:6px; cursor:pointer; color:#f8fafc; font-size:10.5pt; font-weight:700;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'">
+            <span style="font-size:13pt;">🌱</span>
+            <div style="display:flex; flex-direction:column;">
+              <span>لغة شبابية بسيطة</span>
+              <span style="font-size:8.5pt; color:#94a3b8; font-weight:normal;">تبسيط لاهوتي بأمثلة حية معاصرة</span>
+            </div>
+          </div>
+        </div>
+      </div>
       <button class="btn-print-action" style="background:#059669;" onclick="downloadStandaloneHtml()" title="حفظ المستند بالكامل كملف مستقل لإرساله عبر واتساب أو تليجرام أو فتحه دون إنترنت">
         <span>📥</span> حفظ ملف المعاينة (.html)
       </button>
@@ -1091,6 +1186,13 @@ def generate_session_html(comp_data: Dict[str, Any]) -> str:
     {"".join(mubahith_html)}
     {bib_section_html}
   </main>
+</div>
+
+<!-- Re-synthesis Loading Overlay -->
+<div id="resynthLoadingOverlay" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(15,23,42,0.88); z-index:99999; flex-direction:column; align-items:center; justify-content:center; gap:16px; color:#ffffff; font-family:'Cairo',sans-serif; text-align:center; padding:20px;">
+  <div style="font-size:42px; animation:spin 1.5s linear infinite;">🔄</div>
+  <div style="font-size:20px; font-weight:800; color:#fbbf24;">جاري إعادة صياغة الأطروحة بالنمط المختار...</div>
+  <div style="font-size:14px; opacity:0.85; max-width:440px; line-height:1.6;">يتم الآن إعادة نسج الشرح وصون كافة أرقام الصفحات والمراجع الكنسية المعتمدة دون أي أدنى اختلاق.</div>
 </div>
 """
     return html_body + PREVIEW_TOOLBAR_JS + """
