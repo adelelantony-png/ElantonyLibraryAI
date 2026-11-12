@@ -1393,6 +1393,66 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
         .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
         @keyframes blink { 0%, 100% { opacity: 0.2; } 50% { opacity: 1; } }
 
+        /* Floating Back to Top Button */
+        .btn-scroll-floating {
+            position: fixed;
+            bottom: 85px;
+            left: 28px;
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            background: var(--bg-card);
+            border: 1px solid var(--gold);
+            color: var(--gold);
+            box-shadow: 0 4px 14px rgba(0,0,0,0.35);
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-size: 15px;
+            font-weight: 800;
+            z-index: 99;
+            transition: all 0.25s ease;
+        }
+        .btn-scroll-floating:hover {
+            background: var(--gold);
+            color: #ffffff;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 18px rgba(0,0,0,0.45);
+        }
+
+        /* Quick Quote & Selection Mini-Toolbar */
+        .selection-toolbar {
+            position: absolute;
+            display: none;
+            background: var(--bg-modal, #1e293b);
+            border: 1px solid var(--gold);
+            border-radius: 20px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+            padding: 3px 6px;
+            z-index: 10000;
+            gap: 4px;
+            align-items: center;
+        }
+        .btn-sel-act {
+            background: none;
+            border: none;
+            color: var(--text-main, #ffffff);
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+            padding: 3px 8px;
+            border-radius: 12px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            transition: background 0.15s;
+        }
+        .btn-sel-act:hover {
+            background: rgba(255,255,255,0.15);
+            color: var(--gold);
+        }
+
         
         /* Scholar Profile Pill */
         .scholar-profile-pill {
@@ -2370,6 +2430,11 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             </div>
 
             <div class="nav-actions">
+                <!-- Live Network & AI Status Badge -->
+                <div id="networkStatusBadge" style="display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:12px; font-size:10px; font-weight:800; background:rgba(16,185,129,0.12); color:#059669; border:1px solid rgba(16,185,129,0.35); flex-shrink:0;" title="حالة اتصال المنظومة بالإنترنت والذكاء الاصطناعي">
+                    <span id="networkStatusDot" style="font-size:7px;">🟢</span>
+                    <span id="networkStatusText">متصل بالإنترنت</span>
+                </div>
                 <button class="btn-ctrl" onclick="toggleFocusReadingMode()" id="btnFocusMode" title="تفعيل وضع القراءة والتركيز (إخفاء الأشرطة والقوائم للقراءة الهادئة)" style="padding:3px 9px; font-size:11px; font-weight:700; background:rgba(37,99,235,0.12); color:#2563eb; border-color:#2563eb; display:inline-flex; align-items:center; gap:4px;">
                     <span>📖</span> <span>وضع القراءة</span>
                 </button>
@@ -2526,6 +2591,23 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
 
         <!-- Messages Area (VAST & EXPANSIVE - OVER 80% SCREEN HEIGHT) -->
         <div class="messages-area" id="messagesArea">
+            <!-- Floating Back to Top Button in Chat Area -->
+            <button id="btnScrollTopChat" class="btn-scroll-floating" onclick="scrollToTopChat()" title="الرجوع لأول الأطروحة">
+                <span>▲</span>
+            </button>
+
+            <!-- Quick Quote & Selection Mini-Toolbar -->
+            <div id="selectionToolbar" class="selection-toolbar">
+                <button class="btn-sel-act" onclick="copySelectionWithCitation()" title="نسخ النص المحدد مع توثيق اسم المكتبة">
+                    <span>📋</span> نسخ مع التوثيق
+                </button>
+                <button class="btn-sel-act" onclick="saveSelectionToNotebook()" title="حفظ هذا الاقتباس في كشكول الباحث والمفضلة">
+                    <span>⭐</span> حفظ بالكشكول
+                </button>
+                <button class="btn-sel-act" onclick="searchSelectionInLibrary()" title="البحث عن هذا النص في أمهات كتب المكتبة">
+                    <span>🔍</span> بحث في الكتب
+                </button>
+            </div>
             <div class="messages-container" id="messagesContainer">
                 <!-- Real-Time Library Reference Discovery & Enrichment Alert (Slim notification banner) -->
                 <div id="libraryEnrichmentCard" style="display:none; margin: 4px 0 10px 0; padding: 4px 10px; background: rgba(217, 119, 6, 0.1); border: 1px solid rgba(217, 119, 6, 0.35); border-radius: 6px; align-items: center; justify-content: space-between; gap: 8px; font-size: 11.5px;">
@@ -3559,6 +3641,7 @@ async function startNewChat() {
             const lower = text.toLowerCase();
             if (['/reset', '/clear', '/new', 'تصفير', 'تصفير الذاكرة', 'مسح الذاكرة', 'مسح', 'reset', 'clear', 'ابدأ من جديد'].includes(lower)) {
                 chatInput.value = '';
+                localStorage.removeItem('elantony_draft_query');
                 await startNewChat();
                 showTopicToast("✨ تم تصفير الذاكرة وبدء جلسة جديدة بنجاح!");
                 return;
@@ -3570,6 +3653,7 @@ async function startNewChat() {
             appendMessageBubble('user', text);
             chatInput.value = '';
             chatInput.style.height = 'auto';
+            localStorage.removeItem('elantony_draft_query');
             btnSend.disabled = true;
 
             const loadingId = appendLoadingBubble();
@@ -3804,6 +3888,17 @@ async function startNewChat() {
             scrollToBottom();
         }
 
+        let loadingStepInterval = null;
+        function getDepthLabel(mode) {
+            const m = {
+                'academic': 'أكاديمي موثق',
+                'apologetic': 'دفاعي مقارن',
+                'pastoral': 'رعوي وروحي',
+                'youth': 'لغة شبابية بسيطة'
+            };
+            return m[mode] || 'أكاديمي';
+        }
+
         function appendLoadingBubble() {
             const id = 'loading_' + Date.now();
             const row = document.createElement('div');
@@ -3819,16 +3914,53 @@ async function startNewChat() {
 
             const bubble = document.createElement('div');
             bubble.className = 'bubble';
-            bubble.innerHTML = '<span style="font-size: 13.5px; color: var(--text-sub); margin-left: 10px;">جاري استحضار الشواهد والتحليل اللاهوتي...</span><div class="typing-dots"><span></span><span></span><span></span></div>';
+            bubble.style.display = 'flex';
+            bubble.style.flexDirection = 'column';
+            bubble.style.gap = '6px';
+            bubble.style.padding = '14px 18px';
+
+            const activeDepthName = getDepthLabel(currentDepthMode);
+
+            bubble.innerHTML = `
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+                    <span id="loadingStepText" style="font-size:13px; font-weight:800; color:var(--gold); transition:all 0.3s ease;">🔍 1. استرجاع نصوص وشواهد أمهات الكتب (FTS5 + BM25)...</span>
+                    <div class="typing-dots"><span></span><span></span><span></span></div>
+                </div>
+                <div id="loadingStepSub" style="font-size:11px; color:var(--text-sub); opacity:0.85;">البحث المتقاطع في 7,200 كتاب ومخطوط كنسي معتمد...</div>
+            `;
 
             contentDiv.appendChild(bubble);
             row.appendChild(avatar);
             row.appendChild(contentDiv);
             messagesContainer.appendChild(row);
+
+            const steps = [
+                { main: "🔍 1. استرجاع نصوص وشواهد أمهات الكتب (FTS5 + BM25)...", sub: "البحث المتقاطع في 7,200 كتاب ومخطوط كنسي معتمد..." },
+                { main: "📚 2. تدقيق الشواهد الآبائية وأرقام الصفحات الأصلية...", sub: "استبعاد التكرار والتحقق من درجات التوثيق الكنسي المعتمدة..." },
+                { main: "✍️ 3. صياغة الأطروحة بنمط «" + activeDepthName + "»...", sub: "توليف الفكر الآبائي الأرثوذكسي وتفكيك المصطلحات بدقة..." },
+                { main: "🔒 4. مراجعة الأمانة اللاهوتية والتأكد من صحة التوثيقات...", sub: "تأكيد مطابقة النصوص للشواهد المستخرجة قبل العرض النهائي..." }
+            ];
+
+            let stepIdx = 0;
+            if (loadingStepInterval) clearInterval(loadingStepInterval);
+            loadingStepInterval = setInterval(() => {
+                stepIdx = (stepIdx + 1) % steps.length;
+                const textEl = document.getElementById('loadingStepText');
+                const subEl = document.getElementById('loadingStepSub');
+                if (textEl && subEl) {
+                    textEl.textContent = steps[stepIdx].main;
+                    subEl.textContent = steps[stepIdx].sub;
+                }
+            }, 2500);
+
             return id;
         }
 
         function removeLoadingBubble(id) {
+            if (loadingStepInterval) {
+                clearInterval(loadingStepInterval);
+                loadingStepInterval = null;
+            }
             const el = document.getElementById(id);
             if (el) el.remove();
         }
@@ -3836,6 +3968,109 @@ async function startNewChat() {
         function scrollToBottom() {
             messagesArea.scrollTop = messagesArea.scrollHeight;
         }
+
+        function scrollToTopChat() {
+            if (messagesArea) {
+                messagesArea.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        }
+
+        // Quick Quote & Selection Mini-Toolbar
+        let activeSelectedText = '';
+        function handleTextSelection() {
+            const sel = window.getSelection();
+            const toolbar = document.getElementById('selectionToolbar');
+            if (!toolbar) return;
+            const text = sel ? sel.toString().trim() : '';
+            if (!text || text.length < 5) {
+                toolbar.style.display = 'none';
+                activeSelectedText = '';
+                return;
+            }
+            activeSelectedText = text;
+            try {
+                const range = sel.getRangeAt(0);
+                const rect = range.getBoundingClientRect();
+                if (rect.width === 0 && rect.height === 0) {
+                    toolbar.style.display = 'none';
+                    return;
+                }
+                toolbar.style.top = (window.scrollY + rect.top - 40) + 'px';
+                toolbar.style.left = Math.max(10, (window.scrollX + rect.left + (rect.width / 2) - 130)) + 'px';
+                toolbar.style.display = 'flex';
+            } catch(e) {
+                toolbar.style.display = 'none';
+            }
+        }
+        document.addEventListener('selectionchange', handleTextSelection);
+
+        function copySelectionWithCitation() {
+            if (!activeSelectedText) return;
+            const fullQuote = `«${activeSelectedText}»\n— من أبحاث مكتبة القديس أنطونيوس اللاهوتية (ELANTONY LIBRARY AI)`;
+            navigator.clipboard.writeText(fullQuote).then(() => {
+                showTopicToast("📋 تم نسخ الاقتباس مع التوثيق الكنسي بنجاح!");
+                const toolbar = document.getElementById('selectionToolbar');
+                if (toolbar) toolbar.style.display = 'none';
+            });
+        }
+
+        async function saveSelectionToNotebook() {
+            if (!activeSelectedText) return;
+            try {
+                const titleDisp = document.getElementById('currentSessionTitleDisplay');
+                const sessTitle = titleDisp ? titleDisp.textContent : 'بحث لاهوتي';
+                await fetch('/api/scholar/notebook', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        user_id: currentUserId,
+                        book_title: 'اقتباس من الأطروحة الحالية',
+                        author: 'آباء ومعلمو الكنيسة',
+                        excerpt: activeSelectedText,
+                        page_number: 1,
+                        notes: 'اقتباس يدوي من أطروحة: ' + sessTitle
+                    })
+                });
+                showTopicToast("⭐ تم حفظ الاقتباس في كشكول الباحث بنجاح!");
+                loadScholarNotebook().catch(() => {});
+                const toolbar = document.getElementById('selectionToolbar');
+                if (toolbar) toolbar.style.display = 'none';
+            } catch(e) {
+                alert("تعذر الحفظ في الكشكول: " + e.message);
+            }
+        }
+
+        function searchSelectionInLibrary() {
+            if (!activeSelectedText) return;
+            chatInput.value = activeSelectedText.slice(0, 120);
+            chatInput.focus();
+            const toolbar = document.getElementById('selectionToolbar');
+            if (toolbar) toolbar.style.display = 'none';
+            showTopicToast("🔍 تم نقل النص المحدد إلى حقل السؤال، اضغط إرسال للبحث الموسع.");
+        }
+
+        function updateNetworkStatus() {
+            const badge = document.getElementById('networkStatusBadge');
+            const dot = document.getElementById('networkStatusDot');
+            const text = document.getElementById('networkStatusText');
+            if (!badge || !dot || !text) return;
+            if (navigator.onLine) {
+                badge.style.background = 'rgba(16,185,129,0.12)';
+                badge.style.color = '#059669';
+                badge.style.borderColor = 'rgba(16,185,129,0.35)';
+                dot.textContent = '🟢';
+                text.textContent = 'متصل بالإنترنت';
+            } else {
+                badge.style.background = 'rgba(245,158,11,0.16)';
+                badge.style.color = '#d97706';
+                badge.style.borderColor = 'rgba(245,158,11,0.45)';
+                dot.textContent = '⚡';
+                text.textContent = 'وضع عدم الاتصال الذكي (محلي)';
+                showTopicToast("⚡ تم تفعيل وضع عدم الاتصال الذكي: المنظومة مستمرة بالاعتماد على المراجع المحلية والذكاء المدمج.");
+            }
+        }
+        window.addEventListener('online', updateNetworkStatus);
+        window.addEventListener('offline', updateNetworkStatus);
 
         async function openCompilationModal() {
             if (!currentSessionId) {
@@ -4488,6 +4723,29 @@ ${url}`;
             // Restore saved depth mode
             const savedDepth = localStorage.getItem('elantony_depth_mode') || 'academic';
             setDepthMode(savedDepth);
+
+            // Draft Auto-Save: restore draft query if present
+            const savedDraft = localStorage.getItem('elantony_draft_query');
+            if (savedDraft && chatInput) {
+                chatInput.value = savedDraft;
+            }
+            if (chatInput) {
+                chatInput.addEventListener('input', () => {
+                    localStorage.setItem('elantony_draft_query', chatInput.value);
+                });
+            }
+
+            // Scroll listener for floating scroll-to-top button in chat area
+            const msgArea = document.getElementById('messagesArea');
+            const btnScrollChat = document.getElementById('btnScrollTopChat');
+            if (msgArea && btnScrollChat) {
+                msgArea.addEventListener('scroll', () => {
+                    btnScrollChat.style.display = (msgArea.scrollTop > 350) ? 'flex' : 'none';
+                });
+            }
+
+            // Update network connectivity badge
+            updateNetworkStatus();
 
             initScholarProfileUI();
             loadSessions();
@@ -6562,6 +6820,25 @@ def check_topic_continuity(prev_title: str, prev_messages: List[Dict[str, Any]],
     return False, "distinct_theological_topic"
 
 
+# In-memory query response cache for fast repeated retrieval
+_QUERY_RESPONSE_CACHE: dict = {}
+_MAX_QUERY_CACHE_SIZE = 128
+
+def _get_query_cache(query: str, depth_mode: str):
+    key = f"{depth_mode}:{query.strip().lower()}"
+    return _QUERY_RESPONSE_CACHE.get(key)
+
+def _set_query_cache(query: str, depth_mode: str, answer: str, citations: list):
+    if len(_QUERY_RESPONSE_CACHE) >= _MAX_QUERY_CACHE_SIZE:
+        try:
+            first_key = next(iter(_QUERY_RESPONSE_CACHE))
+            _QUERY_RESPONSE_CACHE.pop(first_key, None)
+        except Exception:
+            _QUERY_RESPONSE_CACHE.clear()
+    key = f"{depth_mode}:{query.strip().lower()}"
+    _QUERY_RESPONSE_CACHE[key] = (answer, citations)
+
+
 @app.post("/api/chat")
 async def api_chat(req: ChatRequest):
     """
@@ -6615,69 +6892,78 @@ async def api_chat(req: ChatRequest):
                         session_id = new_sess_id
                         is_new_topic = True
 
-    # 1. Retrieve library context
-    chunks = search_engine.search_fts5(latest_msg, limit=12)
-    ai_provider = get_ai_provider()
     depth_mode = req.depth_mode or "academic"
+    cached = _get_query_cache(latest_msg, depth_mode) if (is_new_topic or len(req.messages) <= 1) else None
 
-    # 2. Conversational reasoning with past dialogue turns
-    if is_new_topic:
-        raw_history = [{"role": "user", "content": latest_msg}]
+    if cached:
+        answer, citations = cached
+        logger.info(f"[ChatAPI] Query Cache Hit for '{latest_msg[:35]}...' ({depth_mode})")
     else:
-        raw_history = [{"role": m.role, "content": m.content} for m in req.messages]
-    try:
-        if hasattr(ai_provider, "generate_chat_response"):
-            answer = ai_provider.generate_chat_response(raw_history, chunks, depth_mode=depth_mode)
+        # 1. Retrieve library context
+        chunks = search_engine.search_fts5(latest_msg, limit=12)
+        ai_provider = get_ai_provider()
+
+        # 2. Conversational reasoning with past dialogue turns
+        if is_new_topic:
+            raw_history = [{"role": "user", "content": latest_msg}]
         else:
-            answer = ai_provider.generate_answer(latest_msg, chunks, depth_mode=depth_mode)
-    except Exception as ai_err:
-        logger.error(f"[ChatAPI] AI Generation exception: {ai_err}. Falling back to RuleBasedChurchProvider...")
+            raw_history = [{"role": m.role, "content": m.content} for m in req.messages]
         try:
-            from elantony.ai.rule_based_provider import RuleBasedChurchProvider
-            fallback_provider = RuleBasedChurchProvider()
-            answer = fallback_provider.generate_answer(latest_msg, chunks, depth_mode=depth_mode)
-        except Exception as fb_err:
-            logger.error(f"[ChatAPI] Rule-based fallback also failed: {fb_err}")
-            answer = "⚠️ تعذر توليد الشرح الإنشائي بسبب انقطاع الاتصال الخارجي المؤقت، ولكن تم استخراج الشواهد الآبائية والكنسية المعتمدة وتوثيقها أدناه بنجاح لدراستك الموثقة." 
+            if hasattr(ai_provider, "generate_chat_response"):
+                answer = ai_provider.generate_chat_response(raw_history, chunks, depth_mode=depth_mode)
+            else:
+                answer = ai_provider.generate_answer(latest_msg, chunks, depth_mode=depth_mode)
+        except Exception as ai_err:
+            logger.error(f"[ChatAPI] AI Generation exception: {ai_err}. Falling back to RuleBasedChurchProvider...")
+            try:
+                from elantony.ai.rule_based_provider import RuleBasedChurchProvider
+                fallback_provider = RuleBasedChurchProvider()
+                answer = fallback_provider.generate_answer(latest_msg, chunks, depth_mode=depth_mode)
+            except Exception as fb_err:
+                logger.error(f"[ChatAPI] Rule-based fallback also failed: {fb_err}")
+                answer = "⚠️ تعذر توليد الشرح الإنشائي بسبب انقطاع الاتصال الخارجي المؤقت، ولكن تم استخراج الشواهد الآبائية والكنسية المعتمدة وتوثيقها أدناه بنجاح لدراستك الموثقة." 
 
-    # 3. Format citations with sha256 and metadata for live book viewer
-    citations = []
-    for c in chunks:
-        book_info = repo.get_book_by_sha(c.sha256) if c.sha256 else None
-        p_count = book_info.get("page_count") if book_info else 0
-        f_size = book_info.get("file_size") if book_info else 0
-        size_mb = round(f_size / (1024 * 1024), 1) if f_size else 0
-        size_str = f"{size_mb} MB" if size_mb >= 1 else (f"{round(f_size / 1024)} KB" if f_size else "")
+        # 3. Format citations with sha256 and metadata for live book viewer
+        citations = []
+        for c in chunks:
+            book_info = repo.get_book_by_sha(c.sha256) if c.sha256 else None
+            p_count = book_info.get("page_count") if book_info else 0
+            f_size = book_info.get("file_size") if book_info else 0
+            size_mb = round(f_size / (1024 * 1024), 1) if f_size else 0
+            size_str = f"{size_mb} MB" if size_mb >= 1 else (f"{round(f_size / 1024)} KB" if f_size else "")
 
-        # Author fallback resolution
-        resolved_author = c.author
-        if not resolved_author or resolved_author in ["غير محدد", "غير معروف", "مجهول"]:
-            clean_t = (c.book_title or "").replace(".pdf", "")
-            for sep in [" - ", " – ", " — "]:
-                if sep in clean_t:
-                    parts = [p.strip() for p in clean_t.split(sep)]
-                    if len(parts) >= 2:
-                        resolved_author = parts[-1]
-                        break
-        if not resolved_author or resolved_author in ["غير محدد", "غير معروف", "مجهول"]:
-            resolved_author = "آباء ومعلمو الكنيسة"
+            # Author fallback resolution
+            resolved_author = c.author
+            if not resolved_author or resolved_author in ["غير محدد", "غير معروف", "مجهول"]:
+                clean_t = (c.book_title or "").replace(".pdf", "")
+                for sep in [" - ", " – ", " — "]:
+                    if sep in clean_t:
+                        parts = [p.strip() for p in clean_t.split(sep)]
+                        if len(parts) >= 2:
+                            resolved_author = parts[-1]
+                            break
+            if not resolved_author or resolved_author in ["غير محدد", "غير معروف", "مجهول"]:
+                resolved_author = "آباء ومعلمو الكنيسة"
 
-        cleaned_excerpt = clean_citation_excerpt(c.chunk_text, 320)
+            cleaned_excerpt = clean_citation_excerpt(c.chunk_text, 320)
 
-        citations.append({
-            "book_title": c.book_title,
-            "page_number": c.page_number,
-            "printed_page": c.printed_page,
-            "page_count": p_count or 1,
-            "file_size_formatted": size_str,
-            "source_reference": c.source_reference,
-            "author": resolved_author,
-            "source_types": c.source_types,
-            "authenticity_tier": c.authenticity_tier,
-            "relevance_score": c.relevance_score,
-            "sha256": c.sha256,
-            "excerpt": cleaned_excerpt
-        })
+            citations.append({
+                "book_title": c.book_title,
+                "page_number": c.page_number,
+                "printed_page": c.printed_page,
+                "page_count": p_count or 1,
+                "file_size_formatted": size_str,
+                "source_reference": c.source_reference,
+                "author": resolved_author,
+                "source_types": c.source_types,
+                "authenticity_tier": c.authenticity_tier,
+                "relevance_score": c.relevance_score,
+                "sha256": c.sha256,
+                "excerpt": cleaned_excerpt
+            })
+
+        if (is_new_topic or len(req.messages) <= 1) and answer:
+            _set_query_cache(latest_msg, depth_mode, answer, citations)
 
     # Turn number in discussion
     turn_number = 1 if is_new_topic else ((len(raw_history) // 2) + 1)

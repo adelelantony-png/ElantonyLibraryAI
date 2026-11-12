@@ -73,6 +73,19 @@ PREVIEW_TOOLBAR_JS = r"""<script>
     window.open('https://t.me/share/url?url=' + url + '&text=' + text, '_blank');
   }
 
+  window.addEventListener('scroll', function() {
+    var docHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+    var bar = document.getElementById('readingProgressBar');
+    if (bar && docHeight > 0) {
+      var progress = (window.scrollY / docHeight) * 100;
+      bar.style.width = Math.min(100, Math.max(0, progress)) + '%';
+    }
+    var topBtn = document.getElementById('btnScrollTopPreview');
+    if (topBtn) {
+      topBtn.style.display = (window.scrollY > 350) ? 'flex' : 'none';
+    }
+  });
+
   function closePreview() {
     if (window.opener) {
       window.close();
@@ -1092,9 +1105,51 @@ def generate_session_html(comp_data: Dict[str, Any]) -> str:
       margin-bottom: 24px !important;
     }}
   }}
+
+  /* Reading Progress Bar */
+  #readingProgressBar {{
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 3.5px;
+    background: linear-gradient(90deg, #d97706, #fbbf24, #f59e0b);
+    width: 0%;
+    z-index: 999999;
+    transition: width 0.1s ease-out;
+  }}
+
+  /* Floating Back to Top Button */
+  #btnScrollTopPreview {{
+    position: fixed;
+    bottom: 24px;
+    left: 24px;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: #1e293b;
+    border: 2px solid #f59e0b;
+    color: #f59e0b;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 800;
+    z-index: 9999;
+    transition: all 0.2s ease;
+  }}
+  #btnScrollTopPreview:hover {{
+    background: #f59e0b;
+    color: #1e293b;
+    transform: translateY(-3px);
+  }}
 </style>
 </head>
 <body>
+
+<div id="readingProgressBar" class="no-print"></div>
+<button id="btnScrollTopPreview" class="no-print" onclick="window.scrollTo({{top:0, behavior:'smooth'}})" title="الانتقال لأول الأطروحة وفهرس المباحث">▲</button>
 
 <div class="page-wrapper">
   <!-- Screen Floating Print Action -->
