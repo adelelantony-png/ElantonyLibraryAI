@@ -2445,6 +2445,39 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                                 <span style="font-size:10px; color:var(--text-sub); font-weight:normal;">دمج الأسئلة الجزئية في مفاهيم شاملة ومترابطة</span>
                             </div>
                         </div>
+
+                        <!-- Multi-Style Re-synthesis Section (إعادة الصياغة متعددة الأنماط) -->
+                        <div style="border-top:1px solid var(--card-border); margin:4px 0 2px; padding:4px 8px 2px; font-size:10.5px; font-weight:800; color:var(--accent);">
+                            🔄 إعادة صياغة البحث بنمط مخصص:
+                        </div>
+                        <div onclick="closeReorderDropdown(); triggerResynthesize('academic');" style="display:flex; align-items:center; gap:8px; padding:6px 10px; border-radius:6px; cursor:pointer; color:var(--text-main); font-weight:600;" onmouseover="this.style.background='var(--hover-bg, rgba(255,255,255,0.07))'" onmouseout="this.style.background='transparent'">
+                            <span style="font-size:13px;">🎓</span>
+                            <div style="display:flex; flex-direction:column;">
+                                <span style="font-size:11px;">تحويل إلى نمط أكاديمي موسع</span>
+                                <span style="font-size:9.5px; color:var(--text-sub); font-weight:normal;">تحقيق نصوص أصلية ولغات قديمة ومقارنة مدارس</span>
+                            </div>
+                        </div>
+                        <div onclick="closeReorderDropdown(); triggerResynthesize('apologetic');" style="display:flex; align-items:center; gap:8px; padding:6px 10px; border-radius:6px; cursor:pointer; color:var(--text-main); font-weight:600;" onmouseover="this.style.background='var(--hover-bg, rgba(255,255,255,0.07))'" onmouseout="this.style.background='transparent'">
+                            <span style="font-size:13px;">⚖️</span>
+                            <div style="display:flex; flex-direction:column;">
+                                <span style="font-size:11px;">تحويل إلى نمط دفاعي مقارن</span>
+                                <span style="font-size:9.5px; color:var(--text-sub); font-weight:normal;">تفنيد الشبهات وبراهين المجامع المسكونية</span>
+                            </div>
+                        </div>
+                        <div onclick="closeReorderDropdown(); triggerResynthesize('pastoral');" style="display:flex; align-items:center; gap:8px; padding:6px 10px; border-radius:6px; cursor:pointer; color:var(--text-main); font-weight:600;" onmouseover="this.style.background='var(--hover-bg, rgba(255,255,255,0.07))'" onmouseout="this.style.background='transparent'">
+                            <span style="font-size:13px;">🕊️</span>
+                            <div style="display:flex; flex-direction:column;">
+                                <span style="font-size:11px;">تحويل إلى نمط رعوي وروحي</span>
+                                <span style="font-size:9.5px; color:var(--text-sub); font-weight:normal;">تطبيق معاش وحياة الصلاة والوعظ الكنسي</span>
+                            </div>
+                        </div>
+                        <div onclick="closeReorderDropdown(); triggerResynthesize('youth');" style="display:flex; align-items:center; gap:8px; padding:6px 10px; border-radius:6px; cursor:pointer; color:var(--text-main); font-weight:600;" onmouseover="this.style.background='var(--hover-bg, rgba(255,255,255,0.07))'" onmouseout="this.style.background='transparent'">
+                            <span style="font-size:13px;">🌱</span>
+                            <div style="display:flex; flex-direction:column;">
+                                <span style="font-size:11px;">تحويل إلى لغة شبابية بسيطة</span>
+                                <span style="font-size:9.5px; color:var(--text-sub); font-weight:normal;">تبسيط المفاهيم بأمثلة حية وتيسير لغير المتخصصين</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -5410,6 +5443,47 @@ ${url}`;
             }
         }
 
+        async function triggerResynthesize(targetMode) {
+            if (!currentSessionId) {
+                alert("يرجى اختيار أطروحة بحثية أولاً لإعادة صياغتها.");
+                return;
+            }
+            const modeNames = {
+                'academic': 'أكاديمي موسع',
+                'apologetic': 'دفاعي مقارن',
+                'pastoral': 'رعوي وروحي',
+                'youth': 'لغة شبابية بسيطة'
+            };
+            const label = modeNames[targetMode] || targetMode;
+            const makeClone = confirm(
+                "هل تريد إنشاء نسخة بحثية جديدة موازية بنمط «" + label + "»؟\n\n" +
+                "• اضغط (موافق OK): لإنشاء نسخة جديدة مستقلة والاحتفاظ بالبحث الحالي كما هو (موصى به للمقارنة).\n" +
+                "• اضغط (إلغاء الأمر Cancel): لتحديث البحث الحالي مباشرة في نفس التبويب."
+            );
+
+            showTopicToast("⏳ جاري إعادة صياغة الأطروحة بنمط «" + label + "» مع صون كافة المراجع والشواهد...");
+            try {
+                const res = await fetch('/api/sessions/' + currentSessionId + '/resynthesize', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        target_mode: targetMode,
+                        create_new_copy: makeClone
+                    })
+                });
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.detail || "تعذر إعادة الصياغة");
+                }
+                const data = await res.json();
+                showTopicToast("✨ تم صياغة الأطروحة بنجاح بنمط: " + data.mode_label);
+                await loadSessions();
+                await selectSession(data.session_id);
+            } catch(e) {
+                alert("خطأ أثناء إعادة الصياغة: " + e.message);
+            }
+        }
+
 
         function toggleReorderDropdown(e) {
             if (e) e.stopPropagation();
@@ -5858,6 +5932,28 @@ async def get_relevant_uncited_books_endpoint(session_id: str):
 async def enrich_session_endpoint(session_id: str):
     """Enriches monograph chapters with citations and patristic excerpts from discovered library books."""
     res = repo.enrich_session_from_library(session_id)
+    return res
+
+
+class ResynthesizeRequest(BaseModel):
+    target_mode: str = "academic"
+    create_new_copy: Optional[bool] = True
+
+
+@app.post("/api/sessions/{session_id}/resynthesize")
+async def resynthesize_session_endpoint(session_id: str, req: ResynthesizeRequest):
+    """
+    Re-synthesizes an existing research monograph across the 4 theological depth modes:
+    academic, apologetic, pastoral, youth.
+    Preserves 100% of the verified citations, book titles, and page numbers.
+    """
+    res = repo.resynthesize_session(
+        session_id=session_id,
+        target_mode=req.target_mode,
+        create_new_copy=req.create_new_copy if req.create_new_copy is not None else True
+    )
+    if "error" in res:
+        raise HTTPException(status_code=400, detail=res["error"])
     return res
 
 @app.post("/api/sessions/merge")

@@ -1908,6 +1908,154 @@ class DatabaseRepository:
             "enriched_books": [b["title"] for b in target_books]
         }
 
+    def resynthesize_session(
+        self,
+        session_id: str,
+        target_mode: str = "academic",
+        create_new_copy: bool = True
+    ) -> Dict[str, Any]:
+        """
+        Re-synthesizes an existing research monograph across the 4 theological depth modes:
+        - academic: In-depth patristic & historical analysis
+        - apologetic: Comparative apologetics & Council rulings
+        - pastoral: Practical, prayerful & liturgical life
+        - youth: Contemporary simplified clarity with real-life analogies
+        
+        Preserves 100% of the verified library citations and book page references.
+        Optionally clones into a new parallel session for side-by-side comparison.
+        """
+        from elantony.ai.factory import get_ai_provider
+        from elantony.search.search_engine import search_engine
+
+        session = self.get_session(session_id)
+        if not session:
+            return {"error": "جلسة البحث غير موجودة"}
+
+        messages = self.get_session_messages(session_id, limit=300)
+        if not messages:
+            return {"error": "لا توجد أسئلة أو أبحاث مسجلة في هذه الجلسة لإعادة صياغتها"}
+
+        # Pair questions and answers
+        turns = []
+        cur_u = None
+        for m in messages:
+            if m["role"] == "user":
+                cur_u = m
+            elif m["role"] == "assistant":
+                turns.append({"user": cur_u, "assistant": m, "citations": m.get("citations") or []})
+                cur_u = None
+        if cur_u:
+            turns.append({"user": cur_u, "assistant": None, "citations": []})
+
+        if not turns:
+            return {"error": "لم يتم العثور على محاور بحثية صالحة لإعادة الصياغة"}
+
+        mode_labels = {
+            "academic": "أكاديمي موسع",
+            "apologetic": "دفاعي مقارن",
+            "pastoral": "رعوي وروحي",
+            "youth": "لغة شبابية مبسطة"
+        }
+        mode_label = mode_labels.get(target_mode, target_mode)
+        ai_provider = get_ai_provider()
+
+        synthesized_turns = []
+        for t in turns:
+            u_msg = t["user"]
+            if not u_msg:
+                continue
+            q_text = u_msg["content"]
+            existing_cits = t["citations"] or []
+
+            # Retrieve rich grounded chunks from verified library
+            chunks = search_engine.search_fts5(q_text, limit=12)
+            try:
+                new_answer = ai_provider.generate_answer(q_text, chunks, depth_mode=target_mode)
+            except Exception as e:
+                from elantony.ai.rule_based_provider import RuleBasedChurchProvider
+                fallback = RuleBasedChurchProvider()
+                new_answer = fallback.generate_answer(q_text, chunks, depth_mode=target_mode)
+
+            synthesized_turns.append({
+                "question": q_text,
+                "answer": new_answer,
+                "citations": existing_cits if existing_cits else [
+                    {
+                        "book_title": c.book_title,
+                        "page_number": c.page_number,
+                        "printed_page": c.printed_page,
+                        "sha256": c.sha256,
+                        "author": c.author,
+                        "authenticity_tier": getattr(c, "authenticity_tier", 2)
+                    } for c in chunks[:6]
+                ]
+            })
+
+        conn = get_connection()
+        cur = conn.cursor()
+
+        if create_new_copy:
+            orig_title = session.get("title", "بحث لاهوتي")
+            clean_base_title = re.sub(r"\s*\((?:أكاديمي|دفاعي|رعوي|شبابي|لغة شبابية)[^\)]*\)", "", orig_title).strip()
+            new_title = f"{clean_base_title} ({mode_label})"
+            new_session_id = uuid.uuid4().hex[:12]
+            user_id = session.get("user_id") or "scholar_master"
+            now_iso = datetime.now().isoformat()
+
+            cur.execute("""
+                INSERT INTO chat_sessions (id, user_id, title, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?)
+            """, (new_session_id, user_id, new_title, now_iso, now_iso))
+
+            for st in synthesized_turns:
+                cur.execute("""
+                    INSERT INTO chat_messages (session_id, role, content, created_at)
+                    VALUES (?, 'user', ?, ?)
+                """, (new_session_id, st["question"], now_iso))
+                cits_json = json.dumps(st["citations"], ensure_ascii=False) if st["citations"] else None
+                cur.execute("""
+                    INSERT INTO chat_messages (session_id, role, content, citations, created_at)
+                    VALUES (?, 'assistant', ?, ?, ?)
+                """, (new_session_id, st["answer"], cits_json, now_iso))
+
+            conn.commit()
+            conn.close()
+            return {
+                "success": True,
+                "session_id": new_session_id,
+                "title": new_title,
+                "mode": target_mode,
+                "mode_label": mode_label,
+                "is_new_copy": True,
+                "turns_count": len(synthesized_turns)
+            }
+        else:
+            now_iso = datetime.now().isoformat()
+            cur.execute("DELETE FROM chat_messages WHERE session_id = ?", (session_id,))
+            for st in synthesized_turns:
+                cur.execute("""
+                    INSERT INTO chat_messages (session_id, role, content, created_at)
+                    VALUES (?, 'user', ?, ?)
+                """, (session_id, st["question"], now_iso))
+                cits_json = json.dumps(st["citations"], ensure_ascii=False) if st["citations"] else None
+                cur.execute("""
+                    INSERT INTO chat_messages (session_id, role, content, citations, created_at)
+                    VALUES (?, 'assistant', ?, ?, ?)
+                """, (session_id, st["answer"], cits_json, now_iso))
+
+            cur.execute("UPDATE chat_sessions SET updated_at = ? WHERE id = ?", (now_iso, session_id))
+            conn.commit()
+            conn.close()
+            return {
+                "success": True,
+                "session_id": session_id,
+                "title": session.get("title"),
+                "mode": target_mode,
+                "mode_label": mode_label,
+                "is_new_copy": False,
+                "turns_count": len(synthesized_turns)
+            }
+
     def run_maintenance(self) -> Dict[str, Any]:
         """Runs periodic SQLite maintenance: WAL checkpoint, FTS5 optimize, and schema analysis."""
         conn = get_connection()

@@ -56,7 +56,8 @@ from elantony.telegram.keyboards import (
     get_reference_card_keyboard,
     get_source_filter_keyboard,
     format_reference_card,
-    get_live_portal_url
+    get_live_portal_url,
+    get_resynthesize_menu_keyboard
 )
 
 # User state tracker for conversational flow
@@ -272,17 +273,20 @@ class TelegramHandlerService:
         except Exception as e:
             logger.warning(f"Could not generate or send PDF file: {e}")
 
-        # 4. Action buttons with Web Preview & Clear Memory
+        # 4. Action buttons with Web Preview, Re-synthesis & Clear Memory
         kb = [
             [
                 {"text": "🖨️ فتح ومعاينة الأطروحة للطباعة (ويب)", "url": f"{get_live_portal_url()}/api/sessions/{s_id}/preview"}
             ],
             [
-                {"text": "🧹 تفريغ الذاكرة (سؤال جديد)", "callback_data": "session:new"},
-                {"text": "📂 أبحاثي السابقة", "callback_data": "session:history"}
+                {"text": "🔄 إعادة صياغة بنمط آخر", "callback_data": f"resynth_menu:{s_id}"},
+                {"text": "🧹 تفريغ الذاكرة (سؤال جديد)", "callback_data": "session:new"}
             ],
             [
-                {"text": "⚙️ عمق الإجابة", "callback_data": "menu:depth"},
+                {"text": "📂 أبحاثي السابقة", "callback_data": "session:history"},
+                {"text": "⚙️ عمق الإجابة", "callback_data": "menu:depth"}
+            ],
+            [
                 {"text": "🔙 القائمة الرئيسية", "callback_data": "nav:main"}
             ]
         ]
@@ -718,6 +722,20 @@ class TelegramHandlerService:
             await self.compile_and_send_session(client, chat_id, user_id)
             return
 
+        # 3.15 Handle Research Re-synthesis Command
+        if cmd in ["/resynthesize", "/rewrite", "/style", "/resynth"] or text in [
+            "إعادة صياغة", "إعادة صياغة البحث", "صياغة الأطروحة", "صياغة بنمط آخر", "🔄 إعادة صياغة بنمط آخر"
+        ]:
+            active_sess = repo.get_or_create_active_session(str(user_id))
+            s_id = active_sess["id"]
+            await self.send_message(
+                client, chat_id,
+                "🔄 *إعادة صياغة الأطروحة بنمط لاهوتي مخصص:* ✠\n\n"
+                "اختر النمط المطلوب لتحويل وصياغة بحثك كاملاً مع **الحفاظ التام على 100% من الشواهد والمراجع والصفحات الأصلية**:",
+                reply_markup=get_resynthesize_menu_keyboard(s_id)
+            )
+            return
+
         # 3.2 Handle New Research Discussion Session Command
         if cmd in ["/new", "/session_new", "/reset", "/clear"] or text.lower() in [
             "/new", "/reset", "/clear", "reset", "clear",
@@ -1136,6 +1154,41 @@ class TelegramHandlerService:
             return
 
                 # 1.01 Session Callbacks
+        if data.startswith("resynth_menu:"):
+            s_id = data.split(":", 1)[1]
+            await self.send_message(
+                client, chat_id,
+                "🔄 *إعادة صياغة الأطروحة بنمط لاهوتي مخصص:* ✠\n\n"
+                "اختر النمط المطلوب لتحويل وصياغة بحثك كاملاً مع **الحفاظ التام على 100% من الشواهد والمراجع والصفحات الأصلية**:",
+                reply_markup=get_resynthesize_menu_keyboard(s_id)
+            )
+            return
+
+        if data.startswith("resynth:"):
+            parts = data.split(":")
+            if len(parts) >= 3:
+                target_mode = parts[1]
+                s_id = parts[2]
+                mode_names = {
+                    "academic": "🎓 الأكاديمي الموسع",
+                    "apologetic": "⚖️ الدفاعي المقارن",
+                    "pastoral": "🕊️ الرعوي والروحي",
+                    "youth": "🌱 لغة شبابية بسيطة"
+                }
+                m_label = mode_names.get(target_mode, target_mode)
+                await self.send_message(
+                    client, chat_id,
+                    f"⏳ *جاري إعادة صياغة الأطروحة بالنمط المختار:* `{m_label}`...\n"
+                    "يتم الآن إعادة نسج الشرح وصون كافة أرقام الصفحات والمراجع الكنسية المعتمدة."
+                )
+                res = repo.resynthesize_session(s_id, target_mode=target_mode, create_new_copy=True)
+                if res.get("error"):
+                    await self.send_message(client, chat_id, f"⚠️ {res['error']}")
+                    return
+                new_sid = res["session_id"]
+                await self.compile_and_send_session(client, chat_id, user_id, target_session_id=new_sid)
+                return
+
         if data.startswith("depth:"):
             new_mode = data.split(":", 1)[1]
             _user_states[user_id] = _user_states.get(user_id, {})

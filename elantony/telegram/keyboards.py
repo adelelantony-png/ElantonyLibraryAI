@@ -572,3 +572,27 @@ def get_special_commands_inline_keyboard() -> Dict[str, Any]:
             ]
         ]
     }
+
+
+def get_resynthesize_menu_keyboard(session_id: str) -> Dict[str, Any]:
+    """Inline menu to re-synthesize an existing research into another theological depth mode."""
+    sref = str(session_id)[:16]
+    return {
+        "inline_keyboard": [
+            [
+                {"text": "🎓 إعادة صياغة كبحث أكاديمي موسع", "callback_data": f"resynth:academic:{sref}"}
+            ],
+            [
+                {"text": "⚖️ إعادة صياغة كبحث دفاعي ومقارن", "callback_data": f"resynth:apologetic:{sref}"}
+            ],
+            [
+                {"text": "🕊️ إعادة صياغة بنمط رعوي وروحي", "callback_data": f"resynth:pastoral:{sref}"}
+            ],
+            [
+                {"text": "🌱 إعادة صياغة بلغة شبابية بسيطة", "callback_data": f"resynth:youth:{sref}"}
+            ],
+            [
+                {"text": "🔙 العودة للقائمة الرئيسية", "callback_data": "nav:main"}
+            ]
+        ]
+    }
