@@ -1023,6 +1023,15 @@ def generate_session_html(comp_data: Dict[str, Any]) -> str:
       box-shadow: none !important;
       border: 1px solid #cbd5e1 !important;
       border-right: 4px solid #7c2d12 !important;
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
+    }}
+    .toc-container {{
+      box-shadow: none !important;
+      border: 1px solid #cbd5e1 !important;
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
+      margin-bottom: 24px !important;
     }}
   }}
 </style>

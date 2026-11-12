@@ -50,6 +50,8 @@ def convert_html_to_pdf_edge(html_path: str, pdf_path: str) -> bool:
         "--headless",
         "--disable-gpu",
         "--no-pdf-header-footer",
+        "--run-all-compositor-stages-before-draw",
+        "--virtual-time-budget=2500",
         f"--print-to-pdf={abs_pdf}",
         abs_html
     ]

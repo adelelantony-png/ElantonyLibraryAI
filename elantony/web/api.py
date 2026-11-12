@@ -2577,7 +2577,8 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                     </div>
                 </div>
                 <div class="modal-actions">
-                    <button class="btn-modal-act btn-modal-docx" onclick="downloadCurrentExport('docx')">📄 مستند Word (.docx)</button>
+                    <button class="btn-modal-act btn-modal-docx" onclick="downloadCurrentExport('docx')" title="تنزيل الأطروحة كمستند Word منسق">📄 مستند Word (.docx)</button>
+                    <button class="btn-modal-act" onclick="downloadCurrentExport('pdf')" style="background:#dc2626; color:#ffffff; border-color:#dc2626; font-weight:700;" title="تنزيل الأطروحة كملف PDF عالي الجودة للطباعة">📕 ملف PDF (.pdf)</button>
                     <button class="btn-modal-act" onclick="copyCompilationText()">📋 نسخ النص</button>
                     <button class="btn-modal-act" onclick="previewCurrentMonograph()">🖨️ معاينة وطباعة</button>
                     <button class="btn-modal-close" onclick="closeCompilationModal()">✕</button>
@@ -4498,15 +4499,18 @@ ${url}`;
                     <button class="btn-primary" onclick="copyShareUrl()" style="white-space: nowrap; padding: 0 18px; font-weight: 700; background: var(--accent); color: white; border: none; border-radius: 8px; cursor: pointer;">📋 نسخ الرابط</button>
                 </div>
 
-                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px;">
                     <button onclick="shareViaWhatsApp()" class="btn-cite-act" style="background: #25D366; color: white !important; border: none; font-weight: 700; padding: 10px; justify-content: center; border-radius: 8px; cursor: pointer;">
                         📱 واتساب
                     </button>
                     <button onclick="shareViaTelegram()" class="btn-cite-act" style="background: #0088cc; color: white !important; border: none; font-weight: 700; padding: 10px; justify-content: center; border-radius: 8px; cursor: pointer;">
                         ✈️ تليجرام
                     </button>
-                    <button onclick="downloadCurrentExport('docx')" class="btn-cite-act" style="background: var(--bg-bubble-user); color: var(--text-main); border: 1px solid var(--card-border); font-weight: 700; padding: 10px; justify-content: center; border-radius: 8px; cursor: pointer;">
-                        📄 تحميل Word
+                    <button onclick="downloadCurrentExport('docx')" class="btn-cite-act" style="background: #2563eb; color: #ffffff !important; border: 1px solid #2563eb; font-weight: 700; padding: 10px; justify-content: center; border-radius: 8px; cursor: pointer;">
+                        📄 Word
+                    </button>
+                    <button onclick="downloadCurrentExport('pdf')" class="btn-cite-act" style="background: #dc2626; color: #ffffff !important; border: 1px solid #dc2626; font-weight: 700; padding: 10px; justify-content: center; border-radius: 8px; cursor: pointer;">
+                        📕 PDF
                     </button>
                 </div>
             </div>
