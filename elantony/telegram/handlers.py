@@ -1143,7 +1143,8 @@ class TelegramHandlerService:
             mode_names = {
                 "academic": "🎓 النمط الأكاديمي الموسع (المراجع الأصلية)",
                 "pastoral": "🕊️ النمط الرعوي والروحي المباشر",
-                "apologetic": "⚖️ النمط الدفاعي والمقارن"
+                "apologetic": "⚖️ النمط الدفاعي والمقارن",
+                "youth": "🌱 نمط لغة شبابية بسيطة (مفاهيم مبسطة وأمثلة حية)"
             }
             lbl = mode_names.get(new_mode, new_mode)
             await self.send_message(

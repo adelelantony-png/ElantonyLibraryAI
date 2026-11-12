@@ -343,7 +343,7 @@ def generate_session_html(comp_data: Dict[str, Any]) -> str:
     bib_section_html = ""
     if bib_cards_html:
         bib_section_html = (
-            f'<section class="mبحث-card biblio-section-card">'
+            f'<section class="mبحث-card biblio-section-card" id="biblio_section">'
             f'<div class="mبحث-header">'
             f'<span class="mبحث-badge" style="background:#0f766e;">ثبت المصادر</span>'
             f'<h2 class="mبحث-title">قائمة المصادر والمراجع البيبليوغرافية المعتمدة في هذا البحث</h2>'
@@ -351,6 +351,41 @@ def generate_session_html(comp_data: Dict[str, Any]) -> str:
             f'<p class="biblio-intro">قائمة موحدة ومحققة بجميع أمهات الكتب والمخطوطات الكنسية التي استندت إليها مباحث هذه الدراسة:</p>'
             f'<div class="biblio-cards-grid">{"".join(bib_cards_html)}</div>'
             f'</section>'
+        )
+
+    # Render Interactive Table of Contents (TOC) with Internal Hyperlinks
+    toc_items_html = []
+    for idx, t in enumerate(turns, 1):
+        q_raw = t.get("user_query") or t.get("question", "")
+        q_clean = html.escape(q_raw.strip())
+        toc_items_html.append(
+            f'<a href="#mبحث_{idx}" class="toc-item-link">'
+            f'<span class="toc-badge">المبحث {idx}</span>'
+            f'<span class="toc-title-text">{q_clean}</span>'
+            f'<span class="toc-arrow">↵</span>'
+            f'</a>'
+        )
+
+    if bibliography:
+        toc_items_html.append(
+            f'<a href="#biblio_section" class="toc-item-link toc-biblio-link">'
+            f'<span class="toc-badge" style="background:#0f766e;">ثبت المصادر</span>'
+            f'<span class="toc-title-text">قائمة المصادر والمراجع البيبليوغرافية المعتمدة ({len(bibliography)} مصدراً)</span>'
+            f'<span class="toc-arrow">↵</span>'
+            f'</a>'
+        )
+
+    toc_section_html = ""
+    if len(turns) >= 2 or (len(turns) >= 1 and bibliography):
+        toc_section_html = (
+            f'<nav class="toc-container" id="monograph_toc">'
+            f'<div class="toc-header">'
+            f'<span class="toc-icon">📑</span>'
+            f'<h3 class="toc-heading">فهرس محاور ومباحث الأطروحة (Table of Contents)</h3>'
+            f'<span class="toc-hint">(انقر على أي مبحث للانتقال إليه مباشرة)</span>'
+            f'</div>'
+            f'<div class="toc-list">{"".join(toc_items_html)}</div>'
+            f'</nav>'
         )
 
     # Assemble Full Standalone Monograph HTML
@@ -378,6 +413,10 @@ def generate_session_html(comp_data: Dict[str, Any]) -> str:
     box-sizing: border-box;
   }}
 
+  html {{
+    scroll-behavior: smooth;
+  }}
+
   body {{
     direction: rtl;
     text-align: right;
@@ -390,6 +429,109 @@ def generate_session_html(comp_data: Dict[str, Any]) -> str:
     padding: 0;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+  }}
+
+  .mبحث-card {{
+    scroll-margin-top: 24px;
+  }}
+
+  /* Interactive Table of Contents */
+  .toc-container {{
+    background: #fdfdfd;
+    border: 1.5px solid #d97706;
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-bottom: 24px;
+    box-shadow: 0 2px 10px rgba(217, 119, 6, 0.08);
+  }}
+
+  .toc-header {{
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-bottom: 1px solid #fed7aa;
+    padding-bottom: 10px;
+    margin-bottom: 14px;
+  }}
+
+  .toc-icon {{
+    font-size: 14pt;
+  }}
+
+  .toc-heading {{
+    font-family: 'Cairo', sans-serif;
+    font-size: 13pt;
+    font-weight: 800;
+    color: #7c2d12;
+    margin: 0;
+  }}
+
+  .toc-hint {{
+    font-size: 9.5pt;
+    color: #9a3412;
+    margin-right: auto;
+  }}
+
+  .toc-list {{
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }}
+
+  .toc-item-link {{
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 9px 14px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 7px;
+    text-decoration: none;
+    color: #1e293b;
+    font-family: 'Cairo', sans-serif;
+    font-size: 11pt;
+    font-weight: 600;
+    transition: all 0.2s ease;
+  }}
+
+  .toc-item-link:hover {{
+    background: #fffbeb;
+    border-color: #d97706;
+    color: #7c2d12;
+    transform: translateX(-4px);
+  }}
+
+  .toc-badge {{
+    font-size: 9.5pt;
+    font-weight: 800;
+    background: #7c2d12;
+    color: #ffffff;
+    padding: 2px 8px;
+    border-radius: 5px;
+    white-space: nowrap;
+  }}
+
+  .toc-title-text {{
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }}
+
+  .toc-arrow {{
+    font-size: 12pt;
+    color: #94a3b8;
+  }}
+
+  .toc-biblio-link {{
+    border-style: dashed;
+    background: #f0fdfa;
+  }}
+
+  .toc-biblio-link:hover {{
+    background: #ccfbf1;
+    border-color: #0f766e;
+    color: #0f766e;
   }}
 
   .page-wrapper {{
@@ -936,6 +1078,7 @@ def generate_session_html(comp_data: Dict[str, Any]) -> str:
 
   <!-- Mubahith Chapters Section -->
   <main>
+    {toc_section_html}
     {"".join(mubahith_html)}
     {bib_section_html}
   </main>

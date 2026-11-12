@@ -2007,9 +2007,141 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             .sidebar.mobile-open {
                 transform: translateX(0) !important;
             }
-            .top-navbar { flex-direction: column; align-items: stretch; gap: 8px; padding: 10px; }
-            .controls-wrapper { justify-content: center; }
-            .nav-actions { justify-content: center; }
+            .top-navbar {
+                flex-wrap: wrap;
+                height: auto;
+                min-height: 44px;
+                padding: 6px 10px;
+                gap: 6px;
+                justify-content: space-between;
+            }
+            .controls-wrapper {
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 4px;
+            }
+            .nav-actions {
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 4px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .top-navbar {
+                padding: 6px 8px;
+                gap: 5px;
+            }
+            .controls-wrapper {
+                order: 2;
+                width: 100%;
+                justify-content: space-between;
+                overflow-x: auto;
+                padding-bottom: 2px;
+            }
+            .nav-actions {
+                order: 3;
+                width: 100%;
+                justify-content: space-between;
+                overflow-x: auto;
+            }
+            .active-session-header {
+                min-height: 42px;
+                height: auto !important;
+                flex-wrap: wrap;
+                padding: 6px 10px;
+                gap: 6px;
+            }
+            .active-session-header > div:first-child {
+                max-width: 100% !important;
+                width: 100%;
+                justify-content: space-between;
+            }
+            .active-session-header > div:last-child {
+                width: 100%;
+                justify-content: space-between;
+                flex-wrap: wrap;
+            }
+            .messages-area {
+                padding: 8px 6px;
+            }
+            .message-bubble {
+                max-width: 100% !important;
+                padding: 12px 14px;
+                font-size: 15px;
+                line-height: 1.8;
+            }
+            .message-bubble .message-content p {
+                line-height: 1.85;
+                font-size: 15.5px;
+            }
+            .quote-card {
+                padding: 10px 14px;
+                margin: 10px 0;
+            }
+            .quote-text {
+                font-size: 14px;
+                line-height: 1.75;
+            }
+            .input-card {
+                padding: 6px 8px;
+            }
+            .chat-input {
+                font-size: 16px !important; /* Prevents mobile Safari/Chrome auto-zoom */
+            }
+            .prompt-cards {
+                grid-template-columns: 1fr;
+                gap: 8px;
+            }
+            .modal-card {
+                width: 95vw !important;
+                max-width: 95vw !important;
+                margin: 10px auto;
+                max-height: 90vh;
+            }
+        }
+
+        /* Help Guide Modal Styles */
+        .help-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 14px;
+            margin-top: 10px;
+        }
+        .help-card {
+            background: var(--bg-card);
+            border: 1px solid var(--card-border);
+            border-radius: 10px;
+            padding: 14px 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            transition: transform 0.2s, border-color 0.2s;
+        }
+        .help-card:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+        }
+        .help-card-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13.5px;
+            font-weight: 800;
+            color: var(--accent);
+            margin-bottom: 8px;
+            border-bottom: 1px solid var(--card-border);
+            padding-bottom: 6px;
+        }
+        .help-card-body {
+            font-size: 12px;
+            color: var(--text-sub);
+            line-height: 1.7;
+        }
+        .help-card-body ul {
+            margin: 6px 0 0 16px;
+            padding: 0;
+        }
+        .help-card-body li {
+            margin-bottom: 5px;
         }
     
         /* Upload Modal Dropzone */
@@ -2233,12 +2365,16 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                     <option value="academic">🎓 أكاديمي</option>
                     <option value="pastoral">🕊️ رعوي</option>
                     <option value="apologetic">⚖️ دفاعي</option>
+                    <option value="youth">🌱 لغة شبابية بسيطة</option>
                 </select>
             </div>
 
             <div class="nav-actions">
                 <button class="btn-ctrl" onclick="toggleFocusReadingMode()" id="btnFocusMode" title="تفعيل وضع القراءة والتركيز (إخفاء الأشرطة والقوائم للقراءة الهادئة)" style="padding:3px 9px; font-size:11px; font-weight:700; background:rgba(37,99,235,0.12); color:#2563eb; border-color:#2563eb; display:inline-flex; align-items:center; gap:4px;">
                     <span>📖</span> <span>وضع القراءة</span>
+                </button>
+                <button class="btn-nav btn-help-nav" onclick="openHelpModal()" title="دليل الاستخدام وخريطة المنظومة" style="background:rgba(99,102,241,0.14); border-color:#6366f1; color:#4f46e5; font-weight:700; padding:3px 8px; font-size:11px; display:inline-flex; align-items:center; gap:3px;">
+                    <span>❓</span> <span>دليل الاستخدام</span>
                 </button>
                 <button class="btn-nav btn-fav-nav" onclick="openScholarNotebookModal()" title="كشكول الباحث" style="background:rgba(234, 179, 8, 0.15); border-color:#ca8a04; color:#a16207; font-weight:700; padding:3px 8px; font-size:11px;">
                     <span>⭐</span> (<span id="notebookBadge">0</span>)
@@ -2262,8 +2398,8 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             </button>
         </div>
 
-        <!-- Unified Monograph & Chapters Navigator (34px Single Line) -->
-        <div class="active-session-header" id="activeSessionHeader" style="display:flex; align-items:center; justify-content:space-between; height:34px; min-height:34px; max-height:34px; padding:0 12px; background:var(--bg-card); border-bottom:1px solid var(--card-border); gap:8px; z-index:4;">
+        <!-- Unified Monograph & Chapters Navigator (Flexible Responsive Line) -->
+        <div class="active-session-header" id="activeSessionHeader" style="display:flex; align-items:center; justify-content:space-between; min-height:36px; padding:4px 12px; background:var(--bg-card); border-bottom:1px solid var(--card-border); gap:8px; z-index:4; flex-wrap:wrap;">
             <div style="display:flex; align-items:center; gap:6px; min-width:120px; max-width:240px; flex-shrink:1;">
                 <span style="font-size:14px; flex-shrink:0;">📖</span>
                 <span id="currentSessionTitleDisplay" style="font-weight:800; font-size:12px; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="عنوان الأطروحة">بحث لاهوتي</span>
@@ -2276,7 +2412,7 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
             </div>
 
             <!-- Quick Action Buttons -->
-            <div style="display:flex; align-items:center; gap:5px; flex-shrink:0;">
+            <div style="display:flex; align-items:center; gap:5px; flex-shrink:0; flex-wrap:wrap;">
                 <!-- On-demand Enrichment Trigger Button -->
                 <button id="btnToggleEnrichment" class="btn-ctrl" onclick="toggleLibraryEnrichmentCard()" style="display:none; background:rgba(217, 119, 6, 0.14); color:#d97706; border:1px solid rgba(217, 119, 6, 0.4); font-weight:700; padding:2px 8px; font-size:11px; align-items:center; gap:4px; cursor:pointer; border-radius:5px;" title="عرض مراجع المكتبة المقترحة لإثراء الأطروحة">
                     <span>⚡</span> <span id="enrichBtnLabel">مراجع مقترحة (0)</span>
@@ -2312,8 +2448,9 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
                     </div>
                 </div>
 
-                <button class="btn-ctrl" onclick="downloadCurrentExport('docx')" style="background:#2563eb; color:#fff; border-color:#2563eb; font-weight:700; padding:2px 8px; font-size:11px; display:inline-flex; align-items:center; gap:3px;" title="تنزيل الأطروحة كاملة كملف Word"><span>📄</span> <span>Word</span></button>
-                <button class="btn-ctrl" onclick="previewCurrentMonograph()" style="background:#7c2d12; color:#fff; border-color:#7c2d12; font-weight:800; padding:2px 8px; font-size:11px; display:inline-flex; align-items:center; gap:3px;" title="معاينة وطباعة الأطروحة A4"><span>🖨️</span> <span>طباعة A4</span></button>
+                <button class="btn-ctrl" onclick="downloadCurrentExport('docx')" style="background:#2563eb; color:#fff; border-color:#2563eb; font-weight:700; padding:2px 8px; font-size:11px; display:inline-flex; align-items:center; gap:3px;" title="تنزيل الأطروحة كاملة كملف Word منسق"><span>📄</span> <span>Word</span></button>
+                <button class="btn-ctrl" onclick="downloadCurrentExport('pdf')" style="background:#dc2626; color:#fff; border-color:#dc2626; font-weight:700; padding:2px 8px; font-size:11px; display:inline-flex; align-items:center; gap:3px;" title="تنزيل الأطروحة كاملة كملف PDF عالي الجودة للطباعة"><span>📕</span> <span>PDF</span></button>
+                <button class="btn-ctrl" onclick="previewCurrentMonograph()" style="background:#7c2d12; color:#fff; border-color:#7c2d12; font-weight:800; padding:2px 8px; font-size:11px; display:inline-flex; align-items:center; gap:3px;" title="معاينة الأطروحة كصفحة ويب كاملة (Web View) وطباعتها بنمط A4 الفاخر"><span>🌐</span> <span>معاينة ويب</span></button>
             </div>
         </div>
 
@@ -2638,10 +2775,13 @@ WEB_PORTAL_HTML = """<!DOCTYPE html>
 
         function setDepthMode(mode) {
             currentDepthMode = mode;
-            ['academic', 'pastoral', 'apologetic'].forEach(m => {
+            const sel = document.getElementById('depthSelect');
+            if (sel) sel.value = mode;
+            ['academic', 'pastoral', 'apologetic', 'youth'].forEach(m => {
                 const btn = document.getElementById('depth_' + m);
                 if (btn) btn.classList.toggle('active', m === mode);
             });
+            localStorage.setItem('elantony_depth_mode', mode);
         }
 
         function autoResize(textarea) {
@@ -4274,10 +4414,24 @@ ${url}`;
                 if (label) label.textContent = FONT_LABELS[currentFontSizeIndex];
             }
 
+            // Restore saved depth mode
+            const savedDepth = localStorage.getItem('elantony_depth_mode') || 'academic';
+            setDepthMode(savedDepth);
+
             initScholarProfileUI();
             loadSessions();
             chatInput.focus();
         };
+
+        function openHelpModal() {
+            const m = document.getElementById('helpModal');
+            if (m) m.classList.add('active');
+        }
+
+        function closeHelpModal() {
+            const m = document.getElementById('helpModal');
+            if (m) m.classList.remove('active');
+        }
     </script>
 
     <!-- Research Share Modal (نافذة مشاركة البحث والتحقق من المراجع) -->
@@ -5361,6 +5515,119 @@ ${url}`;
         });
 
 </script>
+    <!-- Help Guide Modal (دليل استخدام المنظومة وخريطة المساعد الذكي) -->
+    <div class="modal-overlay" id="helpModal">
+        <div class="modal-card" style="max-width: 840px; max-height: 88vh; display: flex; flex-direction: column;">
+            <div class="ref-modal-header" style="background: linear-gradient(135deg, #312e81 0%, #1e1b4b 100%); color: white; padding: 14px 18px;">
+                <div class="ref-modal-title-wrap">
+                    <span class="ref-icon" style="font-size: 20px;">📖</span>
+                    <span class="ref-book-name" style="color: #fde047; font-weight: 800; font-size: 15px;">دليل استخدام منظومة ELANTONY LIBRARY AI</span>
+                    <span class="ref-badge-page" style="background: rgba(255,255,255,0.15); color: #fff;">دليل إرشادي شامل</span>
+                </div>
+                <button class="btn-modal-close-ref" onclick="closeHelpModal()" style="color: #fff; background: rgba(255,255,255,0.15); border: none; padding: 4px 10px; border-radius: 6px; cursor: pointer;">✕ إغلاق</button>
+            </div>
+            <div class="modal-body" style="padding: 20px; background: var(--bg-chat); overflow-y: auto; flex: 1;">
+                <div style="font-size: 13.5px; color: var(--text-main); margin-bottom: 14px; line-height: 1.8; background: var(--bg-card); padding: 12px 16px; border-radius: 8px; border-right: 4px solid var(--accent); border: 1px solid var(--card-border);">
+                    مرحباً بك في <strong>منظومة الأنطوني للأبحاث اللاهوتية والآبائية</strong>. هذا الدليل يوضح لك كافة الإمكانيات والأدوات الذكية المتاحة بالمنصة لاستخراج أبحاث موثقة بدقة متناهية من أمهات الكتب والمخطوطات الكنسية (أكثر من 7,200 كتاب و 1.8 مليون صفحة مفهرسة محلياً).
+                </div>
+
+                <div class="help-grid">
+                    <!-- Card 1: 4 Depth Modes -->
+                    <div class="help-card">
+                        <div class="help-card-header">
+                            <span>🎯</span> <span>أنماط البحث والعمق اللاهوتي (4 أنماط)</span>
+                        </div>
+                        <div class="help-card-body">
+                            اختر النمط المناسب لغرض بحثك من القائمة العلوية:
+                            <ul>
+                                <li><strong>🎓 أكاديمي موسع:</strong> نصوص آبائية أصلية، مصطلحات يونانية وقبطية، وتحقيق تاريخي دقيق.</li>
+                                <li><strong>🕊️ رعوي وروحي:</strong> التركيز على المعنى المعاش وحياة الصلاة والخدمة والوعظ الكنسي.</li>
+                                <li><strong>⚖️ دفاعي ومقارن:</strong> تفنيد الشبهات والاعتراضات العقائدية مع إبراز قرارات المجامع المسكونية.</li>
+                                <li><strong>🌱 لغة شبابية بسيطة:</strong> تبسيط المفاهيم اللاهوتية العميقة بأسلوب عصري مشرق وأمثلة واقعية تناسب الشباب مع الحفاظ الصارم على صحة المراجع.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Card 2: Monograph Organization -->
+                    <div class="help-card">
+                        <div class="help-card-header">
+                            <span>⚙️</span> <span>تنظيم وتوليف الأطروحة (Monograph Hub)</span>
+                        </div>
+                        <div class="help-card-body">
+                            بناء أطروحة متكاملة تجمع كل تساؤلاتك ومحاورك:
+                            <ul>
+                                <li><strong>🔢 ترتيب يدوي للأسئلة:</strong> تحديد أرقام وتسلسل الأسئلة والفصول يدوياً حسب رغبتك.</li>
+                                <li><strong>🔀 إعادة الترتيب المنطقي:</strong> إعادة صياغة تسلسل الأطروحة آلياً وفق التدرج الأكاديمي.</li>
+                                <li><strong>⚖️ إعادة معايرة وتوليف:</strong> دمج وتوحيد الأسئلة الجزئية في مفاهيم كبرى شاملة ومترابطة.</li>
+                                <li><strong>⚡ إثراء الأطروحة:</strong> استخراج شواهد تلقائية فورية من أي كتب جديدة تضاف للمكتبة.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Card 3: Preview and Export -->
+                    <div class="help-card">
+                        <div class="help-card-header">
+                            <span>🖨️</span> <span>المعاينة والتصدير والطباعة (PDF & Word)</span>
+                        </div>
+                        <div class="help-card-body">
+                            تصدير ومشاركة أبحاثك بجودة النشر المعتمدة:
+                            <ul>
+                                <li><strong>🌐 معاينة ويب (Web View):</strong> فتح صفحة المعاينة التفاعلية الكاملة للقراءة أو الطباعة.</li>
+                                <li><strong>📕 تحميل PDF:</strong> تحويل فوري لملف PDF فاخر بنمط A4 عبر محرك Chromium DirectPrint، مع احتفاظ كامل بالروابط التفاعلية.</li>
+                                <li><strong>📄 ملف Word:</strong> تنزيل المستند بصيغة .docx منسق بجداول وعناوين وهوامش جاهزة للتحرير.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Card 4: Interactive Table of Contents -->
+                    <div class="help-card">
+                        <div class="help-card-header">
+                            <span>📑</span> <span>الفهرسة الذكية والروابط الداخلية (TOC)</span>
+                        </div>
+                        <div class="help-card-body">
+                            فهرس تفاعلي تلقائي في مستند الأطروحة:
+                            <ul>
+                                <li>يتم استخراج جميع المباحث والمحاور ووضعها في بداية المستند كفهرس تفاعلي.</li>
+                                <li>الروابط الداخلية (Anchor Links) تتيح القفز السريع للمبحث المطلوب بنقرة واحدة.</li>
+                                <li>تعمل الروابط التفاعلية في صفحة الويب وأيضاً داخل ملف الـ PDF المصدَّر.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Card 5: Patristic Reader & Verified Citations -->
+                    <div class="help-card">
+                        <div class="help-card-header">
+                            <span>🔍</span> <span>المستعرض الآبائي والتحقيق الفوري (صفر هلوسة)</span>
+                        </div>
+                        <div class="help-card-body">
+                            كل إجابة مدعومة بأرقام الصفحات الحقيقية من الكتب الأصلية:
+                            <ul>
+                                <li>انقر على أي بطاقة شاهد ذهبية في الرد لفتح <strong>القارئ السريع للكتب</strong>.</li>
+                                <li>النص المقتبس يظهر <strong>مظللاً باللون الأصفر والذهبي</strong> في الصفحة الأصلية للتحقق الفوري.</li>
+                                <li>إمكانية تنزيل الكتاب الأصلي كاملاً بصيغة PDF بضغطة زر.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Card 6: Reading Mode, Notebook, and Mobile -->
+                    <div class="help-card">
+                        <div class="help-card-header">
+                            <span>📖</span> <span>وضع القراءة وكشكول الباحث والهواتف</span>
+                        </div>
+                        <div class="help-card-body">
+                            أدوات مساندة لراحة الباحث:
+                            <ul>
+                                <li><strong>📖 وضع القراءة:</strong> إخفاء كافة الأشرطة الجانبية والعلوية لتوفير مساحة قراءة رحبة (>85% من الشاشة).</li>
+                                <li><strong>⭐ كشكول الباحث:</strong> حفظ وتجميع درر الأقوال والشواهد المفضلة ومراجعتها في أي وقت.</li>
+                                <li><strong>📱 التوافق مع الموبايل:</strong> واجهة متجاوبة بالكامل للهواتف الذكية مع تكبير حقول الإدخال ومنع التكدس.</li>
+                                <li><strong>✈️ بوت تليجرام الدائم:</strong> استخدام نفس المحرك عبر الهاتف من خلال <code>@ElantonyLibrarybot</code>.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 </html>"""
 

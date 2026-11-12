@@ -106,14 +106,16 @@ def get_depth_selection_inline_keyboard(current_mode: str = "academic") -> Dict[
     academic_check = "✓ " if current_mode == "academic" else ""
     pastoral_check = "✓ " if current_mode == "pastoral" else ""
     apologetic_check = "✓ " if current_mode == "apologetic" else ""
+    youth_check = "✓ " if current_mode == "youth" else ""
     return {
         "inline_keyboard": [
             [
                 {"text": "🌐 فتح بوابة ومكتبة الأبحاث (اضغط هنا)", "url": get_live_portal_url()}
             ],
             [{"text": f"{academic_check}🎓 نمط أكاديمي موسع (نصوص أصلية + مراجع دقيقة)", "callback_data": "depth:academic"}],
-            [{"text": f"{pastoral_check}🕊️ نمط رعوي وروحي (مباشر ومبسط للشباب)", "callback_data": "depth:pastoral"}],
+            [{"text": f"{pastoral_check}🕊️ نمط رعوي وروحي (مباشر ووقور للتعليم)", "callback_data": "depth:pastoral"}],
             [{"text": f"{apologetic_check}⚖️ نمط دفاعي مقارن (ردود وبراهين)", "callback_data": "depth:apologetic"}],
+            [{"text": f"{youth_check}🌱 نمط لغة شبابية بسيطة (مفاهيم مبسطة وأمثلة حية)", "callback_data": "depth:youth"}],
             [{"text": "🔙 العودة للقائمة الرئيسية", "callback_data": "nav:main"}]
         ]
     }
